@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:speedometer/core/theme/app_theme.dart';
 import 'package:speedometer/di/injection_container.dart';
+import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
 import 'package:speedometer/presentation/screens/home_screen.dart';
@@ -16,6 +17,9 @@ class PlaneSpeedometerApp extends StatelessWidget {
       providers: [
         BlocProvider<SpeedometerBloc>(
           create: (_) => getIt<SpeedometerBloc>(),
+        ),
+        BlocProvider<OverlayGaugeConfigurationBloc>(
+          create: (_) => getIt<OverlayGaugeConfigurationBloc>(),
         ),
         BlocProvider<SettingsBloc>(
           create: (_) => getIt<SettingsBloc>(),

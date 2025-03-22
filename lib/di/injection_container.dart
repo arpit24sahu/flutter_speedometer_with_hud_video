@@ -6,6 +6,8 @@ import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../presentation/bloc/overlay_gauge_configuration_bloc.dart';
+
 final getIt = GetIt.instance;
 
 Future<void> initializeDependencies() async {
@@ -23,6 +25,10 @@ Future<void> initializeDependencies() async {
         locationService: getIt<LocationService>(),
         sensorsService: getIt<SensorsService>(),
       ));
+
+  getIt.registerFactory<OverlayGaugeConfigurationBloc>(() => OverlayGaugeConfigurationBloc(
+
+  ));
   
   getIt.registerFactory<SettingsBloc>(() => SettingsBloc(
         sharedPreferences: getIt<SharedPreferences>(),

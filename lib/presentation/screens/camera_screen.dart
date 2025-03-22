@@ -8,6 +8,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:speedometer/core/services/camera_service.dart';
 import 'package:speedometer/di/injection_container.dart';
+import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
 import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
@@ -19,6 +20,9 @@ import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../core/services/screen_record_service.dart';
 import '../../core/services/screen_recorder.dart';
+import '../widgets/digital_speedometer_overlay2.dart';
+import '../widgets/video_recorder_service.dart';
+import 'gauge_settings_screen.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -38,6 +42,11 @@ class _CameraScreenState extends State<CameraScreen> {
     pixelRatio: 1
   );
   // bool _isScreenRecording = false;
+  // Create a key for the speedometer widget
+  final GlobalKey _speedometerKey = GlobalKey();
+  WidgetRecorderService? _widgetRecorder;
+
+
 
 
   @override
@@ -77,6 +86,11 @@ class _CameraScreenState extends State<CameraScreen> {
 
     try {
       await _controller!.initialize();
+      // Initialize widget recorder service
+      _widgetRecorder = WidgetRecorderService(
+        widgetKey: _speedometerKey,
+        cameraController: _controller!,
+      );
       if (mounted) {
         setState(() {});
       }
@@ -91,6 +105,151 @@ class _CameraScreenState extends State<CameraScreen> {
     // _screenRecorderController.dispose();
     _controller?.dispose();
     super.dispose();
+  }
+
+  // Toggle recording of both camera and widget
+  Future<void> _toggleRecording() async {
+    if (_controller == null || !_controller!.value.isInitialized || _widgetRecorder == null) {
+      return;
+    }
+
+    if (_isRecording) {
+      setState(() {
+        _isProcessing = true;
+      });
+
+      try {
+        // Stop recording and get file paths
+        final result = await _widgetRecorder!.stopRecording(
+          context.read<OverlayGaugeConfigurationBloc>().state.gaugePlacement,
+          context.read<OverlayGaugeConfigurationBloc>().state.gaugeRelativeSize,
+        );
+
+        setState(() {
+          _isRecording = false;
+          _isProcessing = false;
+          _lastVideoPath = result['cameraVideoPath'];
+        });
+        // Show results to user
+        _showRecordingResults(
+            result['cameraVideoPath'] ?? 'Error',
+            result['widgetVideoPath'] ?? 'Error'
+        );
+      } catch (e) {
+        debugPrint('Error stopping recording: $e');
+        setState(() {
+          _isRecording = false;
+          _isProcessing = false;
+        });
+      }
+    } else {
+      try {
+        // Start recording
+        await _widgetRecorder!.startRecording();
+        setState(() {
+          _isRecording = true;
+        });
+      } catch (e) {
+        debugPrint('Error starting recording: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not start recording: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+
+  void _showRecordingResults(String videoPath, String widgetVideoPath) {
+    Get.defaultDialog(
+        title: 'Recording Complete',
+        titleStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
+        content: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+              Text(
+              'Two files have been saved:',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 16, color: Colors.grey[700]),
+            ),
+            const SizedBox(height: 10),
+            Card(
+                color: Colors.black12,
+                child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Camera Video:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          videoPath,
+                          style: TextStyle(fontSize: 14),
+                          softWrap: true,
+                          maxLines: 2,
+                        ),
+                        SizedBox(height: 8),
+                        Text('Speedometer Recording:', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text(
+                          widgetVideoPath,
+                          style: TextStyle(fontSize: 14),
+                          softWrap: true,
+                          maxLines: 2,
+                        ),
+                      ],
+                    ),
+                ),
+            ),
+          const SizedBox(height: 20),
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text('Open Camera Video'),
+                onPressed: () async {
+                  await OpenFile.open(videoPath);
+                },
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: Text('Open Widget Recording'),
+                onPressed: () async {
+                  final file = File(widgetVideoPath);
+                  final exists = await file.exists();
+                  final fileSize = await file.length();
+                  print('File size: $fileSize bytes');
+                  print('File exists: $exists');
+                  print('Opening file with OpenFile.open()');
+                  final result = await OpenFile.open(widgetVideoPath);
+                  print('OpenFile result: ${result.type}, ${result.message}');
+
+                },
+              ),
+            ],
+          ),
+              ],
+            ),
+        ),
+      backgroundColor: Colors.white,
+      radius: 10.0,
+    );
   }
 
   Future<void> _toggleCameraRecording() async {
@@ -442,18 +601,44 @@ class _CameraScreenState extends State<CameraScreen> {
                             ),
 
                             // Speedometer overlay
-                            Positioned(
-                              top: 40,
-                              right: 20,
-                              child: BlocBuilder<SpeedometerBloc, SpeedometerState>(
-                                builder: (context, state) {
-                                  return DigitalSpeedometerOverlay(
-                                    speed: settingsState.isMetric ? state.speedKmh : state.speedMph,
-                                    isMetric: settingsState.isMetric,
-                                    speedometerColor: settingsState.speedometerColor,
-                                  );
-                                },
-                              ),
+                            BlocBuilder<OverlayGaugeConfigurationBloc, OverlayGaugeConfigurationState>(
+                              builder: (context, state) {
+                                final screenSize = Size(constraints.maxWidth, constraints.maxHeight);
+
+                                final position = calculateGaugePosition(
+                                  placement: state.gaugePlacement,
+                                  gaugeSize: MediaQuery.of(context).size.width * state.gaugeRelativeSize,
+                                  screenSize: screenSize,
+                                );
+                                print(position);
+                                // print(position.toString());
+
+                                return Positioned(
+                                  top: position.top>0 ? position.top : null ,
+                                  bottom: position.bottom>0 ? position.bottom : null,
+                                  left: position.left>0 ? position.left : null,
+                                  right: position.right>0 ? position.right : null,
+                                  height: MediaQuery.of(context).size.width * state.gaugeRelativeSize,
+                                  width: MediaQuery.of(context).size.width * state.gaugeRelativeSize,
+                                  // width: 120,
+                                  child: RepaintBoundary(
+                                    key: _speedometerKey,
+                                    child: DigitalSpeedometerOverlay2(
+                                        isMetric: settingsState.isMetric,
+                                        size: MediaQuery.of(context).size.width * state.gaugeRelativeSize
+                                    )
+                                    // child: BlocBuilder<SpeedometerBloc, SpeedometerState>(
+                                    //   builder: (context, state2) {
+                                    //     return DigitalSpeedometerOverlay2(
+                                    //       speed: settingsState.isMetric ? state2.speedKmh : state2.speedMph,
+                                    //       isMetric: settingsState.isMetric,
+                                    //       size: MediaQuery.of(context).size.width * state.gaugeRelativeSize
+                                    //     );
+                                    //   },
+                                    // ),
+                                  ),
+                                );
+                              }
                             ),
 
 
@@ -523,7 +708,7 @@ class _CameraScreenState extends State<CameraScreen> {
                         ) : FloatingActionButton(
                           backgroundColor: _isRecording ? Colors.red : Colors.white,
                           // onPressed: _toggleCameraRecording,
-                          onPressed: _toggleScreenRecording,
+                          onPressed: _toggleRecording,
                           child: Icon(
                             _isRecording ? Icons.stop : Icons.videocam,
                             color: _isRecording ? Colors.white : Colors.black,
@@ -561,11 +746,52 @@ class _CameraScreenState extends State<CameraScreen> {
                           )
                         else
                           IconButton(
-                          icon: const Icon(Icons.info_outline),
+                          icon: const Icon(Icons.settings),
                           color: Colors.white,
                           iconSize: 32,
                           onPressed: () {
-                            showDialog(
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.transparent,
+                              builder: (context) {
+                                return Container(
+                                  height: MediaQuery.of(context).size.height * 0.75,
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).scaffoldBackgroundColor,
+                                    borderRadius: const BorderRadius.only(
+                                      topLeft: Radius.circular(16),
+                                      topRight: Radius.circular(16),
+                                    ),
+                                  ),
+                                  padding: const EdgeInsets.all(16),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Text(
+                                            'Customize',
+                                            style: Theme.of(context).textTheme.titleLarge,
+                                          ),
+                                          IconButton(
+                                            icon: const Icon(Icons.close),
+                                            onPressed: () => Navigator.pop(context),
+                                          ),
+                                        ],
+                                      ),
+                                      const Divider(),
+                                      const SizedBox(height: 16),
+                                      Expanded(
+                                        child: GaugeSettingsScreen(),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            );
+                            if(false) showDialog(
                               context: context,
                               builder: (context) => AlertDialog(
                                 title: const Text('Camera Mode'),
@@ -595,5 +821,61 @@ class _CameraScreenState extends State<CameraScreen> {
         );
       },
     );
+  }
+}
+
+
+/// Calculates the position values for gauge placement
+/// Returns EdgeInsets that can be used with Positioned widget
+EdgeInsets calculateGaugePosition({
+  required GaugePlacement placement,
+  required double gaugeSize,
+  required Size screenSize,
+  double margin = 20.0,
+}) {
+  final height = gaugeSize * 0.65;
+
+  switch (placement) {
+    case GaugePlacement.topLeft:
+      return EdgeInsets.only(top: margin, left: margin);
+
+    case GaugePlacement.topCenter:
+      return EdgeInsets.only(
+        top: margin,
+        left: (screenSize.width - gaugeSize) / 2,
+      );
+
+    case GaugePlacement.topRight:
+      return EdgeInsets.only(top: margin, right: margin);
+
+    case GaugePlacement.centerLeft:
+      return EdgeInsets.only(
+        top: (screenSize.height - height) / 2,
+        left: margin,
+      );
+
+    case GaugePlacement.center:
+      return EdgeInsets.only(
+        top: (screenSize.height - height) / 2,
+        left: (screenSize.width - gaugeSize) / 2,
+      );
+
+    case GaugePlacement.centerRight:
+      return EdgeInsets.only(
+        top: (screenSize.height - height) / 2,
+        right: margin,
+      );
+
+    case GaugePlacement.bottomLeft:
+      return EdgeInsets.only(bottom: margin, left: margin);
+
+    case GaugePlacement.bottomCenter:
+      return EdgeInsets.only(
+        bottom: margin,
+        left: (screenSize.width - gaugeSize) / 2,
+      );
+
+    case GaugePlacement.bottomRight:
+      return EdgeInsets.only(bottom: margin, right: margin);
   }
 }

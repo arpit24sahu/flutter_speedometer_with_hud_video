@@ -85,17 +85,17 @@ class WidgetRecorderService {
     // Generate and save widget recording with green background
     final widgetVideoPath = await _saveWidgetRecording();
 
-    final finalVideoPath = await processChromaKeyVideo(
-        backgroundPath: videoPath,
-        foregroundPath: widgetVideoPath,
-      placement: placement,
-      relativeSize: relativeSize
-    );
+    // final finalVideoPath = await processChromaKeyVideo(
+    //     backgroundPath: videoPath,
+    //     foregroundPath: widgetVideoPath,
+    //   placement: placement,
+    //   relativeSize: relativeSize
+    // );
 
     return {
       'cameraVideoPath': videoPath,
       'widgetVideoPath': widgetVideoPath,
-      'finalVideoPath': finalVideoPath??""
+      // 'finalVideoPath': finalVideoPath??""
     };
   }
 

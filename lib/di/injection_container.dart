@@ -5,7 +5,10 @@ import 'package:speedometer/core/services/sensors_service.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speedometer/presentation/bloc/video_recorder_bloc.dart';
+import 'package:speedometer/presentation/widgets/video_recorder_service.dart';
 
+import '../packages/gal.dart';
 import '../presentation/bloc/overlay_gauge_configuration_bloc.dart';
 
 final getIt = GetIt.instance;
@@ -16,6 +19,7 @@ Future<void> initializeDependencies() async {
   getIt.registerSingleton<SharedPreferences>(sharedPreferences);
 
   // Services
+  getIt.registerLazySingleton<GalService>(() => GalService());
   getIt.registerLazySingleton<LocationService>(() => LocationServiceImpl());
   getIt.registerLazySingleton<CameraService>(() => CameraServiceImpl());
   getIt.registerLazySingleton<SensorsService>(() => SensorsServiceImpl());
@@ -29,8 +33,9 @@ Future<void> initializeDependencies() async {
   getIt.registerFactory<OverlayGaugeConfigurationBloc>(() => OverlayGaugeConfigurationBloc(
 
   ));
-  
+
   getIt.registerFactory<SettingsBloc>(() => SettingsBloc(
-        sharedPreferences: getIt<SharedPreferences>(),
-      ));
+    sharedPreferences: getIt<SharedPreferences>(),
+  ));
+
 }

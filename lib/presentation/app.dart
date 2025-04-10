@@ -6,6 +6,7 @@ import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
+import 'package:speedometer/presentation/bloc/video_recorder_bloc.dart';
 import 'package:speedometer/presentation/screens/home_screen.dart';
 
 class PlaneSpeedometerApp extends StatelessWidget {

@@ -132,8 +132,9 @@ class _CameraScreenState extends State<CameraScreen> {
         });
         // Show results to user
         _showRecordingResults(
-            result['cameraVideoPath'] ?? 'Error',
-            result['widgetVideoPath'] ?? 'Error'
+            // result['cameraVideoPath'] ?? 'Error',
+            // result['widgetVideoPath'] ?? 'Error',
+          result['finalVideoPath'] ?? 'Error'
         );
       } catch (e) {
         debugPrint('Error stopping recording: $e');
@@ -164,91 +165,279 @@ class _CameraScreenState extends State<CameraScreen> {
   }
 
 
-  void _showRecordingResults(String videoPath, String widgetVideoPath) {
-    Get.defaultDialog(
-        title: 'Recording Complete',
-        titleStyle: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.black),
-        content: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-              Text(
-              'Two files have been saved:',
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 16, color: Colors.grey[700]),
-            ),
-            const SizedBox(height: 10),
-            Card(
-                color: Colors.black12,
-                child: Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Camera Video:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(
-                          videoPath,
-                          style: TextStyle(fontSize: 14),
-                          softWrap: true,
-                          maxLines: 2,
-                        ),
-                        SizedBox(height: 8),
-                        Text('Speedometer Recording:', style: TextStyle(fontWeight: FontWeight.bold)),
-                        Text(
-                          widgetVideoPath,
-                          style: TextStyle(fontSize: 14),
-                          softWrap: true,
-                          maxLines: 2,
-                        ),
-                      ],
-                    ),
-                ),
-            ),
-          const SizedBox(height: 20),
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Text('Open Camera Video'),
-                onPressed: () async {
-                  await OpenFile.open(videoPath);
-                },
-              ),
-              ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                child: Text('Open Widget Recording'),
-                onPressed: () async {
-                  final file = File(widgetVideoPath);
-                  final exists = await file.exists();
-                  final fileSize = await file.length();
-                  print('File size: $fileSize bytes');
-                  print('File exists: $exists');
-                  print('Opening file with OpenFile.open()');
-                  final result = await OpenFile.open(widgetVideoPath);
-                  print('OpenFile result: ${result.type}, ${result.message}');
+  Future<void> _showRecordingResults(String finalVideoPath) async {
+    final videoFile = File(finalVideoPath);
 
-                },
+    Get.dialog(
+      Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        elevation: 8,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Colors.blue.shade800,
+                Colors.indigo.shade900,
+              ],
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 16,
+                spreadRadius: 2,
               ),
             ],
           ),
-              ],
-            ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header with animation
+              Container(
+                padding: EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.2),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.check_circle,
+                      color: Colors.greenAccent,
+                      size: 36,
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Recording Complete',
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            'Your video is ready to view and share!',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.white.withOpacity(0.8),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Video file info
+              Container(
+                width: double.infinity,
+                padding: EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Your video has been saved:',
+                      style: TextStyle(
+                        fontSize: 16,
+                        color: Colors.white.withOpacity(0.9),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 12),
+                    Container(
+                      padding: EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.white.withOpacity(0.2),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.videocam,
+                            color: Colors.greenAccent,
+                            size: 28,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Video with Speedometer',
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                SizedBox(height: 4),
+                                Text(
+                                  path.basename(finalVideoPath),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.white.withOpacity(0.7),
+                                  ),
+                                  overflow: TextOverflow.ellipsis,
+                                  maxLines: 1,
+                                ),
+                                FutureBuilder<int>(
+                                  future: await videoFile.exists() ? videoFile.length() : Future.value(0),
+                                  builder: (context, snapshot) {
+                                    if (snapshot.hasData && snapshot.data! > 0) {
+                                      final size = snapshot.data! / (1024 * 1024);
+                                      return Padding(
+                                        padding: const EdgeInsets.only(top: 4),
+                                        child: Text(
+                                          '${size.toStringAsFixed(2)} MB',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.greenAccent,
+                                          ),
+                                        ),
+                                      );
+                                    }
+                                    return SizedBox.shrink();
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Share prompt
+                    Container(
+                      margin: EdgeInsets.symmetric(vertical: 16),
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: Colors.amber.withOpacity(0.4),
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.lightbulb,
+                            color: Colors.amber,
+                            size: 24,
+                          ),
+                          SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              'Share your video with friends and family to show off your speed data!',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.white,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    // Action buttons
+                    SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white.withOpacity(0.2),
+                              foregroundColor: Colors.white,
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            icon: Icon(Icons.play_circle_outline),
+                            label: Text('Play Video'),
+                            onPressed: () async {
+                              final result = await OpenFile.open(finalVideoPath);
+                              print('OpenFile result: ${result.type}, ${result.message}');
+                            },
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.greenAccent,
+                              foregroundColor: Colors.black,
+                              padding: EdgeInsets.symmetric(vertical: 12),
+                              elevation: 2,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            icon: Icon(Icons.share),
+                            label: Text(
+                              'Share Video',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            onPressed: () async {
+                              Get.back(); // Close dialog
+                              try {
+                                await Share.shareXFiles(
+                                    [XFile(finalVideoPath)],
+                                    text: 'Check out my driving data captured with Speedometer app!'
+                                );
+                              } catch (e) {
+                                print('Error sharing: $e');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text('Error sharing video: $e'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Close button at the bottom
+              Padding(
+                padding: EdgeInsets.only(bottom: 20, top: 10),
+                child: TextButton(
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.white.withOpacity(0.7),
+                  ),
+                  onPressed: () => Get.back(),
+                  child: Text('Close'),
+                ),
+              ),
+            ],
+          ),
         ),
-      backgroundColor: Colors.white,
-      radius: 10.0,
+      ),
+      barrierDismissible: false,
     );
   }
 
@@ -565,36 +754,36 @@ class _CameraScreenState extends State<CameraScreen> {
                               child: AspectRatio(
                                 aspectRatio: _controller!.value.aspectRatio,
                                 child: CameraPreview(
-                                  _controller!,
-                                  child: (_isProcessing) 
-                                    ? Center(
-                                        child: Stack(
-                                          children: [
-                                            // Black stroke text
-                                            Text(
-                                              "Processing your Clip...",
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                                foreground: Paint()
-                                                  ..style = PaintingStyle.stroke
-                                                  ..strokeWidth = 2
-                                                  ..color = Colors.black,
-                                              ),
+                                    _controller!,
+                                    child: (_isProcessing)
+                                        ? Center(
+                                      child: Stack(
+                                        children: [
+                                          // Black stroke text
+                                          Text(
+                                            "Processing your Clip...",
+                                            style: TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                              foreground: Paint()
+                                                ..style = PaintingStyle.stroke
+                                                ..strokeWidth = 2
+                                                ..color = Colors.black,
                                             ),
-                                            // White fill text
-                                            Text(
-                                              "Processing your Clip...",
-                                              style: TextStyle(
-                                                fontSize: 24,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
+                                          ),
+                                          // White fill text
+                                          Text(
+                                            "Processing your Clip...",
+                                            style: TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
                                             ),
-                                          ],
-                                        ),
-                                      ) 
-                                    : null
+                                          ),
+                                        ],
+                                      ),
+                                    )
+                                        : null
 
                                 ),
                               ),
@@ -640,6 +829,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                 );
                               }
                             ),
+
 
 
                             // Recording indicator

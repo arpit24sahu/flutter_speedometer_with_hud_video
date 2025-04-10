@@ -35,36 +35,13 @@ Future<String?> processChromaKeyVideo(
   required String foregroundPath,
   required GaugePlacement placement,
   required double relativeSize
-
-  // required String outputPath
 }
     ) async {
-  print("AAAA");
-  // Step 1: Pick two video files (background & foreground)
-  // FilePickerResult? result = await FilePicker.platform.pickFiles(
-  //   type: FileType.video,
-  //   allowMultiple: true,
-  // );
-  //
-  // if (result == null || result.files.length < 2) {
-  //   print("❌ Please select two videos.");
-  //   return null;
-  // } else {
-  //   print("Picked 2 files");
-  // }
 
-  // String backgroundPath = result.files[0].path!;
-  // String foregroundPath = result.files[1].path!;
-
-  print("${backgroundPath}");
-  print("${foregroundPath}");
   // Step 2: Get the output directory
   final directory = await getApplicationDocumentsDirectory();
   final timestamp = DateTime.now().millisecondsSinceEpoch;
   String outputPath = '${directory.path}/chroma_output_$timestamp.mp4';
-
-  print("Calling the funciton: ${outputPath}");
-  // Step 3: Set up FFmpeg command
 
   final ffmpegUtils = FlutterFfmpegUtils();
   List<String> command = [

@@ -145,8 +145,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                                 icon: Icons.refresh,
                                 label: 'Reset Trip',
                                 onPressed: ()async {
-                                  await processChromaKeyVideo();
-                                  // context.read<SpeedometerBloc>().add(ResetTrip());
+                                  // await processChromaKeyVideo();
+                                  context.read<SpeedometerBloc>().add(ResetTrip());
                                 },
                                 color: settingsState.speedometerColor,
                               ),

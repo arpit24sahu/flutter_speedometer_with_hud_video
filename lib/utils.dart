@@ -6,6 +6,7 @@ import 'package:get/get.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:flutter_ffmpeg_utils/flutter_ffmpeg_utils.dart';
+import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 
 Future<String> getDownloadsPath()async{
   final directory = await getApplicationDocumentsDirectory();
@@ -28,42 +29,52 @@ Future<void> openFile(FileSystemEntity file) async {
 final ffmpegUtils = FlutterFfmpegUtils();
 //
 
-Future<String?> processChromaKeyVideo() async {
-  print("AAAA");
-  // Step 1: Pick two video files (background & foreground)
-  FilePickerResult? result = await FilePicker.platform.pickFiles(
-    type: FileType.video,
-    allowMultiple: true,
-  );
+Future<String?> processChromaKeyVideo(
+{
+  required String backgroundPath,
+  required String foregroundPath,
+  required GaugePlacement placement,
+  required double relativeSize
+}
+    ) async {
 
-  if (result == null || result.files.length < 2) {
-    print("❌ Please select two videos.");
-    return null;
-  } else {
-    print("Picked 2 files");
-  }
-
-  String backgroundPath = result.files[0].path!;
-  String foregroundPath = result.files[1].path!;
-
-  print("${backgroundPath}");
-  print("${foregroundPath}");
   // Step 2: Get the output directory
   final directory = await getApplicationDocumentsDirectory();
-  String outputPath = '${directory.path}/chroma_output.mp4';
+  final timestamp = DateTime.now().millisecondsSinceEpoch;
+  String outputPath = '${directory.path}/chroma_output_$timestamp.mp4';
 
-  print("Calling the funciton: ${outputPath}");
-  // Step 3: Set up FFmpeg command
   final ffmpegUtils = FlutterFfmpegUtils();
   List<String> command = [
     '-i', backgroundPath,
     '-i', foregroundPath,
-    '-filter_complex', '[1:v]chromakey=0x00FF00:0.2:0.1[fg];[0:v][fg]overlay[out]',
+    '-filter_complex',
+    buildFilterComplex(placement, relativeSize),
+    // '-filter_complex',
+    // '[1:v]chromakey=0x000000:0.1:0.02,scale=iw*0.3:-1[fg];'
+    //     + '[0:v][fg]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2[out]',
     '-map', '[out]',
     '-map', '0:a?',
-    '-c:a', 'copy',
+    '-c:v', 'mpeg4',  // Use mobile-compatible encoder
+    '-q:v', '5',      // Quality (1=best, 31=worst)
+    '-c:a', 'aac',    // Encode audio
+    '-b:a', '192k',
+
+    // '-map', '[out]',
+    // '-map', '0:a?',
+    // // '-c:a', 'copy',
     outputPath
   ];
+
+  // List<String> command = [
+  //   '-i', backgroundPath,
+  //   '-i', foregroundPath,
+  //   '-filter_complex',
+  //   '[1:v]chromakey=0x000000:0.1:0.02[fg];[0:v][fg]overlay[out]',
+  //   '-map', '[out]',
+  //   '-map', '0:a?',
+  //   '-c:a', 'copy',
+  //   outputPath
+  // ];
 
   // Step 4: Execute FFmpeg command
   try {
@@ -74,4 +85,47 @@ Future<String?> processChromaKeyVideo() async {
     print("❌ Error: $e");
     return null;
   }
+}
+
+String buildFilterComplex(GaugePlacement placement, double relativeSize) {
+  // First part of the filter - chromakey and scale
+  String filter = '[1:v]chromakey=0x000000:0.1:0.02,scale=iw*${relativeSize.toStringAsFixed(2)}:-1[fg];';
+
+  // Second part - overlay with position based on placement enum
+  String overlayPosition;
+
+  switch (placement) {
+    case GaugePlacement.topLeft:
+      overlayPosition = 'x=0:y=0';
+      break;
+    case GaugePlacement.topCenter:
+      overlayPosition = 'x=(main_w-overlay_w)/2:y=0';
+      break;
+    case GaugePlacement.topRight:
+      overlayPosition = 'x=main_w-overlay_w:y=0';
+      break;
+    case GaugePlacement.centerLeft:
+      overlayPosition = 'x=0:y=(main_h-overlay_h)/2';
+      break;
+    case GaugePlacement.center:
+      overlayPosition = 'x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2';
+      break;
+    case GaugePlacement.centerRight:
+      overlayPosition = 'x=main_w-overlay_w:y=(main_h-overlay_h)/2';
+      break;
+    case GaugePlacement.bottomLeft:
+      overlayPosition = 'x=0:y=main_h-overlay_h';
+      break;
+    case GaugePlacement.bottomCenter:
+      overlayPosition = 'x=(main_w-overlay_w)/2:y=main_h-overlay_h';
+      break;
+    case GaugePlacement.bottomRight:
+      overlayPosition = 'x=main_w-overlay_w:y=main_h-overlay_h';
+      break;
+  }
+
+  // Combine the filter parts
+  filter += '[0:v][fg]overlay=$overlayPosition[out]';
+
+  return filter;
 }

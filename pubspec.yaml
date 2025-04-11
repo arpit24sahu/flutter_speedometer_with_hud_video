@@ -37,13 +37,13 @@ dependencies:
   flutter_bloc: ^9.1.0
   equatable: ^2.0.7
   get_it: ^8.0.3
-  shared_preferences: ^2.5.2
-  geolocator: ^13.0.2
+  shared_preferences: ^2.5.3
+  geolocator: ^13.0.4
   camera: ^0.11.1
   flutter_compass: ^0.8.1
   share_plus: ^10.1.4
   path_provider: ^2.1.5
-  permission_handler: ^11.4.0
+  permission_handler: ^12.0.0+1
   url_launcher: ^6.3.1
   get: ^4.7.2
   open_file: ^3.5.10
@@ -51,6 +51,7 @@ dependencies:
   flutter_ffmpeg_utils: ^1.0.2
 #  file_picker: ^9.2.1
   gal: ^2.3.1
+  purchases_flutter: ^8.7.2
 
 
 dev_dependencies:
@@ -64,6 +65,7 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
   flutter_launcher_icons: "^0.14.3"
+
 
 flutter_launcher_icons:
   android: "launcher_icon"
@@ -98,6 +100,10 @@ flutter:
   # "family" key with the font family name, and a "fonts" key with a
   # list giving the asset and other descriptors for the font. For
   # example:
+  fonts:
+    - family: RacingSansOne
+      fonts:
+        - asset: assets/fonts/RacingSansOne-Regular.ttf
   # fonts:
   #   - family: Schyler
   #     fonts:

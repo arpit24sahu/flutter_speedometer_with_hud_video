@@ -55,6 +55,21 @@ class GaugeSettingsScreen extends StatelessWidget {
                   activeColor: state.gaugeColor,
                 ),
               ),
+              _buildSettingTile(
+                title: 'Hide Label',
+                subtitle: 'Hide TurboGauge Label',
+                icon: Icons.text_fields,
+                onTap: () {
+                  context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
+                },
+                trailing: Switch(
+                  value: !state.showLabel,
+                  onChanged: (_) {
+                    context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
+                  },
+                  activeColor: state.gaugeColor,
+                ),
+              ),
 
               const Divider(),
               _buildSectionTitle('Placement & Size'),

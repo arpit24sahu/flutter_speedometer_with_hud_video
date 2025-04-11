@@ -9,6 +9,8 @@ import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart'
 import 'package:speedometer/presentation/bloc/video_recorder_bloc.dart';
 import 'package:speedometer/presentation/screens/home_screen.dart';
 
+import '../features/premium/bloc/premium_bloc.dart';
+
 class PlaneSpeedometerApp extends StatelessWidget {
   const PlaneSpeedometerApp({super.key});
 
@@ -24,6 +26,9 @@ class PlaneSpeedometerApp extends StatelessWidget {
         ),
         BlocProvider<SettingsBloc>(
           create: (_) => getIt<SettingsBloc>(),
+        ),
+        BlocProvider<PremiumBloc>(
+          create: (_) => getIt<PremiumBloc>()..add(InitializePremium()),
         ),
       ],
       child: GetMaterialApp(

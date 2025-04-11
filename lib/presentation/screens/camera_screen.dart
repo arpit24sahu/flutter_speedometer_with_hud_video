@@ -643,17 +643,44 @@ class _CameraScreenState extends State<CameraScreen> {
                                         bottom: position.bottom>0 ? position.bottom : null,
                                         left: position.left>0 ? position.left : null,
                                         right: position.right>0 ? position.right : null,
-                                        height: MediaQuery.of(context).size.width * state.gaugeRelativeSize,
+                                        height: MediaQuery.of(context).size.width * state.gaugeRelativeSize + 24,
                                         width: MediaQuery.of(context).size.width * state.gaugeRelativeSize,
                                         // width: 120,
-                                        child: RepaintBoundary(
-                                          key: _speedometerKey,
-                                          child: DigitalSpeedometerOverlay2(
-                                              isMetric: settingsState.isMetric,
-                                              size: MediaQuery.of(context).size.width * state.gaugeRelativeSize
-                                          )
+                                        child: Container(
+                                          // color: Colors.orange,
+                                          child: RepaintBoundary(
+                                            key: _speedometerKey,
+                                            child: Column(
+                                              children: [
+                                                Expanded(
+                                                  child: DigitalSpeedometerOverlay2(
+                                                      isMetric: settingsState.isMetric,
+                                                      size: MediaQuery.of(context).size.width * state.gaugeRelativeSize
+                                                  ),
+                                                ),
+                                                if(state.showLabel) Text(
+                                                  "TURBOGAUGE",
+                                                  style: TextStyle(
+                                                    fontFamily: 'RacingSansOne',
+                                                    fontSize: MediaQuery.of(context).size.width * state.gaugeRelativeSize * 0.1,
+                                                    fontWeight: FontWeight.bold,
+                                                    letterSpacing: 0.6,
+                                                    color: state.textColor,
+                                                  ),
+                                                ),
+                                              ],
+                                            )
+                                          ),
                                         ),
                                       );
+                                      // if(state.showLabel) Text(
+                                      //   "TURBOGAUGE",
+                                      //   style: TextStyle(
+                                      //     fontSize: MediaQuery.of(context).size.width * state.gaugeRelativeSize*0.08,
+                                      //     fontWeight: FontWeight.bold,
+                                      //     color: state.textColor,
+                                      //   ),
+                                      // ),
                                     }
                                   ),
                                 ],

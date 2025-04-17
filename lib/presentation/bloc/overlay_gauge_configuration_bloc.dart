@@ -183,7 +183,7 @@ class OverlayGaugeConfigurationState extends Equatable {
       needleColor: Colors.red,
       textColor: Colors.blue,
       tickColor: Colors.yellow,
-      borderWidth: 1.0,
+      borderWidth: 0.0,
       gaugeWidth: 8.0,
       needleWidth: 2.5,
     );

@@ -35,8 +35,8 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
-        versionCode = 4
-        versionName = "0.3"
+        versionCode = 6
+        versionName = "0.0.3"
     }
 
     signingConfigs {

@@ -111,6 +111,7 @@ class GaugeSettingsScreen extends StatelessWidget {
                 min: 0.3,
                 max: 0.6,
                 onChanged: (value) {
+                  print("Gauge size changed to $value");
                   context.read<OverlayGaugeConfigurationBloc>().add(ChangeGaugeSize(value));
                 },
               ),

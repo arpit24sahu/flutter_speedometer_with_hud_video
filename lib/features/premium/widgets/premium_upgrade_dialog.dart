@@ -27,9 +27,9 @@ class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
   int _currentIndex = 0;
   final List<Map<String, dynamic>> _premiumFeatures = [
     {
-      'title': 'Custom Gauge Placement',
-      'description': 'Place your speedometer anywhere on screen',
-      'icon': Icons.touch_app,
+      'title': 'No Ads',
+      'description': 'Enjoy an ad-free experience.',
+      'icon': Icons.block_flipped,
       'color': Colors.blue,
     },
     {
@@ -37,6 +37,12 @@ class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
       'description': 'Remove the TurboGauge watermark',
       'icon': Icons.water_drop_outlined,
       'color': Colors.purple,
+    },
+    {
+      'title': 'Custom Gauge Placement',
+      'description': 'Place your speedometer anywhere on screen',
+      'icon': Icons.touch_app,
+      'color': Colors.cyan,
     },
     {
       'title': 'Multiple Themes',

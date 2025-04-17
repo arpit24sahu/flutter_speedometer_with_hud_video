@@ -10,8 +10,8 @@ Future<void> initPremiumFeature() async {
   getIt.registerSingleton<PurchaseService>(PurchaseService());
 
   // Repositories
-  getIt.registerSingleton<PurchaseRepository>(PurchaseRepository(getIt()));
+  getIt.registerSingleton<PurchaseRepository>(PurchaseRepository(getIt<PurchaseService>()));
 
   // BLoCs
-  getIt.registerFactory<PremiumBloc>(() => PremiumBloc(getIt()));
+  getIt.registerFactory<PremiumBloc>(() => PremiumBloc(getIt<PurchaseRepository>()));
 }

@@ -1,15 +1,16 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:purchases_flutter/purchases_flutter.dart';
 
 class PurchaseService {
   // Replace with your RevenueCat API keys
-  static const String _apiKeyAndroid = 'YOUR_ANDROID_API_KEY';
-  static const String _apiKeyIOS = 'YOUR_IOS_API_KEY';
+  static final String _apiKeyAndroid = dotenv.get("REVENUECAT_API_KEY_ANDROID");
+  // static const String _apiKeyIOS = 'YOUR_IOS_API_KEY';
 
   // Replace with your actual product ID and entitlement ID
-  static const String _premiumProductId = 'your_premium_product_id';
-  static const String _premiumEntitlementId = 'premium';
+  static const String _premiumProductId = 'turbogauge_premium_lifetime';
+  static const String _premiumEntitlementId = 'pro';
 
   bool _isPremium = false;
   bool get isPremium => _isPremium;
@@ -20,9 +21,10 @@ class PurchaseService {
   Future<void> initialize() async {
     try {
       // Configure RevenueCat with the appropriate API key
-      final apiKey = defaultTargetPlatform == TargetPlatform.iOS
-          ? _apiKeyIOS
-          : _apiKeyAndroid;
+      final apiKey = _apiKeyAndroid;
+      // final apiKey = defaultTargetPlatform == TargetPlatform.iOS
+      //     ? _apiKeyIOS
+      //     : _apiKeyAndroid;
 
       await Purchases.setLogLevel(LogLevel.debug); // Remove in production
 

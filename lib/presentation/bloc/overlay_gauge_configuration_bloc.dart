@@ -44,6 +44,8 @@ class ToggleGaugeVisibility extends OverlayGaugeConfigurationEvent {}
 
 class ToggleTextVisibility extends OverlayGaugeConfigurationEvent {}
 
+class ToggleLabelVisibility extends OverlayGaugeConfigurationEvent {}
+
 class ChangeGaugePlacement extends OverlayGaugeConfigurationEvent {
   final GaugePlacement placement;
 
@@ -140,6 +142,7 @@ class ResetToDefaults extends OverlayGaugeConfigurationEvent {}
 class OverlayGaugeConfigurationState extends Equatable {
   final bool showGauge;
   final bool showText;
+  final bool showLabel;
   final GaugePlacement gaugePlacement;
   final double gaugeRelativeSize;
   final Color borderColor;
@@ -154,6 +157,7 @@ class OverlayGaugeConfigurationState extends Equatable {
   const OverlayGaugeConfigurationState({
     required this.showGauge,
     required this.showText,
+    required this.showLabel,
     required this.gaugePlacement,
     required this.gaugeRelativeSize,
     required this.borderColor,
@@ -171,6 +175,7 @@ class OverlayGaugeConfigurationState extends Equatable {
     return OverlayGaugeConfigurationState(
       showGauge: true,
       showText: true,
+      showLabel: true,
       gaugePlacement: GaugePlacement.topRight,
       gaugeRelativeSize: 0.4,
       borderColor: Colors.pink,
@@ -187,6 +192,7 @@ class OverlayGaugeConfigurationState extends Equatable {
   OverlayGaugeConfigurationState copyWith({
     bool? showGauge,
     bool? showText,
+    bool? showLabel,
     GaugePlacement? gaugePlacement,
     double? gaugeRelativeSize,
     Color? borderColor,
@@ -201,6 +207,7 @@ class OverlayGaugeConfigurationState extends Equatable {
     return OverlayGaugeConfigurationState(
       showGauge: showGauge ?? this.showGauge,
       showText: showText ?? this.showText,
+      showLabel: showLabel ?? this.showLabel,
       gaugePlacement: gaugePlacement ?? this.gaugePlacement,
       gaugeRelativeSize: gaugeRelativeSize ?? this.gaugeRelativeSize,
       borderColor: borderColor ?? this.borderColor,
@@ -218,6 +225,7 @@ class OverlayGaugeConfigurationState extends Equatable {
   List<Object?> get props => [
     showGauge,
     showText,
+    showLabel,
     gaugePlacement,
     gaugeRelativeSize,
     borderColor,
@@ -236,6 +244,7 @@ class OverlayGaugeConfigurationBloc extends Bloc<OverlayGaugeConfigurationEvent,
   OverlayGaugeConfigurationBloc() : super(OverlayGaugeConfigurationState.initial()) {
     on<ToggleGaugeVisibility>(_onToggleGaugeVisibility);
     on<ToggleTextVisibility>(_onToggleTextVisibility);
+    on<ToggleLabelVisibility>(_onToggleLabelVisibility);
     on<ChangeGaugePlacement>(_onChangeGaugePlacement);
     on<ChangeGaugeSize>(_onChangeGaugeSize);
     on<ChangeBorderColor>(_onChangeBorderColor);
@@ -255,6 +264,10 @@ class OverlayGaugeConfigurationBloc extends Bloc<OverlayGaugeConfigurationEvent,
 
   void _onToggleTextVisibility(ToggleTextVisibility event, Emitter<OverlayGaugeConfigurationState> emit) {
     emit(state.copyWith(showText: !state.showText));
+  }
+
+  void _onToggleLabelVisibility(ToggleLabelVisibility event, Emitter<OverlayGaugeConfigurationState> emit) {
+    emit(state.copyWith(showLabel: !state.showLabel));
   }
 
   void _onChangeGaugePlacement(ChangeGaugePlacement event, Emitter<OverlayGaugeConfigurationState> emit) {

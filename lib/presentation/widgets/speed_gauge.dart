@@ -56,13 +56,14 @@ class SpeedGauge extends StatelessWidget {
                 ),
               ),
               if(configState.showText) Text(
-                    (isMetric ? 'km/h' : 'mph'),
+                (isMetric ? 'km/h' : 'mph'),
                 style: TextStyle(
                   fontSize: size*0.08,
                   fontWeight: FontWeight.bold,
                   color: configState.textColor,
                 ),
               ),
+
             ],
           ),
         );

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
+import 'package:speedometer/features/premium/widgets/premium_upgrade_dialog.dart';
 import '../bloc/overlay_gauge_configuration_bloc.dart';
 
 class GaugeSettingsScreen extends StatelessWidget {
@@ -55,6 +57,43 @@ class GaugeSettingsScreen extends StatelessWidget {
                   activeColor: state.gaugeColor,
                 ),
               ),
+              PremiumFeatureGate(
+                  premiumContent: _buildSettingTile(
+                    title: 'Hide Label',
+                    isPremium: false,
+                    subtitle: 'Hide TurboGauge Label',
+                    icon: Icons.text_fields,
+                    onTap: () {
+                      context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
+                    },
+                    trailing: Switch(
+                      value: !state.showLabel,
+                      onChanged: (_) {
+                        context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
+                      },
+                      activeColor: state.gaugeColor,
+                    ),
+                  ),
+                  freeContent: _buildSettingTile(
+                    title: 'Hide Label',
+                    isPremium: true,
+                    subtitle: 'Hide TurboGauge Label',
+                    icon: Icons.text_fields,
+                    onTap: () {
+                      PremiumUpgradeDialog.show(context);
+                      // context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
+                    },
+                    trailing: Switch(
+                      value: !state.showLabel,
+                      onChanged: (_) {
+                        PremiumUpgradeDialog.show(context);
+                        // context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
+                      },
+                      activeColor: state.gaugeColor,
+                    ),
+                  ),
+              ),
+
 
               const Divider(),
               _buildSectionTitle('Placement & Size'),
@@ -72,6 +111,7 @@ class GaugeSettingsScreen extends StatelessWidget {
                 min: 0.3,
                 max: 0.6,
                 onChanged: (value) {
+                  print("Gauge size changed to $value");
                   context.read<OverlayGaugeConfigurationBloc>().add(ChangeGaugeSize(value));
                 },
               ),
@@ -261,13 +301,98 @@ class GaugeSettingsScreen extends StatelessWidget {
     required IconData icon,
     required VoidCallback onTap,
     Widget? trailing,
+    bool isPremium = false,
   }) {
     return ListTile(
-      title: Text(title),
+      title: Row(
+        children: [
+          Text(title),
+          if (isPremium)
+            Padding(
+              padding: const EdgeInsets.only(left: 8),
+              child: _buildPremiumBadge(),
+            ),
+          Expanded(
+            child: Container(),
+          )
+        ],
+      ),
       subtitle: Text(subtitle),
       leading: Icon(icon),
       trailing: trailing,
       onTap: onTap,
+    );
+  }
+
+  Widget _buildPremiumBadge() {
+    return Container(
+      height: 20,
+      padding: const EdgeInsets.symmetric(horizontal: 6),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            Color(0xFF8A2387),  // Purple
+            Color(0xFFE94057),  // Pink
+            Color(0xFFF27121),  // Orange
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(4),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.2),
+            blurRadius: 4,
+            offset: Offset(0, 1),
+          ),
+        ],
+      ),
+      child: Center(
+        child: ShaderMask(
+          shaderCallback: (bounds) {
+            return LinearGradient(
+              colors: [
+                Colors.white,
+                Color(0xFFFFD700),  // Gold
+              ],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ).createShader(bounds);
+          },
+          child: AnimatedSwitcher(
+            duration: Duration(seconds: 3),
+            switchInCurve: Curves.easeInOut,
+            switchOutCurve: Curves.easeInOut,
+            transitionBuilder: (Widget child, Animation<double> animation) {
+              return FadeTransition(
+                opacity: animation,
+                child: child,
+              );
+            },
+            child: Row(
+              key: ValueKey('premium-badge'),
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.diamond_outlined,
+                  color: Colors.white,
+                  size: 10,
+                ),
+                const SizedBox(width: 2),
+                Text(
+                  'PRO',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 10,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

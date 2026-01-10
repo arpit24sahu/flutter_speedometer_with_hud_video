@@ -163,26 +163,35 @@ class WidgetRecorderService {
         await frameFile.writeAsBytes(byteData.buffer.asUint8List());
       }
     }
-    final ffmpeg = FlutterFfmpegUtils();
 
     // Set up conversion parameters
-    final fps = (1000 / frameCaptureInterval).round();  // Calculate FPS based on capture interval
+    final fps = (1000 / frameCaptureInterval)
+            .round(); // Calculate FPS based on capture interval
     print("Converting frames to video at $fps FPS...");
 
     try {
-      final ffmpegCommand = [
+      final command = [
         '-framerate', '$fps',
         '-i', '${tempDirPath}/frame_%06d.png',
         '-c:v', 'mpeg4', // Use `mpeg4` instead of `libx264`
         '-q:v', '5', // Adjust quality (lower = better)
         '-preset', 'ultrafast',
         outputPath,
-      ];
+      ].join(' ');
 
-      // final ffmpegCommand = '-framerate $fps -i ${tempDirPath}/frame_%06d.png -c:v libx264 -pix_fmt yuv420p -b:v 2M ${outputPath}';
-      print("Executing FFmpeg command: $ffmpegCommand");
-      final String rc = await ffmpeg.executeFFmpeg(ffmpegCommand);
+      // final command = '-framerate $fps -i ${tempDirPath}/frame_%06d.png -c:v libx264 -pix_fmt yuv420p -b:v 2M ${outputPath}';
+      print("Executing FFmpeg command: $command");
+      final session = await FFmpegKit.execute(command);
+      final rc = await session.getReturnCode();
       print("FFmpeg execution return code: $rc");
+
+      if (ReturnCode.isSuccess(rc)) {
+        print("Success");
+      } else if (ReturnCode.isCancel(rc)) {
+        print("Cancelled");
+      } else {
+        print("Failed");
+      }
 
       // Convert frames to video
       // final result = await ffmpeg.executeFFmpeg(

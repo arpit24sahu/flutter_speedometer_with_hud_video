@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
+import 'package:ffmpeg_kit_flutter_new_video/session.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_ffmpeg_utils/flutter_ffmpeg_utils.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 
 Future<String> getDownloadsPath()async{
@@ -23,10 +25,6 @@ Future<void> openFile(FileSystemEntity file) async {
   }
 }
 
-
-final ffmpegUtils = FlutterFfmpegUtils();
-//
-
 Future<String?> processChromaKeyVideo(
 {
   required String backgroundPath,
@@ -41,57 +39,79 @@ Future<String?> processChromaKeyVideo(
   final timestamp = DateTime.now().millisecondsSinceEpoch;
   String outputPath = '${directory.path}/chroma_output_$timestamp.mp4';
 
-  final ffmpegUtils = FlutterFfmpegUtils();
-  List<String> command = [
-    '-i', backgroundPath,
-    '-i', foregroundPath,
-    '-filter_complex',
-    buildFilterComplex(placement, relativeSize),
-    // '-filter_complex',
-    // '[1:v]chromakey=0x000000:0.1:0.02,scale=iw*0.3:-1[fg];'
-    //     + '[0:v][fg]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2[out]',
-    '-map', '[out]',
-    '-map', '0:a?',
-    '-c:v', 'mpeg4',  // Use mobile-compatible encoder
-    '-q:v', '5',      // Quality (1=best, 31=worst)
-    '-c:a', 'aac',    // Encode audio
-    '-b:a', '192k',
+  // Build filter complex (same logic)
+  final filterComplex = buildFilterComplex(placement, relativeSize);
 
-    // '-map', '[out]',
-    // '-map', '0:a?',
-    // // '-c:a', 'copy',
-    outputPath
-  ];
+  // Build the full command as a **single string**
+  final command =
+      '-y '
+      '-i "$backgroundPath" '
+      '-i "$foregroundPath" '
+      '-filter_complex "$filterComplex" '
+      '-map "[out]" '
+      '-map 0:a? '
+      '-c:v mpeg4 '
+      '-q:v 5 '
+      '-c:a aac '
+      '-b:a 192k '
+      '"$outputPath"';
 
-  // List<String> command = [
-  //   '-i', backgroundPath,
-  //   '-i', foregroundPath,
-  //   '-filter_complex',
-  //   '[1:v]chromakey=0x000000:0.1:0.02[fg];[0:v][fg]overlay[out]',
-  //   '-map', '[out]',
-  //   '-map', '0:a?',
-  //   '-c:a', 'copy',
-  //   outputPath
-  // ];
+  print('Executing FFmpeg command:');
+  print(command);
+  print('─' * 60);
 
-  // Step 4: Execute FFmpeg command
   try {
-    await ffmpegUtils.executeFFmpeg(command);
-    print("✅ Processing complete! Video saved at: $outputPath");
+    final session = await FFmpegKit.executeAsync(
+      command,
+      (Session session) async {
+        final returnCode = await session.getReturnCode();
+
+        if (ReturnCode.isSuccess(returnCode)) {
+          print('✓ Chroma key processing completed successfully');
+          print('Output saved at: $outputPath');
+        } else {
+          final failStackTrace = await session.getFailStackTrace();
+          final logs = await session.getLogs();
+
+          print('✗ Processing failed with return code: $returnCode');
+          if (logs.isNotEmpty) {
+            print('Logs:');
+            for (final log in logs) {
+              print(log.getMessage());
+            }
+          }
+          if (failStackTrace != null && failStackTrace.isNotEmpty) {
+            print('Fail stack trace:');
+            print(failStackTrace);
+          }
+        }
+      },
+      (log) {
+        // You can uncomment for very detailed output
+        // print('LOG: ${log.getMessage()}');
+      },
+      (statistics) {
+        // Optional progress tracking
+        // print('Time: ${statistics.getTime()}, FPS: ${statistics.getVideoFps()}');
+      },
+    );
+
+    // You can optionally wait here if you need synchronous behavior
+    // final rc = await session.getReturnCode();
+
     return outputPath;
-  } catch (e) {
-    print("❌ Error: $e");
+  } catch (e, stack) {
+    print('Exception during FFmpeg execution: $e');
+    print(stack);
     return null;
   }
 }
 
 String buildFilterComplex(GaugePlacement placement, double relativeSize) {
-  // First part of the filter - chromakey and scale
-  String filter = '[1:v]chromakey=0x000000:0.1:0.02,scale=iw*${relativeSize.toStringAsFixed(2)}:-1[fg];';
+  String filter =
+      '[1:v]chromakey=0x000000:0.1:0.02,scale=iw*${relativeSize.toStringAsFixed(2)}:-1[fg];';
 
-  // Second part - overlay with position based on placement enum
   String overlayPosition;
-
   switch (placement) {
     case GaugePlacement.topLeft:
       overlayPosition = 'x=0:y=0';
@@ -122,7 +142,6 @@ String buildFilterComplex(GaugePlacement placement, double relativeSize) {
       break;
   }
 
-  // Combine the filter parts
   filter += '[0:v][fg]overlay=$overlayPosition[out]';
 
   return filter;

@@ -35,8 +35,8 @@ android {
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = 24
         targetSdk = flutter.targetSdkVersion
-        versionCode = 6
-        versionName = "0.0.3"
+        versionCode = 9
+        versionName = "0.0.6"
     }
 
     signingConfigs {
@@ -51,6 +51,8 @@ android {
     buildTypes {
         release {
             signingConfig = signingConfigs.getByName("release")
+            isMinifyEnabled = false
+            isShrinkResources = false
         }
     }
 }

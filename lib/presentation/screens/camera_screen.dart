@@ -521,7 +521,18 @@ class _CameraScreenState extends State<CameraScreen> {
     if (_controller == null || !_controller!.value.isInitialized) {
       return const Scaffold(
         body: Center(
-          child: CircularProgressIndicator(),
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                CircularProgressIndicator(),
+                Text(" "),
+                Text("Loading Camera and Location"),
+                Text("If Loading continues, provide Camera and Location permissions and restart the app."),
+              ],
+            ),
+          ),
         ),
       );
     }

@@ -1,8 +1,9 @@
 import 'dart:io';
 import 'dart:ui' as ui;
+import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter_ffmpeg_utils/flutter_ffmpeg_utils.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:camera/camera.dart';
@@ -10,7 +11,6 @@ import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.d
 import 'package:speedometer/utils.dart';
 import 'package:typed_data/typed_data.dart';
 import 'dart:typed_data';
-
 
 class WidgetRecorderService {
   // Key for the widget to record
@@ -195,9 +195,6 @@ class WidgetRecorderService {
     } catch (e) {
       print("Error converting frames to video: $e");
     }
-
-
-
 
     // Create final output path for the video/gif
     // final outputPath = path.join(directory.path, 'widget_recording_$timestamp.gif');

@@ -19,32 +19,66 @@ class SpeedGauge extends StatelessWidget {
     required this.configState,
   });
 
+  // Calculate effective max speed based on current speed
+  double _getEffectiveMaxSpeed(double speed) {
+    if (speed > 1000) return 5000;
+    if (speed > 180) return 1000;
+    return 180.0;
+  }
+  
+  // Get appropriate tick count based on max speed
+  int _getTickCount(double maxSpeed) {
+    if (maxSpeed >= 5000) return 10; // Every 500
+    if (maxSpeed >= 1000) return 10; // Every 100
+    return 7; // Original tick count for 180 range
+  }
+
   @override
   Widget build(BuildContext context) {
     return BlocBuilder<SpeedometerBloc, SpeedometerState>(
       builder: (context, state) {
         double speed = isMetric ? state.speedKmh : state.speedMph;
+        double effectiveMaxSpeed = _getEffectiveMaxSpeed(speed);
+        int tickCount = _getTickCount(effectiveMaxSpeed);
+        
         return SizedBox(
           width: size,
-          height: size*65, // Increased height a bit
+          height: size*65, 
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               // Simple gauge widget
-              if(configState.showGauge) Container(
-                width: size*0.9,
-                height: size*0.45, // Increased height a bit
-                // color: Colors.green,
-                padding: const EdgeInsets.only(top: 10),
-                child: CustomPaint(
-                  size: Size(size * 0.9, size * 0.45),
-                  painter: _SimpleGaugePainter(
-                    speed: speed,
-                    maxSpeed: maxSpeed,
-                    state: configState,
+              if(configState.showGauge) Stack(
+                alignment: Alignment.topCenter,
+                children: [
+                  Container(
+                    width: size*0.9,
+                    height: size*0.45, 
+                    padding: const EdgeInsets.only(top: 10),
+                    child: CustomPaint(
+                      size: Size(size * 0.9, size * 0.45),
+                      painter: _SimpleGaugePainter(
+                        speed: speed,
+                        maxSpeed: effectiveMaxSpeed,
+                        state: configState,
+                        tickCount: tickCount,
+                      ),
+                    ),
                   ),
-                ),
+                  
+                  // Airplane icon when speed > 180
+                  if (speed > 180)
+                    Positioned(
+                      bottom: size * 0.15,
+                      child: Icon(
+                        Icons.airplanemode_active,
+                        color: configState.gaugeColor,
+                        size: size * 0.1,
+                      ),
+                    ),
+                ],
               ),
+              
               SizedBox(height: size * 0.05),
               // Digital speed display
               if(configState.showText) Text(
@@ -76,11 +110,13 @@ class _SimpleGaugePainter extends CustomPainter {
   final double speed;
   final double maxSpeed;
   final OverlayGaugeConfigurationState state;
+  final int tickCount;
 
   _SimpleGaugePainter({
     required this.speed,
     required this.maxSpeed,
     required this.state,
+    this.tickCount = 7,
   });
 
   @override
@@ -111,7 +147,7 @@ class _SimpleGaugePainter extends CustomPainter {
     );
     
     // Draw progress arc with speedometer color
-    final speedAngle = (speed / maxSpeed) * sweepAngle;
+    final speedAngle = (min(speed, maxSpeed) / maxSpeed) * sweepAngle;
     final gaugePaint = Paint()
       ..color = Colors.red
       ..style = PaintingStyle.stroke
@@ -126,13 +162,11 @@ class _SimpleGaugePainter extends CustomPainter {
       gaugePaint,
     );
     
-    // Draw simple tick marks
+    // Draw simple tick marks with dynamic tickCount
     final tickPaint = Paint()
       ..color = state.tickColor
       ..style = PaintingStyle.stroke
       ..strokeWidth = size.height*0.05;
-    
-    final tickCount = 7; // Adjusted for 210 degrees
     
     for (int i = 0; i <= tickCount; i++) {
       final angle = startAngle + (i / tickCount) * sweepAngle;
@@ -147,19 +181,44 @@ class _SimpleGaugePainter extends CustomPainter {
       );
       
       canvas.drawLine(outerPoint, innerPoint, tickPaint);
+      
+      // Optional: Add speed labels at tick marks
+      if (maxSpeed > 180) {
+        final tickValue = (i * (maxSpeed / tickCount)).toInt();
+        final textSpan = TextSpan(
+          text: tickValue.toString(),
+          style: TextStyle(
+            color: state.textColor,
+            fontSize: size.height * 0.08,
+            fontWeight: FontWeight.bold,
+          ),
+        );
+        
+        final textPainter = TextPainter(
+          text: textSpan,
+          textAlign: TextAlign.center,
+          textDirection: TextDirection.ltr,
+        );
+        
+        textPainter.layout();
+        
+        final textAngle = angle - pi/2; // Rotate 90 degrees to align with tick
+        final textRadius = radius - size.height * 0.28;
+        final textPosition = Offset(
+          center.dx + textRadius * cos(angle),
+          center.dy + textRadius * sin(angle),
+        );
+        
+        canvas.save();
+        canvas.translate(textPosition.dx, textPosition.dy);
+        // Uncomment below to add labels (would need positioning adjustments)
+        // textPainter.paint(canvas, Offset(-textPainter.width / 2, -textPainter.height / 2));
+        canvas.restore();
+      }
     }
     
     // Draw the needle
-    final needleAngle = startAngle + (speed / maxSpeed) * sweepAngle;
-    // final needleLinePaint = Paint()
-    //   ..color = accentColor
-    //   ..style = PaintingStyle.fill;
-    
-    // Draw a simple needle line
-    final needleStart = Offset(
-      center.dx + 6 * cos(needleAngle + pi/2),
-      center.dy + 6 * sin(needleAngle + pi/2),
-    );
+    final needleAngle = startAngle + (min(speed, maxSpeed) / maxSpeed) * sweepAngle;
     
     final needleEnd = Offset(
       center.dx + radius * cos(needleAngle),

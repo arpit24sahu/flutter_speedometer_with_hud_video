@@ -18,15 +18,11 @@ class PlaneSpeedometerApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiBlocProvider(
       providers: [
-        BlocProvider<SpeedometerBloc>(
-          create: (_) => getIt<SpeedometerBloc>(),
-        ),
+        BlocProvider<SpeedometerBloc>(create: (_) => getIt<SpeedometerBloc>()),
         BlocProvider<OverlayGaugeConfigurationBloc>(
           create: (_) => getIt<OverlayGaugeConfigurationBloc>(),
         ),
-        BlocProvider<SettingsBloc>(
-          create: (_) => getIt<SettingsBloc>(),
-        ),
+        BlocProvider<SettingsBloc>(create: (_) => getIt<SettingsBloc>()),
         BlocProvider<PremiumBloc>(
           create: (_) => getIt<PremiumBloc>()..add(InitializePremium()),
         ),
@@ -36,7 +32,7 @@ class PlaneSpeedometerApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
-        themeMode: ThemeMode.system,
+        themeMode: ThemeMode.dark,
         home: const HomeScreen(),
       ),
     );

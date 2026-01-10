@@ -12,8 +12,42 @@ class AnalogSpeedometer extends StatelessWidget {
     required this.speed,
     required this.isMetric,
     required this.speedometerColor,
-    this.maxSpeed = 180,
+    this.maxSpeed = 180,  // Default max speed is still 180
   });
+
+  // Get the appropriate max speed based on current speed value
+  double get _effectiveMaxSpeed {
+    if (speed > 1000) return 5000;
+    if (speed > 500) return 1000;
+    if (speed > 180) return 500;
+    return 180;
+  }
+
+  // Calculate tick interval based on the max speed
+  int get _tickInterval {
+    if (_effectiveMaxSpeed >= 5000) return 200;
+    if (_effectiveMaxSpeed >= 1000) return 40;
+    if (_effectiveMaxSpeed >= 500) return 20;
+    return 10;
+  }
+
+  // Calculate number increment for labels
+  int get _labelIncrement {
+    if (_effectiveMaxSpeed >= 5000) return 1000;
+    if (_effectiveMaxSpeed >= 1000) return 200;
+    if (_effectiveMaxSpeed >= 500) return 100;
+    return 20;
+  }
+
+  // Calculate how many ticks to display
+  int get _tickCount {
+    return (_effectiveMaxSpeed / _tickInterval).ceil() + 1;
+  }
+
+  // Calculate how many labels to display
+  int get _labelCount {
+    return (_effectiveMaxSpeed / _labelIncrement).ceil() + 1;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -55,13 +89,13 @@ class AnalogSpeedometer extends StatelessWidget {
                   ),
                 ),
                 
-                // Speedometer ticks
+                // Speedometer ticks - updated to use dynamic tick count
                 ...List.generate(
-                  19,
+                  _tickCount,
                   (index) {
-                    final value = index * 10;
+                    final value = index * _tickInterval;
                     final angle = _calculateAngle(value.toDouble());
-                    final isMajor = index % 2 == 0;
+                    final isMajor = value % _labelIncrement == 0;
                     
                     return Transform.rotate(
                       angle: angle,
@@ -79,11 +113,11 @@ class AnalogSpeedometer extends StatelessWidget {
                   },
                 ),
                 
-                // Speedometer numbers
+                // Speedometer numbers - updated to use dynamic label count
                 ...List.generate(
-                  10,
+                  _labelCount,
                   (index) {
-                    final value = index * 20;
+                    final value = index * _labelIncrement;
                     final angle = _calculateAngle(value.toDouble());
                     final radians = angle - pi / 2;
                     final x = cos(radians) * size * 0.28;
@@ -189,12 +223,11 @@ class AnalogSpeedometer extends StatelessWidget {
   }
 
   double _calculateAngle(double value) {
-    // Map speed value to angle (0 to 180 degrees, converted to radians)
-    // Starting from -135 degrees (bottom left) to 135 degrees (bottom right)
+    // Updated to use effective max speed
     const double startAngle = -135 * pi / 180;
     const double totalAngle = 270 * pi / 180;
     
-    final double speedRatio = min(value / maxSpeed, 1.0);
+    final double speedRatio = min(value / _effectiveMaxSpeed, 1.0);
     return startAngle + (totalAngle * speedRatio);
   }
 }

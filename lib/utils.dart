@@ -37,7 +37,7 @@ Future<String?> processChromaKeyVideo(
   // Step 2: Get the output directory
   final directory = await getApplicationDocumentsDirectory();
   final timestamp = DateTime.now().millisecondsSinceEpoch;
-  final outputPath = '${directory.path}/turbogauge_$timestamp.mp4';
+  final outputPath = '${directory.path}/TurboGauge_$timestamp.mp4';
 
   // Build filter complex (same logic)
   final filterComplex = buildFilterComplex(placement, relativeSize);

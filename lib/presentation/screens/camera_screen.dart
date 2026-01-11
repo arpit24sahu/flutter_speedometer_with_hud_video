@@ -9,11 +9,13 @@ import 'package:get/get.dart';
 import 'package:get/get_core/src/get_main.dart';
 import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:speedometer/core/services/camera_service.dart';
 import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
+import 'package:speedometer/presentation/widgets/premium_badge.dart';
 import '../../core/services/screen_record_service.dart';
 import '../../core/services/screen_recorder.dart';
 import '../../packages/gal.dart';
@@ -40,25 +42,70 @@ class _CameraScreenState extends State<CameraScreen> {
   );
   final GlobalKey _speedometerKey = GlobalKey();
 
+  bool _isPermissionGranted = false;
+  bool _checkingPermissions = true;
+  int _currentCameraIndex = 0;
+
   @override
   void initState() {
     super.initState();
     _screenRecordService = ScreenRecordServiceImpl();
     _screenRecordService.initialize();
-    _initializeCamera();
+    _checkPermissionsAndInit();
   }
 
-  Future<void> _initializeCamera() async {
-    final cameras = await _cameraService.getAvailableCameras();
+  Future<void> _checkPermissionsAndInit() async {
+    setState(() {
+      _checkingPermissions = true;
+    });
+
+    final granted = await _permissionCheck();
+
+    setState(() {
+      _isPermissionGranted = granted;
+      _checkingPermissions = false;
+    });
+
+    if (granted) {
+      _initializeCamera(_currentCameraIndex);
+    }
+  }
+
+  Future<bool> _permissionCheck() async {
+    Map<Permission, PermissionStatus> statuses =
+        await [
+          Permission.camera,
+          Permission.microphone,
+          Permission.location,
+        ].request();
+
+    bool allGranted = true;
+    statuses.forEach((permission, status) {
+      if (!status.isGranted) {
+        allGranted = false;
+      }
+    });
+
+    return allGranted;
+  }
+
+  Future<void> _initializeCamera(int cameraIndex) async {
+    final List<CameraDescription> cameras = await _cameraService.getAvailableCameras();
+    int index = 0;
+    print("Camera Desc");
+    for(var x in cameras){
+      print("Camera ${index++}: ${x.name} ${x.lensDirection} ${x.sensorOrientation}");
+    }
     if (cameras.isEmpty) {
       return;
     }
 
     _controller = CameraController(
-      cameras[0],
+      cameras[cameraIndex],
       ResolutionPreset.high,
       enableAudio: true,
     );
+    _currentCameraIndex = cameraIndex;
 
     try {
       await _controller!.initialize();
@@ -79,23 +126,38 @@ class _CameraScreenState extends State<CameraScreen> {
 
   Future<void> _toggleRecording(BuildContext contextWithBloc) async {
     if (_controller == null || !_controller!.value.isInitialized) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Camera not initialized'),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
-    final currentState = contextWithBloc.read<VideoRecorderBloc>().state;
+    // Safety check for mounted state
+    if (!mounted) return;
 
-    if (currentState is VideoRecording || currentState is VideoProcessing) {
+    try {
+      final currentState = contextWithBloc.read<VideoRecorderBloc>().state;
+
+      if (currentState is VideoRecording || currentState is VideoProcessing) {
       final gaugeConfigState = context.read<OverlayGaugeConfigurationBloc>().state;
       contextWithBloc.read<VideoRecorderBloc>().add(StopRecording(
-        gaugePlacement: gaugeConfigState.gaugePlacement,
-        relativeSize: gaugeConfigState.gaugeRelativeSize,
+            gaugePlacement: gaugeConfigState.gaugePlacement,
+            relativeSize: gaugeConfigState.gaugeRelativeSize,
       ));
-    } else {
-      contextWithBloc.read<VideoRecorderBloc>().add(StartRecording());
+      } else {
+        contextWithBloc.read<VideoRecorderBloc>().add(StartRecording());
+      }
+    } catch (e) {
+      debugPrint("Error toggling recording: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+        );
+      }
     }
-    // else if (currentState is VideoRecorderInitial) {
-    //   contextWithBloc.read<VideoRecorderBloc>().add(StartRecording());
-    // }
   }
   //
   // Future<void> _showRecordingResults(String finalVideoPath) async {
@@ -515,21 +577,78 @@ class _CameraScreenState extends State<CameraScreen> {
   // }
   //
 
-
   @override
   Widget build(BuildContext context) {
-    if (_controller == null || !_controller!.value.isInitialized) {
+    if (_checkingPermissions) {
       return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(color: Colors.red),
+              SizedBox(height: 20),
+              Text(
+                "Verifying Permissions...",
+                style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (!_isPermissionGranted) {
+      return Scaffold(
+        backgroundColor: Colors.black,
         body: Center(
           child: Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16.0),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                CircularProgressIndicator(),
-                Text(" "),
-                Text("Loading Camera and Location"),
-                Text("If Loading continues, provide Camera and Location permissions and restart the app."),
+                const Icon(
+                  Icons.no_photography_outlined,
+                  size: 80,
+                  color: Colors.redAccent,
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  "Permissions Required",
+                  style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  "We need Camera, Microphone, and Location access to record your drive with a speedometer overlay.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  onPressed: _checkPermissionsAndInit,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text("Check Again"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    foregroundColor: Colors.black,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 24,
+                      vertical: 12,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                TextButton(
+                  onPressed: openAppSettings,
+                  child: const Text(
+                    "Open App Settings",
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                ),
               ],
             ),
           ),
@@ -537,13 +656,20 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
 
+    if (_controller == null || !_controller!.value.isInitialized) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator(color: Colors.red)),
+      );
+    }
+
     return BlocProvider<VideoRecorderBloc>(
       create: (context) => VideoRecorderBloc(
-        recorderService: WidgetRecorderService(
-          widgetKey: _speedometerKey,
-          cameraController: _controller!,
+            recorderService: WidgetRecorderService(
+              widgetKey: _speedometerKey,
+              cameraController: _controller!,
         )
-      ),
+          ),
       child: BlocBuilder<SettingsBloc, SettingsState>(
         builder: (context, settingsState) {
           return BlocConsumer<VideoRecorderBloc, VideoRecorderState>(
@@ -553,7 +679,7 @@ class _CameraScreenState extends State<CameraScreen> {
                 WidgetsBinding.instance.addPostFrameCallback((_)async{
                   final galService = getIt<GalService>();
                   await galService.saveVideoToGallery(
-                      videoRecorderState.finalVideoPath,
+                    videoRecorderState.finalVideoPath,
                       albumName: 'Speedometer Videos'
                   );
                   showVideoSuccessDialog(context, videoRecorderState.finalVideoPath);
@@ -601,36 +727,36 @@ class _CameraScreenState extends State<CameraScreen> {
                                     child: AspectRatio(
                                       aspectRatio: _controller!.value.aspectRatio,
                                       child: CameraPreview(
-                                          _controller!,
-                                          // child: (_isProcessing)
-                                          //     ? Center(
-                                          //   child: Stack(
-                                          //     children: [
-                                          //       // Black stroke text
-                                          //       Text(
-                                          //         "Processing your Clip...",
-                                          //         style: TextStyle(
-                                          //           fontSize: 24,
-                                          //           fontWeight: FontWeight.bold,
-                                          //           foreground: Paint()
-                                          //             ..style = PaintingStyle.stroke
-                                          //             ..strokeWidth = 2
-                                          //             ..color = Colors.black,
-                                          //         ),
-                                          //       ),
-                                          //       // White fill text
-                                          //       Text(
-                                          //         "Processing your Clip...",
-                                          //         style: TextStyle(
-                                          //           fontSize: 24,
-                                          //           fontWeight: FontWeight.bold,
-                                          //           color: Colors.white,
-                                          //         ),
-                                          //       ),
-                                          //     ],
-                                          //   ),
-                                          // )
-                                          //     : null
+                                        _controller!,
+                                        // child: (_isProcessing)
+                                        //     ? Center(
+                                        //   child: Stack(
+                                        //     children: [
+                                        //       // Black stroke text
+                                        //       Text(
+                                        //         "Processing your Clip...",
+                                        //         style: TextStyle(
+                                        //           fontSize: 24,
+                                        //           fontWeight: FontWeight.bold,
+                                        //           foreground: Paint()
+                                        //             ..style = PaintingStyle.stroke
+                                        //             ..strokeWidth = 2
+                                        //             ..color = Colors.black,
+                                        //         ),
+                                        //       ),
+                                        //       // White fill text
+                                        //       Text(
+                                        //         "Processing your Clip...",
+                                        //         style: TextStyle(
+                                        //           fontSize: 24,
+                                        //           fontWeight: FontWeight.bold,
+                                        //           color: Colors.white,
+                                        //         ),
+                                        //       ),
+                                        //     ],
+                                        //   ),
+                                        // )
+                                        //     : null
 
                                       ),
                                     ),
@@ -670,15 +796,15 @@ class _CameraScreenState extends State<CameraScreen> {
                                                   ),
                                                 ),
                                                 if(state.showLabel) Text(
-                                                  "TURBOGAUGE",
-                                                  style: TextStyle(
+                                                    "TURBOGAUGE",
+                                                    style: TextStyle(
                                                     fontFamily: 'RacingSansOne',
                                                     fontSize: MediaQuery.of(context).size.width * state.gaugeRelativeSize * 0.1,
                                                     fontWeight: FontWeight.bold,
-                                                    letterSpacing: 0.6,
-                                                    color: state.textColor,
+                                                      letterSpacing: 0.6,
+                                                      color: state.textColor,
+                                                    ),
                                                   ),
-                                                ),
                                               ],
                                             )
                                           ),
@@ -701,36 +827,51 @@ class _CameraScreenState extends State<CameraScreen> {
                         ),
                       ),
                       if(statusText?.isNotEmpty??false) Row(
-                        mainAxisSize: MainAxisSize.max,
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Container(
-                              color: Colors.yellow,
+                          mainAxisSize: MainAxisSize.max,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Expanded(
+                              child: Container(
+                                color: Colors.yellow,
                               child: Text(statusText ?? '',
-                                style: TextStyle(
+                                  style: TextStyle(
                                     color: Colors.black,
                                     fontWeight: FontWeight.bold
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
                       Expanded(
                         flex: 1,
                         child: Center(
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                             children: [
-                              IconButton(
-                                icon: const Icon(Icons.arrow_back),
-                                color: Colors.white,
+                              if(!(videoRecorderState is VideoProcessing || videoRecorderState is VideoRecording))
+                                IconButton(
+                                  icon: const Icon(Icons.flip_camera_android),
+                                  color: Colors.white,
+                                  iconSize: 32,
+                                  onPressed: () {
+                                    _initializeCamera((_currentCameraIndex+1)%2);
+                                    // Navigator.pop(context);
+                                  },
+                                )
+                              else IconButton(
+                                icon: const Icon(Icons.flip_camera_android),
+                                color: Colors.transparent,
                                 iconSize: 32,
                                 onPressed: () {
-                                  Navigator.pop(context);
+                                  // _initializeCamera((_currentCameraIndex+1)%2);
+                                  // Navigator.pop(context);
                                 },
                               ),
+
+
+                              // PremiumBadge(),
+                              // Container(width: 10, height: 10,),
                               BlocBuilder<VideoRecorderBloc, VideoRecorderState>(
                                 builder: (context, state) {
                                   final bool isRecording = state is VideoRecording;
@@ -749,12 +890,12 @@ class _CameraScreenState extends State<CameraScreen> {
                                       }
                                     },
                                     child: isProcessing
-                                        ? CupertinoActivityIndicator(
-                                      color: Colors.red,
+                                            ? CupertinoActivityIndicator(
+                                              color: Colors.red,
                                     ) : Icon(
                                             isRecording ? Icons.stop : Icons.videocam,
                                             color: isRecording ? Colors.white : Colors.black,
-                                          ),
+                                            ),
                                   );
                                 },
                               ),
@@ -774,9 +915,9 @@ class _CameraScreenState extends State<CameraScreen> {
                                           decoration: BoxDecoration(
                                             color: Theme.of(context).scaffoldBackgroundColor,
                                             borderRadius: const BorderRadius.only(
-                                              topLeft: Radius.circular(16),
-                                              topRight: Radius.circular(16),
-                                            ),
+                                                  topLeft: Radius.circular(16),
+                                                  topRight: Radius.circular(16),
+                                                ),
                                           ),
                                           padding: const EdgeInsets.all(16),
                                           child: Column(
@@ -806,23 +947,23 @@ class _CameraScreenState extends State<CameraScreen> {
                                       },
                                     );
                                     if(false) showDialog(
-                                      context: context,
+                                        context: context,
                                       builder: (context) => AlertDialog(
-                                        title: const Text('Camera Mode'),
-                                        content: const Text(
-                                          'This mode allows you to record video with a speedometer overlay. '
-                                              'The recorded video will include the speed information.\n\n'
-                                              'If recording is not available on your device, you can use screen recording '
-                                              'to capture this view.',
-                                        ),
-                                        actions: [
-                                          TextButton(
+                                              title: const Text('Camera Mode'),
+                                              content: const Text(
+                                                'This mode allows you to record video with a speedometer overlay. '
+                                                'The recorded video will include the speed information.\n\n'
+                                                'If recording is not available on your device, you can use screen recording '
+                                                'to capture this view.',
+                                              ),
+                                              actions: [
+                                                TextButton(
                                             onPressed: () => Navigator.pop(context),
-                                            child: const Text('OK'),
-                                          ),
-                                        ],
-                                      ),
-                                    );
+                                                  child: const Text('OK'),
+                                                ),
+                                              ],
+                                            ),
+                                      );
                                   },
                                 ),
                             ],
@@ -1133,7 +1274,7 @@ void showVideoSuccessDialog(BuildContext context, String finalVideoPath) {
                             Get.back(); // Close dialog
                             try {
                               await Share.shareXFiles(
-                                  [XFile(finalVideoPath)],
+                                [XFile(finalVideoPath)],
                                   text: 'Check out my driving data captured with Speedometer app!'
                               );
                             } catch (e) {
@@ -1332,8 +1473,8 @@ void showVideoErrorDialog(BuildContext context, String errorMessage) {
                         const SizedBox(height: 12),
                         Text(
                           '• Make sure you have enough storage space\n'
-                              '• Try recording a shorter video\n'
-                              '• Restart the app and try again',
+                          '• Try recording a shorter video\n'
+                          '• Restart the app and try again',
                           style: TextStyle(
                             fontSize: 14,
                             color: Colors.white.withOpacity(0.9),

@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
@@ -580,17 +581,45 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   Widget build(BuildContext context) {
     if (_checkingPermissions) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: Colors.black,
         body: Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              CircularProgressIndicator(color: Colors.red),
-              SizedBox(height: 20),
-              Text(
+              const CircularProgressIndicator(color: Colors.red),
+              const SizedBox(height: 20),
+              const Text(
                 "Verifying Permissions...",
                 style: TextStyle(color: Colors.white, fontSize: 16),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                "We need Camera, Microphone, and Location access to record your drive with a speedometer overlay.",
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.grey),
+              ),
+              const SizedBox(height: 32),
+              ElevatedButton.icon(
+                onPressed: _checkPermissionsAndInit,
+                icon: const Icon(Icons.refresh),
+                label: const Text("Check Again"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.white,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 12,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              const TextButton(
+                onPressed: openAppSettings,
+                child: const Text(
+                  "Open App Settings",
+                  style: TextStyle(color: Colors.redAccent),
+                ),
               ),
             ],
           ),
@@ -766,58 +795,30 @@ class _CameraScreenState extends State<CameraScreen> {
                                   BlocBuilder<OverlayGaugeConfigurationBloc, OverlayGaugeConfigurationState>(
                                     builder: (context, state) {
                                       final screenSize = Size(constraints.maxWidth, constraints.maxHeight);
+                                      final gaugeSize = MediaQuery.of(context).size.width * state.gaugeRelativeSize;
 
                                       final position = calculateGaugePosition(
                                         placement: state.gaugePlacement,
-                                        gaugeSize: MediaQuery.of(context).size.width * state.gaugeRelativeSize,
+                                        gaugeSize: gaugeSize,
                                         screenSize: screenSize,
                                       );
-                                      print(position);
-                                      // print(position.toString());
 
                                       return Positioned(
-                                        top: position.top>0 ? position.top : null ,
-                                        bottom: position.bottom>0 ? position.bottom : null,
-                                        left: position.left>0 ? position.left : null,
-                                        right: position.right>0 ? position.right : null,
-                                        height: MediaQuery.of(context).size.width * state.gaugeRelativeSize + 24,
-                                        width: MediaQuery.of(context).size.width * state.gaugeRelativeSize,
-                                        // width: 120,
-                                        child: Container(
-                                          // color: Colors.orange,
-                                          child: RepaintBoundary(
-                                            key: _speedometerKey,
-                                            child: Column(
-                                              children: [
-                                                Expanded(
-                                                  child: DigitalSpeedometerOverlay2(
-                                                      isMetric: settingsState.isMetric,
-                                                      size: MediaQuery.of(context).size.width * state.gaugeRelativeSize
-                                                  ),
-                                                ),
-                                                if(state.showLabel) Text(
-                                                    "TURBOGAUGE",
-                                                    style: TextStyle(
-                                                    fontFamily: 'RacingSansOne',
-                                                    fontSize: MediaQuery.of(context).size.width * state.gaugeRelativeSize * 0.1,
-                                                    fontWeight: FontWeight.bold,
-                                                      letterSpacing: 0.6,
-                                                      color: state.textColor,
-                                                    ),
-                                                  ),
-                                              ],
-                                            )
+                                        top: position.top > 0 ? position.top : null,
+                                        bottom: position.bottom > 0 ? position.bottom : null,
+                                        left: position.left > 0 ? position.left : null,
+                                        right: position.right > 0 ? position.right : null,
+                                        width: gaugeSize,
+                                        height: gaugeSize+32, // Increase size here to add more widgets
+                                        // Don't keep extra height. It messes other placements.
+                                        child: RepaintBoundary(
+                                          key: _speedometerKey,
+                                          child: DigitalSpeedometerOverlay2(
+                                            isMetric: settingsState.isMetric,
+                                            size: gaugeSize,
                                           ),
                                         ),
                                       );
-                                      // if(state.showLabel) Text(
-                                      //   "TURBOGAUGE",
-                                      //   style: TextStyle(
-                                      //     fontSize: MediaQuery.of(context).size.width * state.gaugeRelativeSize*0.08,
-                                      //     fontWeight: FontWeight.bold,
-                                      //     color: state.textColor,
-                                      //   ),
-                                      // ),
                                     }
                                   ),
                                 ],
@@ -855,6 +856,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                   color: Colors.white,
                                   iconSize: 32,
                                   onPressed: () {
+                                    HapticFeedback.mediumImpact();
                                     _initializeCamera((_currentCameraIndex+1)%2);
                                     // Navigator.pop(context);
                                   },
@@ -884,6 +886,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                     onPressed:(){
                                       print("Recording toggled");
                                       if(!isProcessing){
+                                        HapticFeedback.mediumImpact();
                                         _toggleRecording(context);
                                       } else {
                                         print("Still Processing");
@@ -905,6 +908,7 @@ class _CameraScreenState extends State<CameraScreen> {
                                   color: Colors.white,
                                   iconSize: 32,
                                   onPressed: () {
+                                    HapticFeedback.mediumImpact();
                                     showModalBottomSheet(
                                       context: context,
                                       isScrollControlled: true,

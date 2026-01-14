@@ -44,6 +44,8 @@ class ToggleGaugeVisibility extends OverlayGaugeConfigurationEvent {}
 
 class ToggleTextVisibility extends OverlayGaugeConfigurationEvent {}
 
+class ToggleMaxSpeedVisibility extends OverlayGaugeConfigurationEvent {}
+
 class ToggleLabelVisibility extends OverlayGaugeConfigurationEvent {}
 
 class ChangeGaugePlacement extends OverlayGaugeConfigurationEvent {
@@ -142,6 +144,7 @@ class ResetToDefaults extends OverlayGaugeConfigurationEvent {}
 class OverlayGaugeConfigurationState extends Equatable {
   final bool showGauge;
   final bool showText;
+  final bool showMaxSpeed;
   final bool showLabel;
   final GaugePlacement gaugePlacement;
   final double gaugeRelativeSize;
@@ -157,6 +160,7 @@ class OverlayGaugeConfigurationState extends Equatable {
   const OverlayGaugeConfigurationState({
     required this.showGauge,
     required this.showText,
+    required this.showMaxSpeed,
     required this.showLabel,
     required this.gaugePlacement,
     required this.gaugeRelativeSize,
@@ -175,6 +179,7 @@ class OverlayGaugeConfigurationState extends Equatable {
     return OverlayGaugeConfigurationState(
       showGauge: true,
       showText: true,
+      showMaxSpeed: true,
       showLabel: true,
       gaugePlacement: GaugePlacement.topRight,
       gaugeRelativeSize: 0.4,
@@ -192,6 +197,7 @@ class OverlayGaugeConfigurationState extends Equatable {
   OverlayGaugeConfigurationState copyWith({
     bool? showGauge,
     bool? showText,
+    bool? showMaxSpeed,
     bool? showLabel,
     GaugePlacement? gaugePlacement,
     double? gaugeRelativeSize,
@@ -207,6 +213,7 @@ class OverlayGaugeConfigurationState extends Equatable {
     return OverlayGaugeConfigurationState(
       showGauge: showGauge ?? this.showGauge,
       showText: showText ?? this.showText,
+      showMaxSpeed: showMaxSpeed ?? this.showMaxSpeed,
       showLabel: showLabel ?? this.showLabel,
       gaugePlacement: gaugePlacement ?? this.gaugePlacement,
       gaugeRelativeSize: gaugeRelativeSize ?? this.gaugeRelativeSize,
@@ -225,6 +232,7 @@ class OverlayGaugeConfigurationState extends Equatable {
   List<Object?> get props => [
     showGauge,
     showText,
+    showMaxSpeed,
     showLabel,
     gaugePlacement,
     gaugeRelativeSize,
@@ -244,6 +252,7 @@ class OverlayGaugeConfigurationBloc extends Bloc<OverlayGaugeConfigurationEvent,
   OverlayGaugeConfigurationBloc() : super(OverlayGaugeConfigurationState.initial()) {
     on<ToggleGaugeVisibility>(_onToggleGaugeVisibility);
     on<ToggleTextVisibility>(_onToggleTextVisibility);
+    on<ToggleMaxSpeedVisibility>(_onToggleMaxSpeedVisibility);
     on<ToggleLabelVisibility>(_onToggleLabelVisibility);
     on<ChangeGaugePlacement>(_onChangeGaugePlacement);
     on<ChangeGaugeSize>(_onChangeGaugeSize);
@@ -264,6 +273,10 @@ class OverlayGaugeConfigurationBloc extends Bloc<OverlayGaugeConfigurationEvent,
 
   void _onToggleTextVisibility(ToggleTextVisibility event, Emitter<OverlayGaugeConfigurationState> emit) {
     emit(state.copyWith(showText: !state.showText));
+  }
+
+  void _onToggleMaxSpeedVisibility(ToggleMaxSpeedVisibility event, Emitter<OverlayGaugeConfigurationState> emit) {
+    emit(state.copyWith(showMaxSpeed: !state.showMaxSpeed));
   }
 
   void _onToggleLabelVisibility(ToggleLabelVisibility event, Emitter<OverlayGaugeConfigurationState> emit) {

@@ -30,8 +30,8 @@ class _FilesScreenState extends State<FilesScreen> {
     final allFiles = entities.whereType<File>().toList()
       ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
 
-    processedFiles = allFiles.where((f) => f.path.split('/').last.startsWith('turbogauge')).toList();
-    rawFiles = allFiles.where((f) => !f.path.split('/').last.startsWith('turbogauge')).toList();
+    processedFiles = allFiles.where((f) => f.path.split('/').last.startsWith('TurboGauge')).toList();
+    rawFiles = allFiles.where((f) => !f.path.split('/').last.startsWith('TurboGauge')).toList();
 
     if (mounted) setState(() {});
   }

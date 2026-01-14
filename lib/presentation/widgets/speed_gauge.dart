@@ -6,6 +6,28 @@ import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart'
 
 import '../bloc/speedometer/speedometer_state.dart';
 
+/// Sizing constants as multipliers of the base size.
+/// All child elements scale proportionally based on these ratios.
+class SpeedGaugeSizing {
+  /// Height of the gauge semicircle area relative to size
+  static const double gaugeHeightRatio = 0.50;
+
+  /// Width of the gauge semicircle relative to size
+  static const double gaugeWidthRatio = 0.90;
+
+  /// Speed value font size ratio
+  static const double speedFontRatio = 0.12;
+
+  /// Unit (km/h, mph) font size ratio
+  static const double unitFontRatio = 0.06;
+
+  /// Vertical spacing between gauge and text
+  static const double gaugePaddingRatio = 0.02;
+
+  /// Total height of the gauge section (semicircle + text + spacing)
+  static const double totalGaugeHeightRatio = 0.80;
+}
+
 class SpeedGauge extends StatelessWidget {
   final double maxSpeed, size;
   final bool isMetric;
@@ -41,63 +63,72 @@ class SpeedGauge extends StatelessWidget {
         double effectiveMaxSpeed = _getEffectiveMaxSpeed(speed);
         int tickCount = _getTickCount(effectiveMaxSpeed);
         
+        // Calculate all sizes based on multipliers
+        final gaugeHeight = size * SpeedGaugeSizing.gaugeHeightRatio;
+        final gaugeWidth = size * SpeedGaugeSizing.gaugeWidthRatio;
+        final speedFontSize = size * SpeedGaugeSizing.speedFontRatio;
+        final unitFontSize = size * SpeedGaugeSizing.unitFontRatio;
+        final gaugePadding = size * SpeedGaugeSizing.gaugePaddingRatio;
+
         return SizedBox(
           width: size,
-          height: size*65, 
+          height: size * SpeedGaugeSizing.totalGaugeHeightRatio,
           child: Column(
             mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.start,
             children: [
-              // Simple gauge widget
-              if(configState.showGauge) Stack(
-                alignment: Alignment.topCenter,
-                children: [
-                  Container(
-                    width: size*0.9,
-                    height: size*0.45, 
-                    padding: const EdgeInsets.only(top: 10),
-                    child: CustomPaint(
-                      size: Size(size * 0.9, size * 0.45),
-                      painter: _SimpleGaugePainter(
-                        speed: speed,
-                        maxSpeed: effectiveMaxSpeed,
-                        state: configState,
-                        tickCount: tickCount,
+              // Gauge semicircle
+              if (configState.showGauge)
+                SizedBox(
+                  width: gaugeWidth,
+                  height: gaugeHeight,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      CustomPaint(
+                        size: Size(gaugeWidth, gaugeHeight),
+                        painter: _SimpleGaugePainter(
+                          speed: speed,
+                          maxSpeed: effectiveMaxSpeed,
+                          state: configState,
+                          tickCount: tickCount,
+                        ),
                       ),
-                    ),
+                      // Airplane icon when speed > 180
+                      if (speed > 180)
+                        Positioned(
+                          bottom: gaugeHeight * 0.25,
+                          child: Icon(
+                            Icons.airplanemode_active,
+                            color: configState.gaugeColor,
+                            size: size * 0.08,
+                          ),
+                        ),
+                    ],
                   ),
-                  
-                  // Airplane icon when speed > 180
-                  if (speed > 180)
-                    Positioned(
-                      bottom: size * 0.15,
-                      child: Icon(
-                        Icons.airplanemode_active,
-                        color: configState.gaugeColor,
-                        size: size * 0.1,
-                      ),
-                    ),
-                ],
-              ),
-              
-              SizedBox(height: size * 0.05),
-              // Digital speed display
-              if(configState.showText) Text(
-                speed.toStringAsFixed(1),
-                style: TextStyle(
-                  fontSize: size*0.12,
-                  fontWeight: FontWeight.bold,
-                  color: configState.textColor,
                 ),
-              ),
-              if(configState.showText) Text(
-                (isMetric ? 'km/h' : 'mph'),
-                style: TextStyle(
-                  fontSize: size*0.08,
-                  fontWeight: FontWeight.bold,
-                  color: configState.textColor,
-                ),
-              ),
 
+              SizedBox(height: gaugePadding),
+              
+              // Digital speed display
+              if (configState.showText)
+                Text(
+                  speed.toStringAsFixed(1),
+                  style: TextStyle(
+                    fontSize: speedFontSize,
+                    fontWeight: FontWeight.bold,
+                    color: configState.textColor,
+                  ),
+                ),
+              if (configState.showText)
+                Text(
+                  isMetric ? 'km/h' : 'mph',
+                  style: TextStyle(
+                    fontSize: unitFontSize,
+                    fontWeight: FontWeight.bold,
+                    color: configState.textColor,
+                  ),
+                ),
             ],
           ),
         );
@@ -121,14 +152,12 @@ class _SimpleGaugePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final center = Offset(size.width / 2, size.height*0.8);
-    final radius = min(size.width / 2, size.height*0.9) ;
+    final center = Offset(size.width / 2, size.height * 0.85);
+    final radius = min(size.width / 2, size.height * 0.8);
     
     // Extended beyond semicircle: 210 degrees total (105 degrees on each side)
-    // const startAngle = pi + pi/6; // 210 degrees (bottom + 30 degrees)
-    // const sweepAngle = -pi - pi/3; // -210 degrees (going clockwise, more than upside down)
-    const startAngle = pi - pi/6; // 210 degrees (bottom + 30 degrees)
-    const sweepAngle = pi + pi/3; // -210 degrees (going clockwise, more than upside down)
+    const startAngle = pi - pi / 6; // 150 degrees
+    const sweepAngle = pi + pi / 3; // 240 degrees
 
     // Draw gauge arc background
     final gaugeBgPaint = Paint()
@@ -170,7 +199,7 @@ class _SimpleGaugePainter extends CustomPainter {
     
     for (int i = 0; i <= tickCount; i++) {
       final angle = startAngle + (i / tickCount) * sweepAngle;
-      final int num = 2;
+      const int num = 2;
       final outerPoint = Offset(
         center.dx + (radius - num) * cos(angle),
         center.dy + (radius - num) * sin(angle),

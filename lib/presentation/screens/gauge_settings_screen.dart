@@ -57,6 +57,21 @@ class GaugeSettingsScreen extends StatelessWidget {
                   activeColor: state.gaugeColor,
                 ),
               ),
+              _buildSettingTile(
+                title: 'Show Max Speed',
+                subtitle: 'Resets after every Recording',
+                icon: Icons.speed,
+                onTap: () {
+                  context.read<OverlayGaugeConfigurationBloc>().add(ToggleMaxSpeedVisibility());
+                },
+                trailing: Switch(
+                  value: state.showMaxSpeed,
+                  onChanged: (_) {
+                    context.read<OverlayGaugeConfigurationBloc>().add(ToggleMaxSpeedVisibility());
+                  },
+                  activeColor: state.gaugeColor,
+                ),
+              ),
               PremiumFeatureGate(
                   premiumContent: _buildSettingTile(
                     title: 'Hide Label',

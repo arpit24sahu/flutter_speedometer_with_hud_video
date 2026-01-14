@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>873373620341-aamfebe7ksqg0fqldtg0nervnbpk3emu.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDwrY8dxkSBpGWtwlcfd8_y-t2NI8YyCJw</string>
+	<key>GCM_SENDER_ID</key>
+	<string>873373620341</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.arpit.speedometer</string>
+	<key>PROJECT_ID</key>
+	<string>fir-e333d</string>
+	<key>STORAGE_BUCKET</key>
+	<string>fir-e333d.appspot.com</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:873373620341:ios:55cb1ad3f06235f23f803c</string>
+	<key>DATABASE_URL</key>
+	<string>https://fir-e333d.firebaseio.com</string>
+</dict>
+</plist>

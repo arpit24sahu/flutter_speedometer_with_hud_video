@@ -1,8 +1,10 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:speedometer/di/injection_container.dart';
+import 'package:speedometer/firebase_options.dart';
 import 'package:speedometer/presentation/app.dart';
 
 void main() async {
@@ -13,5 +15,6 @@ void main() async {
 Future<void> initializeApp()async{
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   await initializeDependencies();
 }

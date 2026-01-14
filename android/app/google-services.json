@@ -1,0 +1,40 @@
+{
+  "project_info": {
+    "project_number": "873373620341",
+    "firebase_url": "https://fir-e333d.firebaseio.com",
+    "project_id": "fir-e333d",
+    "storage_bucket": "fir-e333d.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:873373620341:android:8fb3f80bf3eaf1353f803c",
+        "android_client_info": {
+          "package_name": "com.arpit.speedometer"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "873373620341-7gesik3i4v6prmd153f65ojng4nnocgg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDjGtfiK9eJAnqa33ssShEtb2seGkENsPA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "873373620341-7gesik3i4v6prmd153f65ojng4nnocgg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

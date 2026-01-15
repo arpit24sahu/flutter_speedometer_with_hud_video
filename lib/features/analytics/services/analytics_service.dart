@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/firebase_analytics_service.dart';
 import 'package:speedometer/features/analytics/services/mixpanel_service.dart';
 
 /// Central analytics service that orchestrates all analytics providers.
@@ -26,6 +27,8 @@ class AnalyticsService {
 
 
   final MixpanelService _mixpanelService = MixpanelService.instance;
+
+  final FirebaseAnalyticsService _firebaseAnalyticsService = FirebaseAnalyticsService();
 
   bool _isInitialized = false;
   bool printLogs = kDebugMode;
@@ -124,6 +127,7 @@ class AnalyticsService {
 
     // Send to all analytics services
     _mixpanelService.trackEvent(eventName, properties: eventProperties);
+    _firebaseAnalyticsService.logEvent(eventName, eventProperties.map((k,v) => MapEntry(k,v.toString())));
   }
 
   /// Convenience method for tracking page view events.

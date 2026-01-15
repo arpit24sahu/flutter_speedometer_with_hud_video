@@ -228,6 +228,25 @@ class OverlayGaugeConfigurationState extends Equatable {
     );
   }
 
+  Map<String, dynamic> toJson() {
+    return {
+      'showGauge': showGauge,
+      'showText': showText,
+      'showMaxSpeed': showMaxSpeed,
+      'showLabel': showLabel,
+      'gaugePlacement': gaugePlacement.name,
+      'gaugeRelativeSize': gaugeRelativeSize,
+      'borderColor': borderColor.value,
+      'gaugeColor': gaugeColor.value,
+      'needleColor': needleColor.value,
+      'textColor': textColor.value,
+      'tickColor': tickColor.value,
+      'borderWidth': borderWidth,
+      'gaugeWidth': gaugeWidth,
+      'needleWidth': needleWidth,
+    };
+  }
+
   @override
   List<Object?> get props => [
     showGauge,

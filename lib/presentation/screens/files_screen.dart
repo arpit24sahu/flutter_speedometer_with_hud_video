@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
 import 'package:speedometer/features/premium/widgets/premium_upgrade_dialog.dart';
 import '../../utils.dart';
@@ -23,17 +25,29 @@ class _FilesScreenState extends State<FilesScreen> {
   }
 
   Future<void> loadFiles() async {
-    String path = await getDownloadsPath();
-    final directory = Directory(path);
-    final entities = await directory.list().toList();
-    
-    final allFiles = entities.whereType<File>().toList()
-      ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
+    try {
+      String path = await getDownloadsPath();
+      final directory = Directory(path);
+      final entities = await directory.list().toList();
 
-    processedFiles = allFiles.where((f) => f.path.split('/').last.startsWith('TurboGauge')).toList();
-    rawFiles = allFiles.where((f) => !f.path.split('/').last.startsWith('TurboGauge')).toList();
+      final allFiles = entities.whereType<File>().toList()
+        ..sort((a, b) => b.statSync().modified.compareTo(a.statSync().modified));
 
-    if (mounted) setState(() {});
+      processedFiles = allFiles.where((f) => f.path.split('/').last.startsWith('TurboGauge')).toList();
+      rawFiles = allFiles.where((f) => !f.path.split('/').last.startsWith('TurboGauge')).toList();
+
+      AnalyticsService().trackEvent(AnalyticsEvents.filesLoaded,
+        properties: {
+          "totalFiles": allFiles.length,
+          "processedFiles": processedFiles?.length,
+          "rawFiles": rawFiles?.length,
+        }
+      );
+
+      if (mounted) setState(() {});
+    } catch(e) {
+      print("Error Loading Files: ${e.toString()}");
+    }
   }
 
   void _showFileOptions(FileSystemEntity file, BuildContext context) {

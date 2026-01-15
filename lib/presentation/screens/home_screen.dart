@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/presentation/screens/camera_screen.dart';
 import 'package:speedometer/presentation/screens/speedometer_screen.dart';
 import 'package:speedometer/presentation/screens/files_screen.dart';
@@ -21,7 +23,26 @@ class _HomeScreenState extends State<HomeScreen> {
     const SettingsScreen(),
   ];
 
+  String screenName(int index){
+    switch(index) {
+      case 0: return 'Camera';
+      case 1: return 'Speedometer';
+      case 2: return 'Files';
+      case 4: return 'Settings';
+      default: return 'Camera';
+    }
+  }
+
   void _onItemTapped(int index) {
+    AnalyticsService().trackEvent(
+        AnalyticsEvents.tabPress,
+        properties: {
+          "tab": screenName(index),
+          "tabIndex": index,
+          "previousTab": screenName(_selectedIndex),
+          "previousTabIndex": screenName(_selectedIndex)
+        }
+    );
     setState(() {
       _selectedIndex = index;
     });
@@ -41,10 +62,7 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(icon: Icon(Icons.videocam), label: 'Record'),
           BottomNavigationBarItem(icon: Icon(Icons.speed), label: 'Speed'),
           BottomNavigationBarItem(icon: Icon(Icons.folder), label: 'Files'),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.settings),
-            label: 'Settings',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.settings), label: 'Settings'),
         ],
       ),
     );

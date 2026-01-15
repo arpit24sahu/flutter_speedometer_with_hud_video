@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speedometer/presentation/bloc/video_recorder_bloc.dart';
 import 'package:speedometer/presentation/widgets/video_recorder_service.dart';
 
+import '../features/analytics/di/analytics_injection.dart';
 import '../features/premium/di/premium_injection.dart';
 import '../features/premium/repository/purchase_repository.dart';
 import '../features/premium/service/purchase_service.dart';
@@ -23,6 +24,7 @@ Future<void> initializeDependencies() async {
   getIt.registerSingleton<SharedPreferences>(sharedPreferences);
 
   initPremiumFeature();
+  await initAnalyticsFeature();
   // Services
   getIt.registerLazySingleton<GalService>(() => GalService());
   getIt.registerLazySingleton<LocationService>(() => LocationServiceImpl());

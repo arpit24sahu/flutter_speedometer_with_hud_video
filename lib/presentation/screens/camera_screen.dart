@@ -13,6 +13,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speedometer/core/services/camera_service.dart';
 import 'package:speedometer/di/injection_container.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
@@ -143,11 +145,11 @@ class _CameraScreenState extends State<CameraScreen> {
       final currentState = contextWithBloc.read<VideoRecorderBloc>().state;
 
       if (currentState is VideoRecording || currentState is VideoProcessing) {
-      final gaugeConfigState = context.read<OverlayGaugeConfigurationBloc>().state;
-      contextWithBloc.read<VideoRecorderBloc>().add(StopRecording(
-            gaugePlacement: gaugeConfigState.gaugePlacement,
-            relativeSize: gaugeConfigState.gaugeRelativeSize,
-      ));
+        final gaugeConfigState = context.read<OverlayGaugeConfigurationBloc>().state;
+        contextWithBloc.read<VideoRecorderBloc>().add(StopRecording(
+              gaugePlacement: gaugeConfigState.gaugePlacement,
+              relativeSize: gaugeConfigState.gaugeRelativeSize,
+        ));
       } else {
         contextWithBloc.read<VideoRecorderBloc>().add(StartRecording());
       }
@@ -601,7 +603,10 @@ class _CameraScreenState extends State<CameraScreen> {
               ),
               const SizedBox(height: 32),
               ElevatedButton.icon(
-                onPressed: _checkPermissionsAndInit,
+                onPressed: (){
+                  AnalyticsService().trackEvent(AnalyticsEvents.permissionCheckAgainPress);
+                  _checkPermissionsAndInit();
+                },
                 icon: const Icon(Icons.refresh),
                 label: const Text("Check Again"),
                 style: ElevatedButton.styleFrom(
@@ -658,7 +663,10 @@ class _CameraScreenState extends State<CameraScreen> {
                 ),
                 const SizedBox(height: 32),
                 ElevatedButton.icon(
-                  onPressed: _checkPermissionsAndInit,
+                  onPressed: (){
+                    AnalyticsService().trackEvent(AnalyticsEvents.permissionCheckAgainPress);
+                    _checkPermissionsAndInit();
+                  },
                   icon: const Icon(Icons.refresh),
                   label: const Text("Check Again"),
                   style: ElevatedButton.styleFrom(
@@ -793,12 +801,12 @@ class _CameraScreenState extends State<CameraScreen> {
 
                                   // Speedometer overlay
                                   BlocBuilder<OverlayGaugeConfigurationBloc, OverlayGaugeConfigurationState>(
-                                    builder: (context, state) {
+                                    builder: (context, OverlayGaugeConfigurationState gaugeState) {
                                       final screenSize = Size(constraints.maxWidth, constraints.maxHeight);
-                                      final gaugeSize = MediaQuery.of(context).size.width * state.gaugeRelativeSize;
+                                      final gaugeSize = MediaQuery.of(context).size.width * gaugeState.gaugeRelativeSize;
 
                                       final position = calculateGaugePosition(
-                                        placement: state.gaugePlacement,
+                                        placement: gaugeState.gaugePlacement,
                                         gaugeSize: gaugeSize,
                                         screenSize: screenSize,
                                       );
@@ -857,6 +865,14 @@ class _CameraScreenState extends State<CameraScreen> {
                                   iconSize: 32,
                                   onPressed: () {
                                     HapticFeedback.mediumImpact();
+                                    AnalyticsService().trackEvent(AnalyticsEvents.flipCamera,
+                                      properties: {
+                                        "previousOrientation": _currentCameraIndex%2==0 ? "FRONT" : "BACK",
+                                        "newOrientation": _currentCameraIndex%2==0 ? "BACK" : "FRONT",
+                                        "previousOrientationIndex": _currentCameraIndex,
+                                        "newOrientationIndex": (_currentCameraIndex+1)%2,
+                                      }
+                                    );
                                     _initializeCamera((_currentCameraIndex+1)%2);
                                     // Navigator.pop(context);
                                   },
@@ -875,7 +891,7 @@ class _CameraScreenState extends State<CameraScreen> {
                               // PremiumBadge(),
                               // Container(width: 10, height: 10,),
                               BlocBuilder<VideoRecorderBloc, VideoRecorderState>(
-                                builder: (context, state) {
+                                builder: (context, VideoRecorderState state) {
                                   final bool isRecording = state is VideoRecording;
                                   final bool isProcessing = state is VideoProcessing;
                                   final double processingProgress =
@@ -887,8 +903,31 @@ class _CameraScreenState extends State<CameraScreen> {
                                       print("Recording toggled");
                                       if(!isProcessing){
                                         HapticFeedback.mediumImpact();
+                                        if(isRecording){
+                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStarted,
+                                            properties: {
+                                              "cameraOrientation": _currentCameraIndex%2==0 ? "FRONT" : "BACK",
+                                              "cameraOrientationIndex": _currentCameraIndex,
+                                              "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson()
+                                            }
+                                          );
+                                        } else {
+                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStopped,
+                                              properties: {
+                                                "cameraOrientation": _currentCameraIndex%2==0 ? "FRONT" : "BACK",
+                                                "cameraOrientationIndex": _currentCameraIndex,
+                                                "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson()
+                                              }
+                                          );
+                                        }
+
                                         _toggleRecording(context);
                                       } else {
+                                        AnalyticsService().trackEvent(AnalyticsEvents.recordButtonPressedWhileProcessing,
+                                          properties: {
+                                            "progress": state.progress
+                                          }
+                                        );
                                         print("Still Processing");
                                       }
                                     },
@@ -1252,6 +1291,12 @@ void showVideoSuccessDialog(BuildContext context, String finalVideoPath) {
                           icon: const Icon(Icons.play_circle_outline),
                           label: const Text('Play Video'),
                           onPressed: () async {
+                            AnalyticsService().trackEvent(AnalyticsEvents.playRecordedVideo,
+                                properties: {
+                                  "finalVideoPath": finalVideoPath,
+                                  "videoSize": await videoFile.length()
+                                }
+                            );
                             final result = await OpenFile.open(finalVideoPath);
                             debugPrint('OpenFile result: ${result.type}, ${result.message}');
                           },
@@ -1275,6 +1320,12 @@ void showVideoSuccessDialog(BuildContext context, String finalVideoPath) {
                             style: TextStyle(fontWeight: FontWeight.bold),
                           ),
                           onPressed: () async {
+                            AnalyticsService().trackEvent(AnalyticsEvents.shareRecordedVideo,
+                              properties: {
+                                "finalVideoPath": finalVideoPath,
+                                "videoSize": await videoFile.length()
+                              }
+                            );
                             Get.back(); // Close dialog
                             try {
                               await Share.shareXFiles(

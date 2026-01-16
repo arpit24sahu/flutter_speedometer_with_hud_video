@@ -713,13 +713,37 @@ class _CameraScreenState extends State<CameraScreen> {
             listener: (context, videoRecorderState){
               if (videoRecorderState is VideoProcessed) {
                 // Show success dialog from external function
-                WidgetsBinding.instance.addPostFrameCallback((_)async{
-                  final galService = getIt<GalService>();
-                  await galService.saveVideoToGallery(
-                    videoRecorderState.finalVideoPath,
-                      albumName: 'Speedometer Videos'
-                  );
-                  showVideoSuccessDialog(context, videoRecorderState.finalVideoPath);
+                WidgetsBinding.instance.addPostFrameCallback((_) async {
+                  try {
+                    final galService = getIt<GalService>();
+                    await galService.saveVideoToGallery(
+                      videoRecorderState.finalVideoPath,
+                      albumName: 'Speedometer Videos',
+                    );
+                  } catch (e) {
+                    debugPrint('Error saving video to gallery: $e');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Error saving video to gallery: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                  try {
+                    if(mounted) showVideoSuccessDialog(context, videoRecorderState.finalVideoPath);
+                  } catch (e) {
+                    debugPrint('Error showing video success dialog: $e');
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Please check your File in the Files Tab.'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
                 });
               } else if (videoRecorderState is VideoProcessingError) {
                 // Show error dialog from external function

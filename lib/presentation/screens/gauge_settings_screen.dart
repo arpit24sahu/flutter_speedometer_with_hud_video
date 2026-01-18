@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
 import 'package:speedometer/features/premium/widgets/premium_upgrade_dialog.dart';
 import '../bloc/overlay_gauge_configuration_bloc.dart';
+import '../bloc/settings/settings_bloc.dart';
+import '../bloc/settings/settings_event.dart';
+import '../bloc/settings/settings_state.dart';
 
 class GaugeSettingsScreen extends StatelessWidget {
   const GaugeSettingsScreen({super.key});
@@ -32,11 +37,23 @@ class GaugeSettingsScreen extends StatelessWidget {
                 subtitle: 'Toggle gauge visibility',
                 icon: Icons.speed,
                 onTap: () {
+                  AnalyticsService().trackEvent(AnalyticsEvents.toggleGaugeVisibility,
+                    properties: {
+                      "previousGaugeState": state.toJson(),
+                      "showGauge": !state.showGauge // show value after toggle
+                    }
+                  );
                   context.read<OverlayGaugeConfigurationBloc>().add(ToggleGaugeVisibility());
                 },
                 trailing: Switch(
                   value: state.showGauge,
                   onChanged: (_) {
+                    AnalyticsService().trackEvent(AnalyticsEvents.toggleGaugeVisibility,
+                        properties: {
+                          "previousGaugeState": state.toJson(),
+                          "showGauge": !state.showGauge // show value after toggle
+                        }
+                    );
                     context.read<OverlayGaugeConfigurationBloc>().add(ToggleGaugeVisibility());
                   },
                   activeColor: state.gaugeColor,
@@ -47,11 +64,23 @@ class GaugeSettingsScreen extends StatelessWidget {
                 subtitle: 'Toggle text visibility',
                 icon: Icons.text_fields,
                 onTap: () {
+                  AnalyticsService().trackEvent(AnalyticsEvents.toggleTextVisibility,
+                      properties: {
+                        "previousGaugeState": state.toJson(),
+                        "showText": !state.showText // show value after toggle
+                      }
+                  );
                   context.read<OverlayGaugeConfigurationBloc>().add(ToggleTextVisibility());
                 },
                 trailing: Switch(
                   value: state.showText,
                   onChanged: (_) {
+                    AnalyticsService().trackEvent(AnalyticsEvents.toggleTextVisibility,
+                        properties: {
+                          "previousGaugeState": state.toJson(),
+                          "showText": !state.showText // show value after toggle
+                        }
+                    );
                     context.read<OverlayGaugeConfigurationBloc>().add(ToggleTextVisibility());
                   },
                   activeColor: state.gaugeColor,
@@ -62,16 +91,74 @@ class GaugeSettingsScreen extends StatelessWidget {
                 subtitle: 'Resets after every Recording',
                 icon: Icons.speed,
                 onTap: () {
+                  AnalyticsService().trackEvent(AnalyticsEvents.toggleMaxSpeedVisibility,
+                      properties: {
+                        "previousGaugeState": state.toJson(),
+                        "showMaxSpeed": !state.showMaxSpeed // show value after toggle
+                      }
+                  );
                   context.read<OverlayGaugeConfigurationBloc>().add(ToggleMaxSpeedVisibility());
                 },
                 trailing: Switch(
                   value: state.showMaxSpeed,
                   onChanged: (_) {
+                    AnalyticsService().trackEvent(AnalyticsEvents.toggleMaxSpeedVisibility,
+                        properties: {
+                          "previousGaugeState": state.toJson(),
+                          "showMaxSpeed": !state.showMaxSpeed // show value after toggle
+                        }
+                    );
                     context.read<OverlayGaugeConfigurationBloc>().add(ToggleMaxSpeedVisibility());
                   },
                   activeColor: state.gaugeColor,
                 ),
               ),
+              BlocBuilder<SettingsBloc, SettingsState>(
+                builder: (BuildContext context, SettingsState settingsState) {
+                  return _buildSettingTile(
+                    title: 'Unit System',
+                    subtitle: settingsState.isMetric ? 'Metric (km/h)' : 'Imperial (mph)',
+                    icon: Icons.speed,
+                    onTap: () {
+                      context.read<SettingsBloc>().add(ToggleUnitSystem());
+                    },
+                    trailing: Switch(
+                      value: settingsState.isMetric,
+                      onChanged: (_) {
+                        context.read<SettingsBloc>().add(ToggleUnitSystem());
+                      },
+                      activeColor: state.gaugeColor,
+                    ),
+                  );
+                }
+              ),
+              // _buildSettingTile(
+              //   title: 'Units',
+              //   subtitle: 'Resets after every Recording',
+              //   icon: Icons.speed,
+              //   onTap: () {
+              //     AnalyticsService().trackEvent(AnalyticsEvents.toggleMaxSpeedVisibility,
+              //         properties: {
+              //           "previousGaugeState": state.toJson(),
+              //           "showMaxSpeed": !state.showMaxSpeed // show value after toggle
+              //         }
+              //     );
+              //     context.read<OverlayGaugeConfigurationBloc>().add(ToggleMaxSpeedVisibility());
+              //   },
+              //   trailing: Switch(
+              //     value: state.showMaxSpeed,
+              //     onChanged: (_) {
+              //       AnalyticsService().trackEvent(AnalyticsEvents.toggleMaxSpeedVisibility,
+              //           properties: {
+              //             "previousGaugeState": state.toJson(),
+              //             "showMaxSpeed": !state.showMaxSpeed // show value after toggle
+              //           }
+              //       );
+              //       context.read<OverlayGaugeConfigurationBloc>().add(ToggleMaxSpeedVisibility());
+              //     },
+              //     activeColor: state.gaugeColor,
+              //   ),
+              // ),
               PremiumFeatureGate(
                   premiumContent: _buildSettingTile(
                     title: 'Hide Label',
@@ -79,11 +166,23 @@ class GaugeSettingsScreen extends StatelessWidget {
                     subtitle: 'Hide TurboGauge Label',
                     icon: Icons.text_fields,
                     onTap: () {
+                      AnalyticsService().trackEvent(AnalyticsEvents.toggleLabelVisibility,
+                          properties: {
+                            "previousGaugeState": state.toJson(),
+                            "showMaxSpeed": !state.showLabel // show value after toggle
+                          }
+                      );
                       context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
                     },
                     trailing: Switch(
                       value: !state.showLabel,
                       onChanged: (_) {
+                        AnalyticsService().trackEvent(AnalyticsEvents.toggleLabelVisibility,
+                            properties: {
+                              "previousGaugeState": state.toJson(),
+                              "showMaxSpeed": !state.showLabel // show value after toggle
+                            }
+                        );
                         context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
                       },
                       activeColor: state.gaugeColor,
@@ -95,12 +194,26 @@ class GaugeSettingsScreen extends StatelessWidget {
                     subtitle: 'Hide TurboGauge Label',
                     icon: Icons.text_fields,
                     onTap: () {
+                      AnalyticsService().trackEvent(AnalyticsEvents.premiumScreenViewed,
+                          properties: {
+                            "source": "hide_label_button",
+                            "previousGaugeState": state.toJson(),
+                            "showMaxSpeed": !state.showLabel // show value after toggle
+                          }
+                      );
                       PremiumUpgradeDialog.show(context);
                       // context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
                     },
                     trailing: Switch(
                       value: !state.showLabel,
                       onChanged: (_) {
+                        AnalyticsService().trackEvent(AnalyticsEvents.premiumScreenViewed,
+                            properties: {
+                              "source": "hide_label_button",
+                              "previousGaugeState": state.toJson(),
+                              "showMaxSpeed": !state.showLabel // show value after toggle
+                            }
+                        );
                         PremiumUpgradeDialog.show(context);
                         // context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
                       },
@@ -249,6 +362,18 @@ class GaugeSettingsScreen extends StatelessWidget {
               children: GaugePlacement.values.map((placement) {
                 return InkWell(
                   onTap: () {
+                    AnalyticsService().trackEvent(AnalyticsEvents.gaugePlacementPicked,
+                        properties: {
+                          "placementIndex": placement.index,
+                          "placementName": placement.name,
+                          "placementDisplayName": placement.displayName,
+                          "previousPlacementIndex": currentPlacement.index,
+                          "previousPlacementName": currentPlacement.name,
+                          "previousPlacementDisplayName": currentPlacement.displayName,
+                          // "previousGaugeState": state.toJson(),
+                          // "showMaxSpeed": !state.showLabel // show value after toggle
+                        }
+                    );
                     context.read<OverlayGaugeConfigurationBloc>().add(ChangeGaugePlacement(placement));
                     Navigator.of(context).pop();
                   },
@@ -287,6 +412,15 @@ class GaugeSettingsScreen extends StatelessWidget {
           actions: [
             TextButton(
               onPressed: () {
+                AnalyticsService().trackEvent(AnalyticsEvents.gaugePlacementPickupCancelled,
+                    properties: {
+                      "previousPlacementIndex": currentPlacement.index,
+                      "previousPlacementName": currentPlacement.name,
+                      "previousPlacementDisplayName": currentPlacement.displayName,
+                      // "previousGaugeState": state.toJson(),
+                      // "showMaxSpeed": !state.showLabel // show value after toggle
+                    }
+                );
                 Navigator.pop(context);
               },
               child: const Text('Cancel'),

@@ -125,7 +125,7 @@ class WidgetRecorderService {
   Future<String> _saveVideoToAppDirectory(XFile videoFile) async {
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
-    final newPath = path.join(directory.path, 'camera_recording_$timestamp.mp4');
+    final newPath = path.join(directory.path, 'CameraRecording_$timestamp.mp4');
 
     // Copy file to app directory
     final File newFile = File(newPath);
@@ -144,7 +144,7 @@ class WidgetRecorderService {
     final directory = await getApplicationDocumentsDirectory();
     final timestamp = DateTime.now().millisecondsSinceEpoch;
     final tempDirPath = path.join(directory.path, 'temp_frames_$timestamp');
-    final outputPath = path.join(directory.path, 'widget_recording_$timestamp.mp4');
+    final outputPath = path.join(directory.path, 'WidgetRecording_$timestamp.mp4');
 
     print("Temp frames directory: $tempDirPath");
     print("Output video path: $outputPath");

@@ -15,10 +15,14 @@ import 'package:speedometer/core/services/camera_service.dart';
 import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
+import 'package:speedometer/features/files/bloc/files_bloc.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
 import 'package:speedometer/presentation/widgets/premium_badge.dart';
+import 'package:get_it/get_it.dart';
+import '../../features/processing/bloc/jobs_bloc.dart';
+import '../../features/processing/bloc/processor_bloc.dart';
 import '../../core/services/screen_record_service.dart';
 import '../../core/services/screen_recorder.dart';
 import '../../packages/gal.dart';
@@ -705,7 +709,9 @@ class _CameraScreenState extends State<CameraScreen> {
             recorderService: WidgetRecorderService(
               widgetKey: _speedometerKey,
               cameraController: _controller!,
-        )
+            ),
+            jobsBloc: GetIt.I<JobsBloc>(),
+            processorBloc: GetIt.I<ProcessorBloc>(),
           ),
       child: BlocBuilder<SettingsBloc, SettingsState>(
         builder: (context, settingsState) {
@@ -714,6 +720,7 @@ class _CameraScreenState extends State<CameraScreen> {
               if (videoRecorderState is VideoProcessed) {
                 // Show success dialog from external function
                 WidgetsBinding.instance.addPostFrameCallback((_) async {
+                  await Future.delayed(Duration(milliseconds: 1500));
                   try {
                     final galService = getIt<GalService>();
                     await galService.saveVideoToGallery(
@@ -732,7 +739,16 @@ class _CameraScreenState extends State<CameraScreen> {
                     }
                   }
                   try {
-                    if(mounted) showVideoSuccessDialog(context, videoRecorderState.finalVideoPath);
+                    Future.delayed(Duration(seconds: 1), () {
+                      if (context.mounted) {
+                        context.read<FilesBloc>().add(RefreshFiles());
+                      }
+                    });
+                    if (context.mounted)
+                      showVideoSuccessDialog(
+                        context,
+                        videoRecorderState.finalVideoPath,
+                      );
                   } catch (e) {
                     debugPrint('Error showing video success dialog: $e');
                     if (context.mounted) {

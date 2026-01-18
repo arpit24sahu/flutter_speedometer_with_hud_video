@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_session.dart';
+import 'package:ffmpeg_kit_flutter_new_video/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
 import 'package:ffmpeg_kit_flutter_new_video/session.dart';
 import 'package:flutter/material.dart';
@@ -25,14 +27,26 @@ Future<void> openFile(FileSystemEntity file) async {
   }
 }
 
-Future<String?> processChromaKeyVideo(
-{
+Future<FFmpegSession?> processChromaKeyVideo({
   required String backgroundPath,
   required String foregroundPath,
   required GaugePlacement placement,
-  required double relativeSize
-}
-    ) async {
+  required double relativeSize,
+  Function(double)? onUpdateProgress,
+  Function(String, double)? onProcessSuccess,
+  Function(String)? onProcessFailure,
+}) async {
+
+  int? totalDurationMs;
+  try {
+    final probeSession = await FFprobeKit.getMediaInformation(backgroundPath);
+    final info = probeSession.getMediaInformation();
+    final durationStr = info?.getDuration();
+    if (durationStr != null) {
+      totalDurationMs = (double.parse(durationStr) * 1000).toInt();
+    }
+  } catch (_) {}
+
 
   // Step 2: Get the output directory
   final directory = await getApplicationDocumentsDirectory();
@@ -58,7 +72,7 @@ Future<String?> processChromaKeyVideo(
 
   print('Executing FFmpeg command:');
   print(command);
-  print('─' * 60);
+  print('─ ' * 60);
 
   try {
     final session = await FFmpegKit.executeAsync(
@@ -67,12 +81,18 @@ Future<String?> processChromaKeyVideo(
         final returnCode = await session.getReturnCode();
 
         if (ReturnCode.isSuccess(returnCode)) {
+          File outputFile = File(outputPath);
+          if(await outputFile.exists()){
+            int size = await outputFile.length();
+            if(onProcessSuccess!=null) await onProcessSuccess(outputPath, (size ~/ 1024).toDouble());
+          }
           print('✓ Chroma key processing completed successfully');
           print('Output saved at: $outputPath');
         } else {
           final failStackTrace = await session.getFailStackTrace();
           final logs = await session.getLogs();
 
+          if(onProcessFailure!=null) await onProcessFailure("An Error Occurred while processing. Please retry");
           print('✗ Processing failed with return code: $returnCode');
           if (logs.isNotEmpty) {
             print('Logs:');
@@ -90,16 +110,19 @@ Future<String?> processChromaKeyVideo(
         // You can uncomment for very detailed output
         // print('LOG: ${log.getMessage()}');
       },
-      (statistics) {
-        // Optional progress tracking
-        // print('Time: ${statistics.getTime()}, FPS: ${statistics.getVideoFps()}');
+      (statistics) async {
+        if (totalDurationMs != null && onUpdateProgress != null) {
+          final processedMs = statistics.getTime();
+          final progress = (processedMs / totalDurationMs!).clamp(0.0, 1.0);
+          await onUpdateProgress(progress);
+        }
       },
     );
 
     // You can optionally wait here if you need synchronous behavior
     // final rc = await session.getReturnCode();
 
-    return outputPath;
+    return session;
   } catch (e, stack) {
     print('Exception during FFmpeg execution: $e');
     print(stack);

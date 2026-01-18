@@ -5,6 +5,9 @@ import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
 import 'package:speedometer/features/premium/widgets/premium_upgrade_dialog.dart';
 import '../bloc/overlay_gauge_configuration_bloc.dart';
+import '../bloc/settings/settings_bloc.dart';
+import '../bloc/settings/settings_event.dart';
+import '../bloc/settings/settings_state.dart';
 
 class GaugeSettingsScreen extends StatelessWidget {
   const GaugeSettingsScreen({super.key});
@@ -110,6 +113,52 @@ class GaugeSettingsScreen extends StatelessWidget {
                   activeColor: state.gaugeColor,
                 ),
               ),
+              BlocBuilder<SettingsBloc, SettingsState>(
+                builder: (BuildContext context, SettingsState settingsState) {
+                  return _buildSettingTile(
+                    title: 'Unit System',
+                    subtitle: settingsState.isMetric ? 'Metric (km/h)' : 'Imperial (mph)',
+                    icon: Icons.speed,
+                    onTap: () {
+                      context.read<SettingsBloc>().add(ToggleUnitSystem());
+                    },
+                    trailing: Switch(
+                      value: settingsState.isMetric,
+                      onChanged: (_) {
+                        context.read<SettingsBloc>().add(ToggleUnitSystem());
+                      },
+                      activeColor: state.gaugeColor,
+                    ),
+                  );
+                }
+              ),
+              // _buildSettingTile(
+              //   title: 'Units',
+              //   subtitle: 'Resets after every Recording',
+              //   icon: Icons.speed,
+              //   onTap: () {
+              //     AnalyticsService().trackEvent(AnalyticsEvents.toggleMaxSpeedVisibility,
+              //         properties: {
+              //           "previousGaugeState": state.toJson(),
+              //           "showMaxSpeed": !state.showMaxSpeed // show value after toggle
+              //         }
+              //     );
+              //     context.read<OverlayGaugeConfigurationBloc>().add(ToggleMaxSpeedVisibility());
+              //   },
+              //   trailing: Switch(
+              //     value: state.showMaxSpeed,
+              //     onChanged: (_) {
+              //       AnalyticsService().trackEvent(AnalyticsEvents.toggleMaxSpeedVisibility,
+              //           properties: {
+              //             "previousGaugeState": state.toJson(),
+              //             "showMaxSpeed": !state.showMaxSpeed // show value after toggle
+              //           }
+              //       );
+              //       context.read<OverlayGaugeConfigurationBloc>().add(ToggleMaxSpeedVisibility());
+              //     },
+              //     activeColor: state.gaugeColor,
+              //   ),
+              // ),
               PremiumFeatureGate(
                   premiumContent: _buildSettingTile(
                     title: 'Hide Label',

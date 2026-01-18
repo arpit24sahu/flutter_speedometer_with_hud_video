@@ -5,15 +5,26 @@ import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/widgets/video_recorder_service.dart';
 
+import 'package:uuid/uuid.dart';
+import '../../features/processing/models/processing_job.dart';
+import '../../features/processing/bloc/jobs_bloc.dart';
+import '../../features/processing/bloc/processor_bloc.dart';
 import '../../utils.dart';
 
 class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
   final WidgetRecorderService recorderService;
+  final JobsBloc jobsBloc;
+  final ProcessorBloc processorBloc;
   
-  VideoRecorderBloc({required this.recorderService}) : super(VideoRecorderInitial()) {
+  VideoRecorderBloc({
+    required this.recorderService,
+    required this.jobsBloc,
+    required this.processorBloc,
+  }) : super(VideoRecorderInitial()) {
     on<StartRecording>(_onStartRecording);
     on<StopRecording>(_onStopRecording);
     on<ProcessingStarted>(_onProcessingStarted);
@@ -62,22 +73,63 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
       print('DEBUG: Camera video path: $cameraVideoPath');
       print('DEBUG: Widget video path: $widgetVideoPath');
 
-      final String finalVideoPath = await _processVideo(
-        _VideoProcessingParams(
-          cameraVideoPath: cameraVideoPath,
-          widgetVideoPath: widgetVideoPath,
-          gaugePlacement: event.gaugePlacement,
-          relativeSize: event.relativeSize,
-        ),
+
+      // Construct the command string for reference
+      final filterComplex = buildFilterComplex(
+        event.gaugePlacement,
+        event.relativeSize,
       );
 
-      add(
-        ProcessingCompleted(
-          cameraVideoPath: cameraVideoPath,
-          widgetVideoPath: widgetVideoPath,
-          finalVideoPath: finalVideoPath,
-        ),
+      // Step 2: Get the output directory
+      final directory = await getApplicationDocumentsDirectory();
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final outputPath = '${directory.path}/TurboGauge_$timestamp.mp4';
+
+      // Build the full command as a **single string**
+      final commandDescription =
+          '-y '
+          '-i "$cameraVideoPath" '
+          '-i "$widgetVideoPath" '
+          '-filter_complex "$filterComplex" '
+          '-map "[out]" '
+          '-map 0:a? '
+          '-c:v mpeg4 '
+          '-q:v 5 '
+          '-c:a aac '
+          '-b:a 192k '
+          '"$outputPath"';
+
+      // final commandDescription =
+      //     '-y -i "$cameraVideoPath" -i "$widgetVideoPath" -filter_complex "$filterComplex" ...'
+
+      final job = ProcessingJob(
+        id: const Uuid().v4(),
+        createdAt: DateTime.now(),
+        videoFilePath: cameraVideoPath,
+        overlayFilePath: widgetVideoPath,
+        gaugePlacement: event.gaugePlacement.name,
+        relativeSize: event.relativeSize,
+        ffmpegCommand: commandDescription,
       );
+
+      jobsBloc.add(AddJob(job));
+
+      // Future.delayed(Duration(milliseconds: 500), (){
+      //   // Trigger processing automatically as requested
+      //   processorBloc.add(StartProcessing());
+      // });
+
+      // We no longer wait for processing to complete here.
+      // We can emit Initial or a new State "RecordingSaved".
+      // For now, let's emit Initial or stay in "ProcessingStarted" but without progress?
+      // Actually, if we emit VideoProcessed with empty path or specific flag, UI can handle it.
+      // But let's just emit VideoRecorderInitial to reset the UI,
+      // AND maybe show a snackbar or notification in UI side?
+      // Since existing UI expects VideoProcessed to show dialog,
+      // I should probably change the UI expectation or emit a "JobQueued" state?
+      // For this step I will reset to Initial.
+
+      emit(VideoRecorderInitial());
     } catch (e, stackTrace) {
       print('DEBUG: Exception during video processing: $e');
       print('DEBUG: Stack trace: $stackTrace');
@@ -138,17 +190,29 @@ class _VideoProcessingParams {
 }
 
 Future<String> _processVideo(_VideoProcessingParams params) async {
+
+  String? finalPath;
+
+  void onSuccess(String path, double size){
+    finalPath = path;
+  }
+
   try {
+
     final finalVideoPath = await processChromaKeyVideo(
       backgroundPath: params.cameraVideoPath,
       foregroundPath: params.widgetVideoPath,
       placement: params.gaugePlacement,
       relativeSize: params.relativeSize,
+      onProcessSuccess: onSuccess,
+      onProcessFailure: (String error){
+        throw error;
+      }
     );
     if(finalVideoPath == null){
       throw Exception("Failed to process video");
     }
-    return finalVideoPath;
+    return finalPath??"";
   } catch (e) {
     rethrow;
   }

@@ -5,6 +5,7 @@ import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
 import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
 import 'package:speedometer/presentation/bloc/speedometer/speedometer_event.dart';
 import 'package:speedometer/presentation/bloc/speedometer/speedometer_state.dart';
+import 'package:speedometer/presentation/screens/settings_screen.dart';
 import 'package:speedometer/presentation/widgets/analog_speedometer.dart';
 import 'package:speedometer/presentation/widgets/digital_speedometer.dart';
 
@@ -51,7 +52,15 @@ class _SpeedometerScreenState extends State<SpeedometerScreen>
           appBar: AppBar(
             centerTitle: false,
             title: const Text('Speedometer'),
-            backgroundColor: settingsState.backgroundColor.withOpacity(0.8),
+            backgroundColor: settingsState.backgroundColor.withOpacity(0.9),
+            actions: [
+              IconButton(
+                onPressed: (){
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => SettingsScreen()));
+                },
+                icon: Icon(Icons.settings),
+              )
+            ],
           ),
           body: BlocBuilder<SpeedometerBloc, SpeedometerState>(
             builder: (context, state) {

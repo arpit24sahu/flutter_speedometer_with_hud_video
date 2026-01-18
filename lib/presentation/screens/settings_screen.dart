@@ -15,6 +15,7 @@ class SettingsScreen extends StatelessWidget {
           backgroundColor: state.backgroundColor,
           appBar: AppBar(
             title: const Text('Settings'),
+            centerTitle: false,
             backgroundColor: state.backgroundColor.withOpacity(0.8),
           ),
           body: ListView(

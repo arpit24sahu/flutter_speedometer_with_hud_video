@@ -100,7 +100,7 @@ class FilesBloc extends Bloc<FilesEvent, FilesState> {
               .toList();
       final rawFiles =
           allFiles
-              .where((f) => !f.path.split('/').last.startsWith('CameraRecording'))
+              .where((f) => f.path.split('/').last.startsWith('CameraRecording'))
               .toList();
 
       AnalyticsService().trackEvent(

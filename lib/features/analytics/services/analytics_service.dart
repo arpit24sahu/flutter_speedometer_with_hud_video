@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/firebase_analytics_service.dart';
 import 'package:speedometer/features/analytics/services/mixpanel_service.dart';
+import 'package:speedometer/services/misc_service.dart';
 
 /// Central analytics service that orchestrates all analytics providers.
 ///
@@ -53,6 +54,8 @@ class AnalyticsService {
     try {
       // Initialize underlying services
       await _mixpanelService.initialize();
+      String userId = await UserIdService().getUserId();
+      setUserId(userId);
 
       _isInitialized = true;
       debugPrint('AnalyticsService: Initialized successfully');
@@ -107,6 +110,12 @@ class AnalyticsService {
       AnalyticsParams.timestamp: DateTime.now().toIso8601String(),
       AnalyticsParams.platform: Platform.operatingSystem,
       AnalyticsParams.osVersion: Platform.operatingSystemVersion,
+      AnalyticsParams.appVersion: PackageInfoService().version,
+      AnalyticsParams.buildNumber: PackageInfoService().buildNumber,
+      AnalyticsParams.androidModel: DeviceInfoService().androidModel,
+      AnalyticsParams.androidBrand: DeviceInfoService().androidBrand,
+      AnalyticsParams.androidManufacturer: DeviceInfoService().androidManufacturer,
+      AnalyticsParams.androidVersion: DeviceInfoService().androidVersion,
     };
 
     // Add optional common parameters if set

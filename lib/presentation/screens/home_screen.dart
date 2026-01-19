@@ -80,9 +80,11 @@ class _HomeScreenState extends State<HomeScreen> {
       listener: (BuildContext context, ProcessorState state){
         if(state.status == ProcessorStatus.idle){
           print("Processor found idle: Starting Job");
-          context.read<FilesBloc>().add(RefreshFiles());
-          context.read<JobsBloc>().add(LoadJobs());
           context.read<ProcessorBloc>().add(StartProcessing());
+          Future.delayed(Duration(milliseconds: 1000), (){
+            if(context.mounted) context.read<FilesBloc>().add(RefreshFiles());
+            if(context.mounted) context.read<JobsBloc>().add(LoadJobs());
+          });
         }
       },
       listenWhen: (ProcessorState stateBefore, ProcessorState stateAfter){

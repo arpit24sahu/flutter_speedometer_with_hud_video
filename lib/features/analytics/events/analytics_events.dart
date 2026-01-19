@@ -70,7 +70,12 @@ class AnalyticsParams {
   static const String platform = 'platform';
   static const String osVersion = 'os_version';
   static const String appVersion = 'app_version';
+  static const String buildNumber = 'build_number';
   static const String timestamp = 'timestamp';
+  static const String androidModel = 'android_model';
+  static const String androidBrand = 'android_brand';
+  static const String androidManufacturer = 'android_manufacturer';
+  static const String androidVersion = 'android_version';
 
   // ─────────────────────────────────────────────────────────────────────────
   // Event-Specific Parameters

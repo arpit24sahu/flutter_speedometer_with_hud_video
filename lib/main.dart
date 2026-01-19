@@ -14,6 +14,7 @@ import 'package:speedometer/presentation/app.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:speedometer/features/processing/models/processing_job.dart';
 import 'package:speedometer/services/hive_service.dart';
+import 'package:speedometer/services/misc_service.dart';
 
 void main() async {
   await initializeApp();
@@ -45,6 +46,9 @@ Future<void> initializeApp()async{
   await Hive.initFlutter();
   Hive.registerAdapter(ProcessingJobAdapter());
   await HiveService().init();
+
+  PackageInfoService().init();
+  DeviceInfoService().init();
   
   await initializeDependencies();
 }

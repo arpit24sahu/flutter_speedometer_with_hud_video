@@ -63,6 +63,7 @@ dependencies:
   hive_ce_flutter: ^2.3.4
   package_info_plus: ^9.0.0
   device_info_plus: ^12.3.0
+  path: ^1.9.1
 
 
 dev_dependencies:

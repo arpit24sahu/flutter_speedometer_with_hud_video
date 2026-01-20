@@ -10,10 +10,15 @@ import 'package:speedometer/features/processing/models/processing_queue.dart';
 import 'package:speedometer/features/processing/presentation/jobs_screen.dart';
 import 'package:speedometer/presentation/screens/camera_screen.dart';
 import 'package:speedometer/presentation/screens/speedometer_screen.dart';
-import 'package:speedometer/presentation/screens/settings_screen.dart';
 import 'package:speedometer/services/hive_service.dart';
+import 'package:speedometer/services/permission_service.dart';
 
 import '../widgets/global_processing_indicator.dart';
+
+abstract class TabVisibilityAware {
+  void onTabVisible();
+  void onTabInvisible();
+}
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -24,13 +29,19 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
+  final List<GlobalKey> _screenKeys = [
+    GlobalKey(),
+    GlobalKey(),
+    GlobalKey(),
+    GlobalKey(),
+  ];
 
-  final List<Widget> _screens = [
-    const CameraScreen(),
-    const SpeedometerScreen(),
-    const FilesScreen(),
+  List<Widget> _screens() => [
+    PermissionsGate(child: CameraScreen(key: _screenKeys[0])),
+    SpeedometerScreen(key: _screenKeys[1],),
+    FilesScreen(key: _screenKeys[2],),
     // const SettingsScreen(),
-    const JobsScreen(),
+    JobsScreen(key: _screenKeys[3]),
   ];
 
   String screenName(int index){
@@ -45,6 +56,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onItemTapped(int index) {
+    if(_selectedIndex == index) return;
+
     AnalyticsService().trackEvent(
         AnalyticsEvents.tabPress,
         properties: {
@@ -54,9 +67,16 @@ class _HomeScreenState extends State<HomeScreen> {
           "previousTabIndex": screenName(_selectedIndex)
         }
     );
+    _notifyInvisible(_selectedIndex);
+    _notifyVisible(index);
+
     setState(() {
       _selectedIndex = index;
     });
+
+    if(_selectedIndex == 2) {
+      context.read<FilesBloc>().add(RefreshFiles());
+    }
   }
 
   void _startProcessQueue(){
@@ -69,9 +89,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void initState() {
-    // TODO: implement initState
-    _startProcessQueue();
     super.initState();
+    _startProcessQueue();
+    // Create screen keys to access their state
+  }
+
+  void _notifyVisible(int index) {
+    if (index < 0 || index >= _screenKeys.length) return;
+
+    final state = _screenKeys[index].currentState;
+    if (state is TabVisibilityAware) {
+      (state as TabVisibilityAware).onTabVisible();
+    }
+  }
+
+  void _notifyInvisible(int index) {
+    if (index < 0 || index >= _screenKeys.length) return;
+
+    final state = _screenKeys[index].currentState;
+    if (state is TabVisibilityAware) {
+      (state as TabVisibilityAware).onTabInvisible();
+    }
   }
 
   @override
@@ -96,7 +134,7 @@ class _HomeScreenState extends State<HomeScreen> {
       child: Scaffold(
         body: Stack(
           children: [
-            Positioned.fill(child: IndexedStack(index: _selectedIndex, children: _screens)),
+            Positioned.fill(child: IndexedStack(index: _selectedIndex, children: _screens())),
             Positioned(
                 top: 100,
                 left: 20,

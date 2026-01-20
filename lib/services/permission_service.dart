@@ -27,14 +27,10 @@ class PermissionsState {
 /// --------------------
 class PermissionsService {
   PermissionsService._internal();
-
-  static final PermissionsService _instance =
-  PermissionsService._internal();
-
+  static final PermissionsService _instance = PermissionsService._internal();
   factory PermissionsService() => _instance;
 
-  final ValueNotifier<PermissionsState?> notifier =
-  ValueNotifier(null);
+  final ValueNotifier<PermissionsState?> notifier = ValueNotifier(null);
 
   /// Initial + refresh
   Future<void> refresh() async {
@@ -123,21 +119,49 @@ class _PermissionsScreen extends StatelessWidget {
     required this.onRequest,
   });
 
-  Widget _row(String label, bool granted) {
-    return Row(
-      children: [
-        Icon(
-          granted ? Icons.check_circle : Icons.cancel,
-          color: granted ? Colors.green : Colors.red,
-        ),
-        const SizedBox(width: 12),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 16),
-        ),
-      ],
+  Widget _row(String label, String subtitle, bool granted) {
+    return ListTile(
+      title: Text(
+        label,
+        style: const TextStyle(fontWeight: FontWeight.bold),
+      ),
+      subtitle: Text(
+        subtitle,
+        // style: const TextStyle(fontSize: 16),
+      ),
+      trailing: Icon(
+        granted ? Icons.check_circle : Icons.cancel,
+        color: granted ? Colors.green : Colors.red,
+      ),
+      // children: [
+      //   Icon(
+      //     granted ? Icons.check_circle : Icons.cancel,
+      //     color: granted ? Colors.green : Colors.red,
+      //   ),
+      //   const SizedBox(width: 12),
+      //   Text(
+      //     label,
+      //     style: const TextStyle(fontSize: 16),
+      //   ),
+      // ],
     );
   }
+
+  // Widget _row(String label, bool granted) {
+  //   return Row(
+  //     children: [
+  //       Icon(
+  //         granted ? Icons.check_circle : Icons.cancel,
+  //         color: granted ? Colors.green : Colors.red,
+  //       ),
+  //       const SizedBox(width: 12),
+  //       Text(
+  //         label,
+  //         style: const TextStyle(fontSize: 16),
+  //       ),
+  //     ],
+  //   );
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -157,14 +181,15 @@ class _PermissionsScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
 
-              _row('Camera', state.camera.isGranted),
+              _row('Location', 'To accurately measure your speed.', state.location.isGranted),
               const SizedBox(height: 12),
-              _row('Microphone', state.microphone.isGranted),
+              _row('Camera', 'To enable Video Recording', state.camera.isGranted),
               const SizedBox(height: 12),
-              _row('Location', state.location.isGranted),
+              _row('Microphone', 'To enable Audio with your Video', state.microphone.isGranted),
 
               const SizedBox(height: 32),
-              ElevatedButton(
+              MaterialButton(
+                color: Colors.blue,
                 onPressed: onRequest,
                 child: const Text('Grant Permissions'),
               ),

@@ -27,6 +27,8 @@ class AnalyticsEvents {
   // ─────────────────────────────────────────────────────────────────────────
   // Feature Events
   // ─────────────────────────────────────────────────────────────────────────
+
+  static const String onboardingCompleted = 'onboarding_completed';
   static const String recordingStarted = 'recording_started';
   static const String recordingStopped = 'recording_stopped';
   static const String speedometerViewed = 'speedometer_viewed';

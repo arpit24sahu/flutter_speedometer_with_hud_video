@@ -946,17 +946,17 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
                                       if(!isProcessing){
                                         HapticFeedback.mediumImpact();
                                         if(isRecording){
-                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStarted,
+                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStopped,
                                             properties: {
-                                              "cameraOrientation": _currentCameraIndex%2==0 ? "FRONT" : "BACK",
+                                              "cameraOrientation": _currentCameraIndex%2==0 ? "BACK" : "FRONT",
                                               "cameraOrientationIndex": _currentCameraIndex,
                                               "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson()
                                             }
                                           );
                                         } else {
-                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStopped,
+                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStarted,
                                               properties: {
-                                                "cameraOrientation": _currentCameraIndex%2==0 ? "FRONT" : "BACK",
+                                                "cameraOrientation": _currentCameraIndex%2==0 ? "BACK" : "FRONT",
                                                 "cameraOrientationIndex": _currentCameraIndex,
                                                 "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson()
                                               }

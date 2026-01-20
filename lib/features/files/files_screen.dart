@@ -13,10 +13,11 @@ class FilesScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => FilesBloc()..add(RefreshFiles()),
-      child: const _FilesScreenContent(),
-    );
+    return _FilesScreenContent();
+    // return BlocProvider<FilesBloc>(
+    //   create: (context) => FilesBloc()..add(RefreshFiles()),
+    //   child: const _FilesScreenContent(),
+    // );
   }
 }
 
@@ -25,7 +26,6 @@ class _FilesScreenContent extends StatelessWidget {
 
   void _showFileOptions(FileSystemEntity file, BuildContext context) {
     final bloc = context.read<FilesBloc>();
-    
     showModalBottomSheet(
       context: context,
       builder: (bottomSheetContext) {
@@ -175,7 +175,6 @@ class _FilesScreenContent extends StatelessWidget {
                                         ),
                                       ),
                                       SizedBox(height: 12),
-                          
                                       /// Processed
                                       Text(
                                         'Processed Files',
@@ -194,9 +193,7 @@ class _FilesScreenContent extends StatelessWidget {
                                           height: 1.4,
                                         ),
                                       ),
-                          
                                       SizedBox(height: 14),
-                          
                                       /// Raw
                                       Text(
                                         'Raw Files',
@@ -215,9 +212,7 @@ class _FilesScreenContent extends StatelessWidget {
                                           height: 1.4,
                                         ),
                                       ),
-                          
                                       SizedBox(height: 16),
-                          
                                       /// Footer hint
                                       Row(
                                         crossAxisAlignment: CrossAxisAlignment.start,

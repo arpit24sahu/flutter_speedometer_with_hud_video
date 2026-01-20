@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/presentation/screens/home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -12,6 +14,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  late DateTime _startTime;
 
   final List<Map<String, dynamic>> _pages = [
     {
@@ -72,6 +75,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setBool('skipOnboarding', true);
 
+    AnalyticsService().trackEvent(AnalyticsEvents.onboardingCompleted, properties: {
+      "skipped": skipped,
+      "time_spent": DateTime.now().difference(_startTime).inSeconds,
+      "current_page": _currentPage,
+    });
+
     setState(() {
 
     });
@@ -89,9 +98,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   
   @override
   void initState() {
-    // TODO: implement initState
-    shouldSkipOnboarding();
     super.initState();
+    shouldSkipOnboarding();
+    _startTime = DateTime.now();
   }
 
   @override

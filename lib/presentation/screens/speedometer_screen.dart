@@ -9,8 +9,6 @@ import 'package:speedometer/presentation/screens/settings_screen.dart';
 import 'package:speedometer/presentation/widgets/analog_speedometer.dart';
 import 'package:speedometer/presentation/widgets/digital_speedometer.dart';
 
-import '../../utils.dart';
-
 class SpeedometerScreen extends StatefulWidget {
   const SpeedometerScreen({super.key});
 
@@ -24,22 +22,22 @@ class _SpeedometerScreenState extends State<SpeedometerScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    context.read<SpeedometerBloc>().add(StartSpeedTracking());
+    if(context.mounted) context.read<SpeedometerBloc>().add(StartSpeedTracking());
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    context.read<SpeedometerBloc>().add(StopSpeedTracking());
+    if(context.mounted) context.read<SpeedometerBloc>().add(StopSpeedTracking());
     super.dispose();
   }
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      context.read<SpeedometerBloc>().add(StartSpeedTracking());
+      if(context.mounted) context.read<SpeedometerBloc>().add(StartSpeedTracking());
     } else if (state == AppLifecycleState.paused) {
-      context.read<SpeedometerBloc>().add(StopSpeedTracking());
+      if(context.mounted) context.read<SpeedometerBloc>().add(StopSpeedTracking());
     }
   }
 

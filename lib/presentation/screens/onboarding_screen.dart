@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/presentation/screens/home_screen.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class OnboardingScreen extends StatefulWidget {
 class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
+  late DateTime _startTime;
 
   final List<Map<String, dynamic>> _pages = [
     {
@@ -49,7 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       );
     } else {
       // Navigate to home screen or complete onboarding
-      _skipOnboarding(); // Replace with your route
+      completeOnboarding(false); // Replace with your route
     }
   }
 
@@ -62,101 +64,129 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     }
   }
 
-  void _skipOnboarding()async{
-    // Navigate to home screen or complete onboarding
+  // void _skipOnboarding()async{
+  //   // Navigate to home screen or complete onboarding
+  //   SharedPreferences preferences = await SharedPreferences.getInstance();
+  //   await preferences.setBool('skipOnboarding', true);
+  //   Navigator.push(context, MaterialPageRoute(builder: (context) => HomeScreen())); // Replace with your route
+  // }
+
+  Future<void> completeOnboarding(bool skipped)async{
     SharedPreferences preferences = await SharedPreferences.getInstance();
     await preferences.setBool('skipOnboarding', true);
-    Navigator.push(context, MaterialPageRoute(builder: (context) => HomeScreen())); // Replace with your route
+
+    AnalyticsService().trackEvent(AnalyticsEvents.onboardingCompleted, properties: {
+      "skipped": skipped,
+      "time_spent": DateTime.now().difference(_startTime).inSeconds,
+      "current_page": _currentPage,
+    });
+
+    setState(() {
+
+    });
   }
   
-  void shouldSkipOnboarding()async{
+  Future<bool> shouldSkipOnboarding()async{
     SharedPreferences preferences = await SharedPreferences.getInstance();
     print("Would have skipped onboarding: ${(preferences.getBool('skipOnboarding'))}");
-    if(kDebugMode) return;
+    // if(kDebugMode) return false;
+    return (preferences.getBool('skipOnboarding')==true);
     if((preferences.getBool('skipOnboarding'))==true){
-      _skipOnboarding();
+      // _skipOnboarding();
     }
   }
   
   @override
   void initState() {
-    // TODO: implement initState
-    shouldSkipOnboarding();
     super.initState();
+    shouldSkipOnboarding();
+    _startTime = DateTime.now();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Stack(
-        children: [
-          PageView.builder(
-            controller: _pageController,
-            onPageChanged: (int page) {
-              setState(() {
-                _currentPage = page;
-              });
-            },
-            itemCount: _pages.length,
-            itemBuilder: (context, index) {
-              return _buildPage(
-                title: _pages[index]['title'],
-                tagline: _pages[index]['tagline'],
-                color: _pages[index]['color'],
-                image: _pages[index]['image'],
-              );
-            },
-          ),
-          Positioned(
-            top: 40,
-            right: 20,
-            child: TextButton(
-              onPressed: _skipOnboarding,
-              child: const Text(
-                'Skip',
-                style: TextStyle(color: Colors.white, fontSize: 16),
+
+    return FutureBuilder<bool>(
+      future: shouldSkipOnboarding(),
+      builder: (BuildContext context, AsyncSnapshot<bool> snapshot){
+        if(!snapshot.hasData) return CircularProgressIndicator();
+        if(snapshot.data == true) return HomeScreen();
+
+
+        return Scaffold(
+          body: Stack(
+            children: [
+              PageView.builder(
+                controller: _pageController,
+                onPageChanged: (int page) {
+                  setState(() {
+                    _currentPage = page;
+                  });
+                },
+                itemCount: _pages.length,
+                itemBuilder: (context, index) {
+                  return _buildPage(
+                    title: _pages[index]['title'],
+                    tagline: _pages[index]['tagline'],
+                    color: _pages[index]['color'],
+                    image: _pages[index]['image'],
+                  );
+                },
               ),
-            ),
-          ),
-          Positioned(
-            bottom: 80,
-            left: 0,
-            right: 0,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(
-                _pages.length,
-                    (index) => _buildDot(index == _currentPage),
+              Positioned(
+                top: 40,
+                right: 20,
+                child: TextButton(
+                  onPressed: () async => await completeOnboarding(true),
+                  child: const Text(
+                    'Skip',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
               ),
-            ),
-          ),
-          Positioned(
-            bottom: 20,
-            left: 20,
-            child: _currentPage > 0
-                ? TextButton(
-              onPressed: _previousPage,
-              child: const Text(
-                'Previous',
-                style: TextStyle(color: Colors.white, fontSize: 16),
+              Positioned(
+                bottom: 80,
+                left: 0,
+                right: 0,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(
+                    _pages.length,
+                        (index) => _buildDot(index == _currentPage),
+                  ),
+                ),
               ),
-            )
-                : const SizedBox.shrink(),
-          ),
-          Positioned(
-            bottom: 20,
-            right: 20,
-            child: TextButton(
-              onPressed: _nextPage,
-              child: Text(
-                _currentPage == _pages.length - 1 ? 'Get Started' : 'Continue',
-                style: const TextStyle(color: Colors.white, fontSize: 16),
+              Positioned(
+                bottom: 20,
+                left: 20,
+                child: _currentPage > 0
+                    ? TextButton(
+                  onPressed: _previousPage,
+                  child: const Text(
+                    'Previous',
+                    style: TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                )
+                    : const SizedBox.shrink(),
               ),
-            ),
+              Positioned(
+                bottom: 20,
+                right: 20,
+                child: TextButton(
+                  onPressed: _nextPage,
+                  child: Text(
+                    _currentPage == _pages.length - 1 ? 'Get Started' : 'Continue',
+                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
+
+
   }
 
   Widget _buildPage({

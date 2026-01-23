@@ -1,9 +1,11 @@
 import 'dart:io';
+import 'dart:ui';
 
 import 'package:flutter/foundation.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/firebase_analytics_service.dart';
 import 'package:speedometer/features/analytics/services/mixpanel_service.dart';
+import 'package:speedometer/presentation/screens/home_screen.dart';
 import 'package:speedometer/services/misc_service.dart';
 
 /// Central analytics service that orchestrates all analytics providers.
@@ -116,6 +118,10 @@ class AnalyticsService {
       AnalyticsParams.androidBrand: DeviceInfoService().androidBrand,
       AnalyticsParams.androidManufacturer: DeviceInfoService().androidManufacturer,
       AnalyticsParams.androidVersion: DeviceInfoService().androidVersion,
+      AnalyticsParams.currentTabIndex: AppTabState.currentTabIndex.value,
+      AnalyticsParams.currentTabName: AppTabState.tabName(AppTabState.currentTabIndex.value),
+      AnalyticsParams.previousTabIndex: AppTabState.previousTabIndex,
+      AnalyticsParams.previousTabName: AppTabState.tabName(AppTabState.previousTabIndex),
     };
 
     // Add optional common parameters if set
@@ -182,6 +188,66 @@ class AnalyticsService {
     };
 
     trackEvent(AnalyticsEvents.errorOccurred, properties: eventProperties);
+  }
+
+
+  void trackAppLifeCycle(AppLifecycleState state) {
+    final eventProperties = <String, dynamic>{
+      AnalyticsParams.lifecycleState: state.name,
+    };
+
+    trackEvent(AnalyticsEvents.lifecycleState, properties: eventProperties);
+
+    if(state == AppLifecycleState.resumed) {
+      trackEvent(AnalyticsEvents.appResumed, properties: eventProperties);
+    } else if(state == AppLifecycleState.paused) {
+      trackEvent(AnalyticsEvents.appBackgrounded, properties: eventProperties);
+    }
+  }
+
+
+  // Pass all uncaught "fatal" errors from the framework to Crashlytics
+  /// Pass all uncaught "fatal" errors from the Flutter framework
+  void recordFlutterFatalError(FlutterErrorDetails errorDetails) {
+    final eventProperties = <String, dynamic>{
+      AnalyticsParams.errorMessage: errorDetails.exceptionAsString(),
+      AnalyticsParams.errorType: errorDetails.exception.runtimeType.toString(),
+      'stackTrace': errorDetails.stack?.toString(),
+      'library': errorDetails.library,
+      'context': errorDetails.context?.toDescription(),
+      'isFatal': true,
+    };
+
+    trackEvent(
+      AnalyticsEvents.flutterFatalError,
+      properties: eventProperties,
+    );
+  }
+
+  // Pass all uncaught asynchronous errors that aren't handled by the Flutter framework to Crashlytics
+  /// Pass all uncaught async / platform errors
+  void recordError(dynamic exception, StackTrace? stack, {
+        dynamic reason,
+        Iterable<Object> information = const [],
+        bool? printDetails,
+        bool fatal = false,
+      }) {
+    final eventProperties = <String, dynamic>{
+      AnalyticsParams.errorMessage: exception.toString(),
+      AnalyticsParams.errorType: exception.runtimeType.toString(),
+      if (stack != null) 'stackTrace': stack.toString(),
+      if (reason != null) AnalyticsParams.reason: reason.toString(),
+      if (information.isNotEmpty) 'information': information.map((e) => e.toString()).toList(),
+      'isFatal': fatal,
+      AnalyticsParams.timestamp: DateTime.now().toIso8601String(),
+    };
+
+    trackEvent(
+      fatal
+          ? AnalyticsEvents.fatalErrorOccurred
+          : AnalyticsEvents.errorOccurred,
+      properties: eventProperties,
+    );
   }
 
   /// Resets user identity across all analytics services.

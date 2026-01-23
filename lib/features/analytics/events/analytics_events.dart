@@ -16,17 +16,21 @@ class AnalyticsEvents {
   static const String appClosed = 'app_closed';
   static const String appBackgrounded = 'app_backgrounded';
   static const String appResumed = 'app_resumed';
+  static const String appInitialized = 'app_initialized';
 
   // ─────────────────────────────────────────────────────────────────────────
   // Navigation Events
   // ─────────────────────────────────────────────────────────────────────────
   static const String pageViewed = 'page_viewed';
   static const String buttonClicked = 'button_clicked';
+  static const String lifecycleState = 'lifecycle_state';
   static const String tabPress = 'tab_press';
 
   // ─────────────────────────────────────────────────────────────────────────
   // Feature Events
   // ─────────────────────────────────────────────────────────────────────────
+
+  static const String onboardingCompleted = 'onboarding_completed';
   static const String recordingStarted = 'recording_started';
   static const String recordingStopped = 'recording_stopped';
   static const String speedometerViewed = 'speedometer_viewed';
@@ -56,6 +60,8 @@ class AnalyticsEvents {
   // Error Events
   // ─────────────────────────────────────────────────────────────────────────
   static const String errorOccurred = 'error_occurred';
+  static const String flutterFatalError = 'FLUTTER_FATAL_ERROR';
+  static const String fatalErrorOccurred = 'FATAL_ERROR_OCCURRED';
 }
 
 /// Common parameter keys for analytics events.
@@ -76,6 +82,13 @@ class AnalyticsParams {
   static const String androidBrand = 'android_brand';
   static const String androidManufacturer = 'android_manufacturer';
   static const String androidVersion = 'android_version';
+  static const String currentTabIndex = 'current_tab_index';
+  static const String currentTabName = 'current_tab_name';
+  static const String previousTabIndex = 'previous_tab_index';
+  static const String previousTabName = 'previous_tab_name';
+  static const String reason = 'reason';
+
+
 
   // ─────────────────────────────────────────────────────────────────────────
   // Event-Specific Parameters
@@ -88,4 +101,5 @@ class AnalyticsParams {
   static const String errorType = 'error_type';
   static const String duration = 'duration';
   static const String success = 'success';
+  static const String lifecycleState = 'lifecycle_state';
 }

@@ -16,7 +16,7 @@
 
 
     <application
-        android:label="Speedometer"
+        android:label="TurboGauge"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon"
         android:requestLegacyExternalStorage="true">

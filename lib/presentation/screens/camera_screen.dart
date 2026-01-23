@@ -7,7 +7,6 @@ import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -19,17 +18,16 @@ import 'package:speedometer/features/files/bloc/files_bloc.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
-import 'package:speedometer/presentation/widgets/premium_badge.dart';
 import 'package:get_it/get_it.dart';
 import '../../features/processing/bloc/jobs_bloc.dart';
 import '../../features/processing/bloc/processor_bloc.dart';
-import '../../core/services/screen_record_service.dart';
 import '../../core/services/screen_recorder.dart';
 import '../../packages/gal.dart';
 import '../bloc/video_recorder_bloc.dart';
 import '../widgets/digital_speedometer_overlay2.dart';
 import '../widgets/video_recorder_service.dart';
 import 'gauge_settings_screen.dart';
+import 'home_screen.dart';
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -38,15 +36,10 @@ class CameraScreen extends StatefulWidget {
   State<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> {
-  CameraController? _controller;
-  // bool _isProcessing = false;
-  // String? _lastVideoPath;
+class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAware {
+  CameraController? _cameraController;
   final CameraService _cameraService = getIt<CameraService>();
-  late final ScreenRecordService _screenRecordService;
-  final ScreenRecorderController _screenRecorderController = ScreenRecorderController(
-    pixelRatio: 1
-  );
+  final ScreenRecorderController _screenRecorderController = ScreenRecorderController(pixelRatio: 1);
   final GlobalKey _speedometerKey = GlobalKey();
 
   bool _isPermissionGranted = false;
@@ -56,8 +49,6 @@ class _CameraScreenState extends State<CameraScreen> {
   @override
   void initState() {
     super.initState();
-    _screenRecordService = ScreenRecordServiceImpl();
-    _screenRecordService.initialize();
     _checkPermissionsAndInit();
   }
 
@@ -107,7 +98,7 @@ class _CameraScreenState extends State<CameraScreen> {
       return;
     }
 
-    _controller = CameraController(
+    _cameraController = CameraController(
       cameras[cameraIndex],
       ResolutionPreset.high,
       enableAudio: true,
@@ -115,7 +106,7 @@ class _CameraScreenState extends State<CameraScreen> {
     _currentCameraIndex = cameraIndex;
 
     try {
-      await _controller!.initialize();
+      await _cameraController!.initialize();
       if (mounted) {
         setState(() {});
       }
@@ -124,15 +115,26 @@ class _CameraScreenState extends State<CameraScreen> {
     }
   }
 
+
+  @override
+  void onTabInvisible() {
+    _cameraController?.pausePreview();
+  }
+
+  @override
+  void onTabVisible() {
+    _cameraController?.resumePreview();
+  }
+
+
   @override
   void dispose() {
-    _screenRecordService.dispose();
-    _controller?.dispose();
+    _cameraController?.dispose();
     super.dispose();
   }
 
   Future<void> _toggleRecording(BuildContext contextWithBloc) async {
-    if (_controller == null || !_controller!.value.isInitialized) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Camera not initialized'),
@@ -697,7 +699,7 @@ class _CameraScreenState extends State<CameraScreen> {
       );
     }
 
-    if (_controller == null || !_controller!.value.isInitialized) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(child: CircularProgressIndicator(color: Colors.red)),
@@ -708,7 +710,7 @@ class _CameraScreenState extends State<CameraScreen> {
       create: (context) => VideoRecorderBloc(
             recorderService: WidgetRecorderService(
               widgetKey: _speedometerKey,
-              cameraController: _controller!,
+              cameraController: _cameraController!,
             ),
             jobsBloc: GetIt.I<JobsBloc>(),
             processorBloc: GetIt.I<ProcessorBloc>(),
@@ -802,9 +804,9 @@ class _CameraScreenState extends State<CameraScreen> {
                                   // Camera preview
                                   Positioned.fill(
                                     child: AspectRatio(
-                                      aspectRatio: _controller!.value.aspectRatio,
+                                      aspectRatio: _cameraController!.value.aspectRatio,
                                       child: CameraPreview(
-                                        _controller!,
+                                        _cameraController!,
                                         // child: (_isProcessing)
                                         //     ? Center(
                                         //   child: Stack(
@@ -944,17 +946,17 @@ class _CameraScreenState extends State<CameraScreen> {
                                       if(!isProcessing){
                                         HapticFeedback.mediumImpact();
                                         if(isRecording){
-                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStarted,
+                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStopped,
                                             properties: {
-                                              "cameraOrientation": _currentCameraIndex%2==0 ? "FRONT" : "BACK",
+                                              "cameraOrientation": _currentCameraIndex%2==0 ? "BACK" : "FRONT",
                                               "cameraOrientationIndex": _currentCameraIndex,
                                               "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson()
                                             }
                                           );
                                         } else {
-                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStopped,
+                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStarted,
                                               properties: {
-                                                "cameraOrientation": _currentCameraIndex%2==0 ? "FRONT" : "BACK",
+                                                "cameraOrientation": _currentCameraIndex%2==0 ? "BACK" : "FRONT",
                                                 "cameraOrientationIndex": _currentCameraIndex,
                                                 "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson()
                                               }

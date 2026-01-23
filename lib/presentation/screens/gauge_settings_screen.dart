@@ -32,6 +32,68 @@ class GaugeSettingsScreen extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             children: [
               _buildSectionTitle('Visibility'),
+              PremiumFeatureGate(
+                  premiumContent: _buildSettingTile(
+                    title: 'Hide Label',
+                    isPremium: false,
+                    subtitle: 'Hide TurboGauge Label',
+                    icon: Icons.text_fields,
+                    onTap: () {
+                      AnalyticsService().trackEvent(AnalyticsEvents.toggleLabelVisibility,
+                          properties: {
+                            "previousGaugeState": state.toJson(),
+                            "showMaxSpeed": !state.showLabel // show value after toggle
+                          }
+                      );
+                      context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
+                    },
+                    trailing: Switch(
+                      value: !state.showLabel,
+                      onChanged: (_) {
+                        AnalyticsService().trackEvent(AnalyticsEvents.toggleLabelVisibility,
+                            properties: {
+                              "previousGaugeState": state.toJson(),
+                              "showMaxSpeed": !state.showLabel // show value after toggle
+                            }
+                        );
+                        context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
+                      },
+                      activeColor: state.gaugeColor,
+                    ),
+                  ),
+                  freeContent: _buildSettingTile(
+                    title: 'Hide Label',
+                    isPremium: true,
+                    subtitle: 'Hide TurboGauge Label',
+                    icon: Icons.text_fields,
+                    onTap: () {
+                      AnalyticsService().trackEvent(AnalyticsEvents.premiumScreenViewed,
+                          properties: {
+                            "source": "hide_label_button",
+                            "previousGaugeState": state.toJson(),
+                            "showMaxSpeed": !state.showLabel // show value after toggle
+                          }
+                      );
+                      PremiumUpgradeDialog.show(context);
+                      // context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
+                    },
+                    trailing: Switch(
+                      value: !state.showLabel,
+                      onChanged: (_) {
+                        AnalyticsService().trackEvent(AnalyticsEvents.premiumScreenViewed,
+                            properties: {
+                              "source": "hide_label_button",
+                              "previousGaugeState": state.toJson(),
+                              "showMaxSpeed": !state.showLabel // show value after toggle
+                            }
+                        );
+                        PremiumUpgradeDialog.show(context);
+                        // context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
+                      },
+                      activeColor: state.gaugeColor,
+                    ),
+                  ),
+              ),
               _buildSettingTile(
                 title: 'Show Gauge',
                 subtitle: 'Toggle gauge visibility',
@@ -159,68 +221,6 @@ class GaugeSettingsScreen extends StatelessWidget {
               //     activeColor: state.gaugeColor,
               //   ),
               // ),
-              PremiumFeatureGate(
-                  premiumContent: _buildSettingTile(
-                    title: 'Hide Label',
-                    isPremium: false,
-                    subtitle: 'Hide TurboGauge Label',
-                    icon: Icons.text_fields,
-                    onTap: () {
-                      AnalyticsService().trackEvent(AnalyticsEvents.toggleLabelVisibility,
-                          properties: {
-                            "previousGaugeState": state.toJson(),
-                            "showMaxSpeed": !state.showLabel // show value after toggle
-                          }
-                      );
-                      context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
-                    },
-                    trailing: Switch(
-                      value: !state.showLabel,
-                      onChanged: (_) {
-                        AnalyticsService().trackEvent(AnalyticsEvents.toggleLabelVisibility,
-                            properties: {
-                              "previousGaugeState": state.toJson(),
-                              "showMaxSpeed": !state.showLabel // show value after toggle
-                            }
-                        );
-                        context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
-                      },
-                      activeColor: state.gaugeColor,
-                    ),
-                  ),
-                  freeContent: _buildSettingTile(
-                    title: 'Hide Label',
-                    isPremium: true,
-                    subtitle: 'Hide TurboGauge Label',
-                    icon: Icons.text_fields,
-                    onTap: () {
-                      AnalyticsService().trackEvent(AnalyticsEvents.premiumScreenViewed,
-                          properties: {
-                            "source": "hide_label_button",
-                            "previousGaugeState": state.toJson(),
-                            "showMaxSpeed": !state.showLabel // show value after toggle
-                          }
-                      );
-                      PremiumUpgradeDialog.show(context);
-                      // context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
-                    },
-                    trailing: Switch(
-                      value: !state.showLabel,
-                      onChanged: (_) {
-                        AnalyticsService().trackEvent(AnalyticsEvents.premiumScreenViewed,
-                            properties: {
-                              "source": "hide_label_button",
-                              "previousGaugeState": state.toJson(),
-                              "showMaxSpeed": !state.showLabel // show value after toggle
-                            }
-                        );
-                        PremiumUpgradeDialog.show(context);
-                        // context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
-                      },
-                      activeColor: state.gaugeColor,
-                    ),
-                  ),
-              ),
 
 
               const Divider(),

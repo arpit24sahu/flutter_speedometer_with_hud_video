@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
 import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
@@ -34,6 +35,8 @@ class _SpeedometerScreenState extends State<SpeedometerScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Also logs App Backgrounded or Foregrounded Events
+    AnalyticsService().trackAppLifeCycle(state);
     if (state == AppLifecycleState.resumed) {
       if(context.mounted) context.read<SpeedometerBloc>().add(StartSpeedTracking());
     } else if (state == AppLifecycleState.paused) {

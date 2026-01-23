@@ -26,7 +26,7 @@ class PurchaseService {
       //     ? _apiKeyIOS
       //     : _apiKeyAndroid;
 
-      await Purchases.setLogLevel(LogLevel.debug); // Remove in production
+      await Purchases.setLogLevel((kDebugMode) ? LogLevel.debug : LogLevel.error); // Remove in production
 
       await Purchases.configure(PurchasesConfiguration(apiKey));
 

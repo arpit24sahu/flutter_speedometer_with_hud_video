@@ -15,6 +15,31 @@ import 'package:speedometer/services/permission_service.dart';
 
 import '../widgets/global_processing_indicator.dart';
 
+class AppTabState {
+  AppTabState._();
+
+  static final ValueNotifier<int> currentTabIndex = ValueNotifier(0);
+  static int previousTabIndex = -1;
+
+  static void updateCurrentTab(int newIndex) {
+    if (currentTabIndex.value == newIndex) return;
+
+    previousTabIndex = currentTabIndex.value;
+    currentTabIndex.value = newIndex;
+  }
+
+  static String tabName(int index){
+    switch(index) {
+      case 0: return 'camera';
+      case 1: return 'speedometer';
+      case 2: return 'files';
+    // case 3: return 'Settings';
+      case 3: return 'jobs';
+      default: return 'camera';
+    }
+  }
+}
+
 abstract class TabVisibilityAware {
   void onTabVisible();
   void onTabInvisible();
@@ -64,9 +89,10 @@ class _HomeScreenState extends State<HomeScreen> {
           "tab": screenName(index),
           "tabIndex": index,
           "previousTab": screenName(_selectedIndex),
-          "previousTabIndex": screenName(_selectedIndex)
+          "previousTabIndex": _selectedIndex
         }
     );
+    AppTabState.updateCurrentTab(index);
     _notifyInvisible(_selectedIndex);
     _notifyVisible(index);
 

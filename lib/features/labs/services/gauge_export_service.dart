@@ -208,7 +208,7 @@ class GaugeExportService {
     if (samples.isEmpty) return '0';
 
     // Start with the last known speed
-    String expr = samples.last.speedInUnit.toStringAsFixed(0);
+    String expr = samples.last.speedInUnit.toStringAsFixed(1);
 
     // Build the nested if/else logic backwards
     for (int i = samples.length - 2; i >= 0; i--) {

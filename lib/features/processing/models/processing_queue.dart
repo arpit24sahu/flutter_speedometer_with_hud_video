@@ -22,13 +22,18 @@ class ProcessingQueue {
 
   void start() {
     print("Processing Queue Start Called");
-    if (_subscription != null) return;
-
-    _tryProcessNext();
-    _subscription = box.watch().listen((_) {
-      print("New Item Added to Box!");
-      _tryProcessNext();
-    });
+    try {
+      throw "Intentional Error";
+    } catch (e) {
+      print("Error Starting Processing Queue: ${e.toString()}");
+    }
+    // if (_subscription != null) return;
+    //
+    // _tryProcessNext();
+    // _subscription = box.watch().listen((_) {
+    //   print("New Item Added to Box!");
+    //   _tryProcessNext();
+    // });
   }
 
   void _tryProcessNext() {

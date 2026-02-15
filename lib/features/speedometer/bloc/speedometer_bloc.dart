@@ -42,6 +42,7 @@ class SpeedometerBloc extends Bloc<SpeedometerEvent, SpeedometerState> {
     _positionSubscription?.cancel();
     _positionSubscription = locationService.getPositionStream().listen(
       (position) {
+        print("Position Data: ${position.speed} ${position.latitude}");
         final speedMps = position.speed;
         final speedKmh = speedMps * 3.6; // Convert m/s to km/h
         final speedMph = speedMps * 2.23694; // Convert m/s to mph

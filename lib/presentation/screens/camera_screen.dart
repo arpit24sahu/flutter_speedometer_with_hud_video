@@ -23,6 +23,7 @@ import '../../features/labs/models/gauge_customization.dart';
 import '../../features/labs/presentation/speedometer_overlay_3.dart';
 import '../../features/processing/bloc/jobs_bloc.dart';
 import '../../features/processing/bloc/processor_bloc.dart';
+import '../../features/speedometer/bloc/speedometer_event.dart';
 import '../../packages/gal.dart';
 import '../bloc/video_recorder_bloc.dart';
 import '../widgets/video_recorder_service.dart';
@@ -37,7 +38,22 @@ class CameraScreen extends StatefulWidget {
   State<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAware {
+class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver implements TabVisibilityAware  {
+
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Also logs App Backgrounded or Foregrounded Events
+    AnalyticsService().trackAppLifeCycle(state);
+    if (state == AppLifecycleState.resumed) {
+      if(context.mounted) context.read<SpeedometerBloc>().add(StartSpeedTracking());
+    } else if (state == AppLifecycleState.paused) {
+      if(context.mounted) context.read<SpeedometerBloc>().add(StopSpeedTracking());
+    }
+  }
+
+
+
   CameraController? _cameraController;
   final CameraService _cameraService = getIt<CameraService>();
   final GlobalKey _speedometerKey = GlobalKey();
@@ -47,6 +63,10 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
   @override
   void initState() {
     super.initState();
+
+    WidgetsBinding.instance.addObserver(this);
+    if(context.mounted) context.read<SpeedometerBloc>().add(StartSpeedTracking());
+
     _initializeCamera(_currentCameraIndex);
   }
 
@@ -85,6 +105,10 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
   @override
   void dispose() {
     _cameraController?.dispose();
+
+    WidgetsBinding.instance.removeObserver(this);
+    if(context.mounted) context.read<SpeedometerBloc>().add(StopSpeedTracking());
+
     super.dispose();
   }
 

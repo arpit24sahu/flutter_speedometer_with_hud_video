@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/features/labs/models/processing_task.dart';
 import 'package:speedometer/features/labs/models/processed_task.dart';
 import 'package:speedometer/features/labs/models/gauge_customization.dart';
@@ -572,8 +574,10 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
 
     try {
       final directory = await getApplicationDocumentsDirectory();
+      final time = DateTime.now();
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final outputPath = '${directory.path}/TurboGauge_Export_$timestamp.mp4';
+      final processId = timestamp.toString();
 
       // Build the FFmpeg command using GaugeExportService
       final command = await GaugeExportService.buildCommand(
@@ -582,6 +586,22 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
         positionData: widget.task.positionData ?? {},
         outputPath: outputPath,
       );
+      final commandBuildTime = DateTime.now().difference(time).inMilliseconds;
+      AnalyticsService().trackEvent(
+        AnalyticsEvents.ffmpegProcessingStarted,
+        properties: {
+          "process_id": processId,
+          "ffmpeg_command": command,
+          "config": _config.toString(),
+          "input_video_length": widget.task.lengthInSeconds,
+          "input_video_size": widget.task.sizeInKb,
+          "position_data_length": widget.task.positionData?.length,
+          "dial_id": _config.dial?.id,
+          "needle_id": _config.needle?.id,
+          "command_build_time": commandBuildTime
+        }
+      );
+      AnalyticsService().flush();
 
       debugPrint('[Labs Export] Running FFmpeg command...');
       debugPrint('[Labs Export] Command: $command', wrapWidth: 1024);
@@ -591,19 +611,39 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
 
       if (ReturnCode.isSuccess(rc)) {
         debugPrint('[Labs Export] Success: $outputPath');
+        final processRunTime = DateTime.now().difference(time).inMilliseconds;
+        AnalyticsService().trackEvent(
+            AnalyticsEvents.ffmpegCommandResult,
+            properties: {
+              "process_id": processId,
+              "ffmpeg_command": command,
+              "config": _config.toString(),
+              "input_video_length": widget.task.lengthInSeconds,
+              "input_video_size": widget.task.sizeInKb,
+              "position_data_length": widget.task.positionData?.length,
+              "dial_id": _config.dial?.id,
+              "needle_id": _config.needle?.id,
+              "command_build_time": commandBuildTime,
+              "process_run_time": processRunTime,
+              "return_code": rc?.getValue(),
+              AnalyticsParams.success: true,
+              "get_duration": session.getDuration(),
+            }
+        );
 
         // Get file stats
         final file = File(outputPath);
         final stat = await file.stat();
         final sizeInKb = stat.size / 1024.0;
 
+        String? gallerySaveError, rawExportError;
         // Save to gallery
         try {
           final galService = GetIt.I<GalService>();
-          await galService.saveVideoToGallery(outputPath,
-              albumName: 'TurboGauge Exports');
+          await galService.saveVideoToGallery(outputPath, albumName: 'TurboGauge Exports');
           debugPrint('[Labs Export] Saved to gallery');
         } catch (e) {
+          gallerySaveError = e.toString();
           debugPrint('[Labs Export] Gallery save error: $e');
         }
 
@@ -617,6 +657,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
             );
             debugPrint('[Labs Export] Raw video saved to gallery');
           } catch (e) {
+            rawExportError = e.toString();
             debugPrint('[Labs Export] Raw video gallery save error: $e');
           }
         }
@@ -639,8 +680,50 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
           setState(() => _isExporting = false);
           _showSuccessDialog(outputPath, sizeInKb);
         }
+
+        AnalyticsService().trackEvent(
+            AnalyticsEvents.ffmpegProcessingFinished,
+            properties: {
+              "process_id": processId,
+              "ffmpeg_command": command,
+              "config": _config.toString(),
+              "input_video_length": widget.task.lengthInSeconds,
+              "input_video_size": widget.task.sizeInKb,
+              // "output_video_length": widget.task.lengthInSeconds,
+              "output_video_size": sizeInKb,
+              "position_data_length": widget.task.positionData?.length,
+              "dial_id": _config.dial?.id,
+              "needle_id": _config.needle?.id,
+              "command_build_time": commandBuildTime,
+              "process_run_time": processRunTime,
+              "return_code": rc?.getValue(),
+              AnalyticsParams.success: true,
+              "gallery_save_error": gallerySaveError,
+              "raw_export_error": rawExportError,
+              "get_duration": session.getDuration(),
+            }
+        );
       } else {
         final logs = await session.getLogsAsString();
+        AnalyticsService().trackEvent(
+            AnalyticsEvents.ffmpegCommandResult,
+            properties: {
+              "process_id": processId,
+              "ffmpeg_command": command,
+              "config": _config.toString(),
+              "input_video_length": widget.task.lengthInSeconds,
+              "input_video_size": widget.task.sizeInKb,
+              "position_data_length": widget.task.positionData?.length,
+              "dial_id": _config.dial?.id,
+              "needle_id": _config.needle?.id,
+              "command_build_time": commandBuildTime,
+              "return_code": rc?.getValue(),
+              AnalyticsParams.success: false,
+              "logs": logs,
+              "is_crash": false,
+              "get_duration": session.getDuration(),
+            }
+        );
         debugPrint('[Labs Export] FFmpeg failed. RC: $rc');
         debugPrint('[Labs Export] Logs: $logs', wrapWidth: 1024);
         if (mounted) {
@@ -656,6 +739,21 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
     } catch (e, stackTrace) {
       debugPrint('[Labs Export] Exception: $e');
       debugPrint('[Labs Export] Stack: $stackTrace');
+      AnalyticsService().trackEvent(
+          AnalyticsEvents.ffmpegProcessingFailed,
+          properties: {
+            "config": _config.toString(),
+            "input_video_length": widget.task.lengthInSeconds,
+            "input_video_size": widget.task.sizeInKb,
+            "position_data_length": widget.task.positionData?.length,
+            "dial_id": _config.dial?.id,
+            "needle_id": _config.needle?.id,
+            AnalyticsParams.success: false,
+            "is_crash": false,
+            "error": e.toString(),
+            "stack_trace": stackTrace.toString()
+          }
+      );
       if (mounted) {
         setState(() => _isExporting = false);
         ScaffoldMessenger.of(context).showSnackBar(

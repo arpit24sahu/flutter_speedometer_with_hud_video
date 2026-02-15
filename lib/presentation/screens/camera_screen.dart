@@ -471,15 +471,15 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                'Recording saved! ${videoRecorderState.positionDataPoints} GPS points captured. Go to Jobs tab to build video with speedometer overlay.',
+                'Recording saved! Go to Labs tab to build video with speedometer overlay.',
               ),
               backgroundColor: Colors.green,
-              duration: const Duration(seconds: 5),
+              duration: const Duration(seconds: 3),
               action: SnackBarAction(
                 label: 'Jobs',
                 textColor: Colors.white,
                 onPressed: () {
-                  AppTabState.updateCurrentTab(3);
+                  AppTabState.updateCurrentTab(1);
                 },
               ),
             ),

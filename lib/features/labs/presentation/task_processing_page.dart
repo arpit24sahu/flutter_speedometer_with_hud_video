@@ -12,6 +12,8 @@ import 'package:speedometer/features/labs/models/gauge_customization.dart';
 import 'package:speedometer/features/labs/data/gauge_options.dart';
 import 'package:speedometer/features/labs/services/labs_service.dart';
 import 'package:speedometer/features/labs/services/gauge_export_service.dart';
+import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
+import 'package:speedometer/features/premium/widgets/premium_upgrade_dialog.dart';
 import 'package:speedometer/packages/gal.dart';
 import 'package:get_it/get_it.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
@@ -1095,22 +1097,50 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                   const SizedBox(height: 20),
 
                 // ─── TurboGauge Branding ───
-                _buildSectionHeader('Branding'),
+                _buildSectionHeader('Watermark'),
                 const SizedBox(height: 8),
-                _buildOptionTile(
-                  icon: Icons.branding_watermark,
-                  title: 'TurboGauge Branding',
-                  subtitle: (_config.showBranding ?? true)
-                      ? 'Watermark will be shown'
-                      : 'No watermark',
-                  trailing: Switch(
-                    value: _config.showBranding ?? true,
-                    activeColor: Colors.blueAccent,
-                    onChanged: (val) =>
-                        _updateConfig((c) => c.copyWith(showBranding: val)),
+                PremiumFeatureGate(
+                  premiumContent: _buildOptionTile(
+                      icon: Icons.branding_watermark,
+                      title: 'Show Watermark',
+                      subtitle: (_config.showBranding ?? true)
+                          ? 'TurboGauge Watermark will be shown'
+                          : 'No watermark',
+                      trailing: Switch(
+                          value: _config.showBranding ?? true,
+                          activeColor: Colors.blueAccent,
+                          onChanged: (val) {
+                            PremiumUpgradeDialog.show(context);
+                            _updateConfig((c) => c.copyWith(showBranding: val));
+                          }
+
+                      ),
+                      onTap: () {
+                        _updateConfig((c) =>
+                            c.copyWith(showBranding: !(_config.showBranding ?? true)));
+                      }
                   ),
-                  onTap: () => _updateConfig((c) =>
-                      c.copyWith(showBranding: !(_config.showBranding ?? true))),
+                  freeContent: _buildOptionTile(
+                      icon: Icons.branding_watermark,
+                      title: 'TurboGauge Watermark',
+                      subtitle: (_config.showBranding ?? true)
+                          ? 'Watermark will be shown'
+                          : 'No watermark',
+                      trailing: Switch(
+                          value: _config.showBranding ?? true,
+                          activeColor: Colors.blueAccent,
+                          onChanged: (val) {
+                            PremiumUpgradeDialog.show(context);
+                            // _updateConfig((c) => c.copyWith(showBranding: val));
+                          }
+
+                      ),
+                      onTap: () {
+                        PremiumUpgradeDialog.show(context);
+                        // _updateConfig((c) =>
+                        //     c.copyWith(showBranding: !(_config.showBranding ?? true)));
+                      }
+                  ),
                 ),
 
                 const SizedBox(height: 20),

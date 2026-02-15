@@ -105,6 +105,7 @@ extension LabsGaugePlacementExt on LabsGaugePlacement {
 
 class Dial {
   final String? id;
+  final String? name;
   final DialStyle? style;
   final AssetType? assetType;
   final String? path;
@@ -120,6 +121,7 @@ class Dial {
 
   const Dial({
     this.id,
+    this.name,
     this.style,
     this.assetType,
     this.path,
@@ -142,7 +144,7 @@ class Dial {
 
   @override
   String toString() =>
-      'Dial(id: $id, style: $style, path: $path, '
+      'Dial(id: $id, name: $name, style: $style, path: $path, '
       'sweep: $needleMinAngle→$needleMaxAngle)';
 }
 
@@ -150,6 +152,7 @@ class Dial {
 
 class Needle {
   final String? id;
+  final String? name;
   final AssetType? assetType;
   final String? path;
   final int? sizeInKb;
@@ -164,6 +167,7 @@ class Needle {
 
   const Needle({
     this.id,
+    this.name,
     this.assetType,
     this.path,
     this.sizeInKb,
@@ -174,20 +178,20 @@ class Needle {
   });
 
   @override
-  String toString() => 'Needle(id: $id, path: $path, color: $color)';
+  String toString() => 'Needle(id: $id, name: $name, path: $path, color: $color)';
 }
 
 // ─── GaugeCustomizationOption ───
 
 /// One choosable gauge option (a dial + its compatible needles).
 class GaugeCustomizationOption {
-  final String? id;
+  final String? id, name;
   final Dial? dial;
   final List<Needle>? needles;
   final Map<String, dynamic>? extra;
 
   const GaugeCustomizationOption({
-    this.id,
+    this.id, this.name,
     this.dial,
     this.needles,
     this.extra,
@@ -198,7 +202,7 @@ class GaugeCustomizationOption {
 
   @override
   String toString() =>
-      'GaugeCustomizationOption(id: $id, dial: ${dial?.id}, '
+      'GaugeCustomizationOption(id: $id, name: $name} dial: ${dial?.id}, '
       'needles: ${needles?.length ?? 0})';
 }
 

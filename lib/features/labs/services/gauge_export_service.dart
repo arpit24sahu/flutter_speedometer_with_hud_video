@@ -200,6 +200,38 @@ class GaugeExportService {
     return samples;
   }
 
+
+  /// Builds the FFmpeg expression for the speed text value (JUST THE MATH).
+  static String _buildSpeedTextExpression(
+      List<_SpeedSample> samples,
+      ) {
+    if (samples.isEmpty) return '0';
+
+    // Start with the last known speed
+    String expr = samples.last.speedInUnit.toStringAsFixed(0);
+
+    // Build the nested if/else logic backwards
+    for (int i = samples.length - 2; i >= 0; i--) {
+      final tI = samples[i].timeSec;
+      final tNext = samples[i + 1].timeSec;
+      final sI = samples[i].speedInUnit;
+      final sNext = samples[i + 1].speedInUnit;
+      final dt = tNext - tI;
+
+      if (dt <= 0) continue;
+
+      final slope = (sNext - sI) / dt;
+
+      // Logic: speed_start + slope * (t - t_start)
+      // We use 'floor' or 'trunc' to ensure we get a clean integer for the text
+      expr = 'if(lt(t\\,${tNext.toStringAsFixed(3)})\\,'
+          'floor(${sI.toStringAsFixed(2)}+${slope.toStringAsFixed(4)}*(t-${tI.toStringAsFixed(3)}))'
+          '\\,$expr)';
+    }
+
+    return expr;
+  }
+
   /// Linear interpolation of speed at a given timestamp (ms since epoch).
   static double _interpolateSpeed(
       List<PositionData> sorted, int targetMs) {
@@ -340,6 +372,19 @@ class GaugeExportService {
     final dial = config.dial ?? const Dial();
     final rotExpr = _buildRotationExpression(samples, dialMax, dial);
     debugPrint('[GaugeExport] Rotation expression length: ${rotExpr.length} chars');
+    // CHANGED: We now pass the unit separately in the drawtext filter, not the expression
+    final speedMathExpr = _buildSpeedTextExpression(samples);
+    final unitLabel = imperial ? "mph" : "km/h";
+
+    // 7. Build filter_complex
+    // We apply drawtext to the [gauge] layer (the dial + needle composite)
+    // before overlaying it on the main video.
+
+    // Relative sizes based on gauge size (gs)
+    final fontSizeSpeed = (gs * 0.14).round(); // 12% of gauge size
+    final fontSizeBrand = (gs * 0.10).round(); // 10% of gauge size
+    final verticalPadding = (gs * 0.05).round(); // 5% padding from bottom
+
 
     // 6. Determine placement
     final placement = config.labsPlacement;
@@ -353,13 +398,79 @@ class GaugeExportService {
     // NOTE: Use bare commas for filter separators, and \, only inside
     // expressions (like rotate=). The command wraps this in single quotes
     // so ffmpeg_kit preserves backslashes literally for FFmpeg.
-    final filterComplex =
+
+    String filterComplex =
         '[1:v]format=rgba,scale=$gs:$gs[dial];'
         '[2:v]format=rgba,scale=$gs:$gs,'
-    // Wrap $rotExpr in single quotes '...'
         'rotate=angle=\'$rotExpr\':ow=$gs:oh=$gs:fillcolor=none[nrot];'
-        '[dial][nrot]overlay=0:0:format=auto[gauge];'
-        '[0:v][gauge]overlay=$overlayPos:format=auto[out]';
+        '[dial][nrot]overlay=0:0:format=auto[base_gauge];';
+
+
+    final ByteData data = await rootBundle.load("assets/fonts/RacingSansOne-Regular.ttf");
+    final Uint8List bytes = data.buffer.asUint8List();
+
+    final Directory dir = await getTemporaryDirectory();
+    final File file = File('${dir.path}/RacingSansOne-Regular.ttf');
+    await file.writeAsBytes(bytes, flush: true);
+    String fontFile = file.path;
+
+    // // Add Dynamic Speed Text
+    filterComplex += '[base_gauge]drawtext='
+        'text=\'%{eif\\:$speedMathExpr\\:d} $unitLabel\':'
+        'fontcolor=white:'
+        'fontfile=$fontFile:'
+        'fontsize=$fontSizeSpeed:'
+        'x=(w-text_w)/2:'
+        'y=h-text_h-text_h-$verticalPadding'
+        '[gauge_with_speed];';
+
+
+    // filterComplex += '[base_gauge]drawtext='
+    //     'text=\'%{eif\\:$speedMathExpr\\:d}\':'
+    //     'fontfile=$fontFile:'
+    //     'fontcolor=white:'
+    //     'fontsize=$fontSizeSpeed:'
+    //     'x=(w/2)-(text_w)-10:'
+    //     'y=h-$fontSizeSpeed-$verticalPadding'
+    //     '[speed_layer];';
+    //
+    // filterComplex +=
+    // '[speed_layer]drawtext='
+    //     'text=\'$unitLabel\':'
+    //     'fontfile=$fontFile:'
+    //     'fontcolor=white:'
+    //     'fontsize=${fontSizeSpeed*0.8}:'
+    //     'x=(w/2)-10:'
+    //     'y=h-${fontSizeSpeed*0.8}-$verticalPadding'
+    //     '[gauge_with_speed];';
+
+
+
+    // Add Static Branding (TurboGauge) if enabled
+    // Assuming config has a boolean for watermark. If not, add one to your model.
+    bool showWatermark = true; // Replace with config.showWatermark if available
+    String lastLabel = '[gauge_with_speed]';
+
+    if(showWatermark){
+        filterComplex += '${lastLabel}drawtext='
+      'text=\'TURBOGAUGE\':'
+      'fontcolor=white:'
+      'fontfile=$fontFile:'
+      'fontsize=$fontSizeBrand:'
+      'x=(w-text_w)/2:'
+      'y=h-text_h'
+      '[gauge_final];';
+      lastLabel = '[gauge_final]';
+    } else {
+      lastLabel = '[gauge_with_speed]';
+    }
+
+    // Final overlay onto the main video
+    filterComplex += '[0:v]$lastLabel overlay=$overlayPos:format=auto[out]';
+
+    final tempDir = await getTemporaryDirectory();
+    final filterFile = File('${tempDir.path}/filter.txt');
+    await filterFile.writeAsString(filterComplex);
 
     // 8. Full command
     // Use single quotes around filter_complex so ffmpeg_kit's argument
@@ -369,7 +480,8 @@ class GaugeExportService {
         '-i "$inputVideoPath" '
         '-loop 1 -i "$dialPath" '
         '-loop 1 -i "$needlePath" '
-        '-filter_complex "$filterComplex" ' // Use double quotes outside
+        // '-filter_complex "$filterComplex" ' // Use double quotes outside
+        '-filter_complex_script ${filterFile.path} '
         '-map "[out]" '
         '-map 0:a? '
         '-shortest '                  // Stop when video ends -> CRITICAL

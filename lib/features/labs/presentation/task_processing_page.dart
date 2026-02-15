@@ -401,7 +401,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
       } else {
         final logs = await session.getLogsAsString();
         debugPrint('[Labs Export] FFmpeg failed. RC: $rc');
-        debugPrint('[Labs Export] Logs: $logs');
+        debugPrint('[Labs Export] Logs: $logs', wrapWidth: 1024);
         if (mounted) {
           setState(() => _isExporting = false);
           ScaffoldMessenger.of(context).showSnackBar(

@@ -3,9 +3,31 @@ import 'package:speedometer/features/labs/models/gauge_customization.dart';
 
 final List<Needle> _needles = [
   Needle(
+    id: 'classic_needle_black_1',
+    name: "Classic 1",
+    assetType: AssetType.network,
+    path: 'https://i.ibb.co/kgpT3qxx/classic-needle-1.png',
+    color: 'black',
+  ),
+  Needle(
     id: 'classic_needle_black',
+    name: "Classic Thin",
     assetType: AssetType.network,
     path: 'https://i.ibb.co/bMD3KpK0/needle.png',
+    color: 'black',
+  ),
+  Needle(
+    id: 'compass_needle_red_white',
+    name: "Compass",
+    assetType: AssetType.network,
+    path: 'https://i.ibb.co/Y4BGgW8K/compass-needle.png',
+    color: 'red',
+  ),
+  Needle(
+    id: 'pen_needle_black',
+    name: "Pen",
+    assetType: AssetType.network,
+    path: 'https://i.ibb.co/hTbLQnK/pen-needle.png',
     color: 'black',
   ),
 ];
@@ -13,11 +35,21 @@ final List<Needle> _needles = [
 final List<Dial> _dials = [
   const Dial(
     id: 'classic_dial',
+    name: "Old",
     style: DialStyle.analog,
     assetType: AssetType.network,
     path: 'https://i.ibb.co/whLrrLNy/image.png',
     needleMinAngle: 0,
     needleMaxAngle: 270,
+  ),
+  const Dial(
+    id: 'classic_colored_dial',
+    name: 'Classic',
+    style: DialStyle.analog,
+    assetType: AssetType.network,
+    path: 'https://i.ibb.co/QFtc3pnm/SHARMA-2.png',
+    needleMinAngle: 0,
+    needleMaxAngle: 240,
   ),
 ];
 
@@ -31,9 +63,15 @@ final List<Dial> _dials = [
 ///   - Needle image must point straight up in rest position
 final List<GaugeCustomizationOption> kGaugeOptions = [
   // ─── Classic ───
+  // GaugeCustomizationOption(
+  //   id: 'classic',
+  //   dial: _dials[0],
+  //   needles: _needles
+  // ),
   GaugeCustomizationOption(
-    id: 'classic',
-    dial: _dials[0],
+    id: 'classic_colored',
+    name: "Classic 1",
+    dial: _dials[1],
     needles: _needles
   ),
 

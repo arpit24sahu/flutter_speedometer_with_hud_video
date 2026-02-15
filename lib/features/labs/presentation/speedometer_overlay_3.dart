@@ -4,16 +4,29 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../models/gauge_customization.dart';
 import 'bloc/gauge_customization_bloc.dart';
 
+/// A speedometer overlay widget that renders a dial + needle + optional text.
+///
+/// This widget does NOT position itself — it fills whatever size its parent
+/// gives it. Positioning should be handled by the parent (e.g. via
+/// `GaugePlacement.buildPositioned()`).
 class SpeedometerOverlay3 extends StatelessWidget {
   final double speed; // current speed
   final double maxSpeed; // e.g. 240
-  final Size screenSize;
+
+  /// Optional fixed size. If null, the widget uses LayoutBuilder to fill
+  /// the available parent constraints.
+  final double? size;
+
+  /// Kept for backward compatibility but no longer used for positioning.
+  /// @deprecated — use parent positioning instead.
+  final Size? screenSize;
 
   const SpeedometerOverlay3({
     super.key,
     required this.speed,
     required this.maxSpeed,
-    required this.screenSize,
+    this.size,
+    this.screenSize,
   });
 
   @override
@@ -24,19 +37,9 @@ class SpeedometerOverlay3 extends StatelessWidget {
 
         final dial = config.dial;
         final needle = config.needle;
+        print("Building Speedometer Overlay: ${dial == null}");
 
         if (dial == null) return const SizedBox.shrink();
-
-        final sizeFactor = config.sizeFactor ?? 0.25;
-        final gaugeWidth = screenSize.width * sizeFactor;
-        final gaugeHeight =
-            gaugeWidth * (config.gaugeAspectRatio ?? 1.0);
-
-        final position = _calculatePosition(
-          placement: config.placement ?? GaugePlacement.bottomRight,
-          gaugeSize: Size(gaugeWidth, gaugeHeight),
-          screenSize: screenSize,
-        );
 
         final rotationAngle = _calculateNeedleAngle(
           speed: speed,
@@ -44,61 +47,100 @@ class SpeedometerOverlay3 extends StatelessWidget {
           dial: dial,
         );
 
-        return Positioned(
-          top: position.top,
-          bottom: position.bottom,
-          left: position.left,
-          right: position.right,
-          width: gaugeWidth,
-          height: gaugeHeight,
-          child: IgnorePointer(
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
 
-                /// ───── Dial ─────
-                _buildDial(dial, gaugeWidth),
+        // If a fixed size was provided, use it; otherwise fill parent.
+        if (size != null) {
+          return _buildGaugeContent(
+            config: config,
+            dial: dial,
+            needle: needle,
+            rotationAngle: rotationAngle,
+            gaugeWidth: size!,
+            gaugeHeight: size! * (config.gaugeAspectRatio ?? 1.0),
+          );
+        }
 
-                /// ───── Needle ─────
-                if (needle != null)
-                  Transform.rotate(
-                    angle: rotationAngle,
-                    alignment: Alignment.center,
-                    child: _buildNeedle(needle, gaugeWidth),
-                  ),
+        print("Building Speedometer Overlay: ${state.customization.isMetric}");
 
-                /// ───── Speed Text ─────
-                if (config.showSpeed ?? true)
-                  Positioned(
-                    bottom: 8,
-                    child: Text(
-                      "${speed.toStringAsFixed(0)} ${config.isMetric == true ? "mph" : "km/h"}",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ),
 
-                /// ───── Branding ─────
-                if (config.showBranding ?? true)
-                  const Positioned(
-                    top: 6,
-                    child: Text(
-                      "TURBOGAUGE",
-                      style: TextStyle(
-                        color: Colors.white70,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final availableWidth = constraints.maxWidth;
+            final gaugeWidth = availableWidth;
+            final gaugeHeight = gaugeWidth * (config.gaugeAspectRatio ?? 1.0);
+
+            return _buildGaugeContent(
+              config: config,
+              dial: dial,
+              needle: needle,
+              rotationAngle: rotationAngle,
+              gaugeWidth: gaugeWidth,
+              gaugeHeight: gaugeHeight,
+            );
+          },
         );
       },
+    );
+  }
+
+  /// Builds the actual gauge content (dial, needle, speed text, branding)
+  /// without any positioning wrapper.
+  Widget _buildGaugeContent({
+    required GaugeCustomization config,
+    required Dial dial,
+    required Needle? needle,
+    required double rotationAngle,
+    required double gaugeWidth,
+    required double gaugeHeight,
+  }) {
+    return IgnorePointer(
+      child: SizedBox(
+        width: gaugeWidth,
+        height: gaugeHeight,
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            /// ───── Dial ─────
+            _buildDial(dial, gaugeWidth),
+
+            /// ───── Needle ─────
+            if (needle != null)
+              Transform.rotate(
+                angle: rotationAngle,
+                alignment: Alignment.center,
+                child: _buildNeedle(needle, gaugeWidth),
+              ),
+
+            /// ───── Speed Text ─────
+            if (config.showSpeed ?? true)
+              Positioned(
+                bottom: 8,
+                child: Text(
+                  "${speed.toStringAsFixed(0)} ${config.isMetric == true ? "mph" : "km/h"}",
+                  style: TextStyle(
+                    color: config.textColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: (gaugeWidth * 0.12).clamp(10, 20),
+                  ),
+                ),
+              ),
+
+            /// ───── Branding ─────
+            if (config.showBranding ?? true)
+              Positioned(
+                bottom: 0,
+                child: Text(
+                  "TURBOGAUGE",
+                  style: TextStyle(
+                    color: config.textColor,
+                    fontSize: (gaugeWidth * 0.08).clamp(6, 12),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -182,81 +224,12 @@ class SpeedometerOverlay3 extends StatelessWidget {
     required Dial dial,
   }) {
     final clampedSpeed = speed.clamp(0, maxSpeed);
-
     final progress = clampedSpeed / maxSpeed;
 
-    final angleDegrees =
-        dial.needleMinAngle + (dial.totalSweep * progress);
+    final dialAngleSpan = dial.needleMaxAngle - dial.needleMinAngle;
+
+    final angleDegrees = dial.needleMinAngle + (dial.totalSweep * progress) - (dialAngleSpan/2);
 
     return (angleDegrees * pi) / 180;
   }
-
-  // ─────────────────────────────────────────────
-  // Position Calculation
-  // ─────────────────────────────────────────────
-
-  _OverlayPosition _calculatePosition({
-    required GaugePlacement placement,
-    required Size gaugeSize,
-    required Size screenSize,
-    double margin = 16,
-  }) {
-    switch (placement) {
-      case GaugePlacement.topLeft:
-        return _OverlayPosition(
-            top: margin, left: margin);
-
-      case GaugePlacement.topCenter:
-        return _OverlayPosition(
-            top: margin,
-            left: (screenSize.width - gaugeSize.width) / 2);
-
-      case GaugePlacement.topRight:
-        return _OverlayPosition(
-            top: margin,
-            right: margin);
-
-      case GaugePlacement.centerLeft:
-        return _OverlayPosition(
-            top: (screenSize.height - gaugeSize.height) / 2,
-            left: margin);
-
-      case GaugePlacement.center:
-        return _OverlayPosition(
-            top: (screenSize.height - gaugeSize.height) / 2,
-            left: (screenSize.width - gaugeSize.width) / 2);
-
-      case GaugePlacement.centerRight:
-        return _OverlayPosition(
-            top: (screenSize.height - gaugeSize.height) / 2,
-            right: margin);
-
-      case GaugePlacement.bottomLeft:
-        return _OverlayPosition(
-            bottom: margin, left: margin);
-
-      case GaugePlacement.bottomCenter:
-        return _OverlayPosition(
-            bottom: margin,
-            left: (screenSize.width - gaugeSize.width) / 2);
-
-      case GaugePlacement.bottomRight:
-        return _OverlayPosition(
-            bottom: margin, right: margin);
-    }
-  }
-}
-
-class _OverlayPosition {
-  final double? top;
-  final double? bottom;
-  final double? left;
-  final double? right;
-
-  _OverlayPosition({
-    this.top,
-    this.bottom,
-    this.left,
-    this.right,
-  });
 }

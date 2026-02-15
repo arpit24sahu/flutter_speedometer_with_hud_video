@@ -1,3 +1,4 @@
+import 'dart:ui' show Color;
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../models/gauge_customization.dart';
@@ -24,14 +25,14 @@ class ChangeGaugeCustomization extends GaugeCustomizationEvent {
 }
 
 /// Toggle unit system
-class ChangeGaugeUnits extends GaugeCustomizationEvent {
-  final bool imperial;
-
-  const ChangeGaugeUnits(this.imperial);
-
-  @override
-  List<Object?> get props => [imperial];
-}
+// class ChangeGaugeUnits extends GaugeCustomizationEvent {
+//   final bool imperial;
+//
+//   const ChangeGaugeUnits(this.imperial);
+//
+//   @override
+//   List<Object?> get props => [imperial];
+// }
 
 /// Change placement
 class ChangeGaugePlacement extends GaugeCustomizationEvent {
@@ -54,14 +55,7 @@ class ToggleShowSpeed extends GaugeCustomizationEvent {
 }
 
 /// Toggle branding visibility
-class ToggleShowBranding extends GaugeCustomizationEvent {
-  final bool showBranding;
-
-  const ToggleShowBranding(this.showBranding);
-
-  @override
-  List<Object?> get props => [showBranding];
-}
+class ToggleShowBranding extends GaugeCustomizationEvent {}
 
 /// Change dial
 class ChangeDial extends GaugeCustomizationEvent {
@@ -102,6 +96,19 @@ class ChangeGaugeAspectRatio extends GaugeCustomizationEvent {
   @override
   List<Object?> get props => [aspectRatio];
 }
+
+/// Change text color
+class ChangeTextColor extends GaugeCustomizationEvent {
+  final Color textColor;
+
+  const ChangeTextColor(this.textColor);
+
+  @override
+  List<Object?> get props => [textColor];
+}
+
+/// Change text color
+class ToggleGaugeUnits extends GaugeCustomizationEvent {}
 
 
 
@@ -148,11 +155,11 @@ class GaugeCustomizationBloc
       emit(state.copyWith(customization: event.customization));
     });
 
-    on<ChangeGaugeUnits>((event, emit) {
+    on<ToggleGaugeUnits>((event, emit) {
       emit(
         state.copyWith(
           customization: state.customization.copyWith(
-            imperial: event.imperial,
+            isMetric: !(state.customization.isMetric??true),
           ),
         ),
       );
@@ -182,7 +189,7 @@ class GaugeCustomizationBloc
       emit(
         state.copyWith(
           customization: state.customization.copyWith(
-            showBranding: event.showBranding,
+            showBranding: !(state.customization.showBranding??true),
           ),
         ),
       );
@@ -223,6 +230,16 @@ class GaugeCustomizationBloc
         state.copyWith(
           customization: state.customization.copyWith(
             gaugeAspectRatio: event.aspectRatio,
+          ),
+        ),
+      );
+    });
+
+    on<ChangeTextColor>((event, emit) {
+      emit(
+        state.copyWith(
+          customization: state.customization.copyWith(
+            textColor: event.textColor,
           ),
         ),
       );

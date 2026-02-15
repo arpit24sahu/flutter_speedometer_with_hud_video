@@ -1,5 +1,23 @@
 import 'package:speedometer/features/labs/models/gauge_customization.dart';
 
+const Dial defaultDial = Dial(
+  id: 'classic_colored_dial',
+  name: 'Classic',
+  style: DialStyle.analog,
+  assetType: AssetType.network,
+  path: 'https://i.ibb.co/QFtc3pnm/SHARMA-2.png',
+  needleMinAngle: 0,
+  needleMaxAngle: 240,
+);
+
+const Needle defaultNeedle = Needle(
+  id: 'classic_needle_black_1',
+  name: "Classic 1",
+  assetType: AssetType.network,
+  path: 'https://i.ibb.co/kgpT3qxx/classic-needle-1.png',
+  color: 'black',
+);
+
 
 final List<Needle> _needles = [
   Needle(
@@ -33,15 +51,15 @@ final List<Needle> _needles = [
 ];
 
 final List<Dial> _dials = [
-  const Dial(
-    id: 'classic_dial',
-    name: "Old",
-    style: DialStyle.analog,
-    assetType: AssetType.network,
-    path: 'https://i.ibb.co/whLrrLNy/image.png',
-    needleMinAngle: 0,
-    needleMaxAngle: 270,
-  ),
+  // const Dial(
+  //   id: 'classic_dial',
+  //   name: "Old",
+  //   style: DialStyle.analog,
+  //   assetType: AssetType.network,
+  //   path: 'https://i.ibb.co/whLrrLNy/image.png',
+  //   needleMinAngle: 0,
+  //   needleMaxAngle: 270,
+  // ),
   const Dial(
     id: 'classic_colored_dial',
     name: 'Classic',
@@ -71,7 +89,7 @@ final List<GaugeCustomizationOption> kGaugeOptions = [
   GaugeCustomizationOption(
     id: 'classic_colored',
     name: "Classic 1",
-    dial: _dials[1],
+    dial: _dials[0],
     needles: _needles
   ),
 

@@ -19,6 +19,7 @@ import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
 import 'package:speedometer/features/speedometer/bloc/speedometer_state.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:get_it/get_it.dart';
+import '../../features/labs/models/gauge_customization.dart';
 import '../../features/labs/presentation/speedometer_overlay_3.dart';
 import '../../features/processing/bloc/jobs_bloc.dart';
 import '../../features/processing/bloc/processor_bloc.dart';
@@ -26,6 +27,7 @@ import '../../packages/gal.dart';
 import '../bloc/video_recorder_bloc.dart';
 import '../widgets/video_recorder_service.dart';
 import 'gauge_settings_screen.dart';
+import 'gauge_settings_screen_2.dart';
 import 'home_screen.dart';
 
 class CameraScreen extends StatefulWidget {
@@ -123,6 +125,7 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
 
   @override
   Widget build(BuildContext context) {
+
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -162,43 +165,40 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
                             // Camera preview
                             Positioned.fill(
                               child: AspectRatio(
-                                aspectRatio:
-                                    _cameraController!.value.aspectRatio,
+                                aspectRatio: _cameraController!.value.aspectRatio,
                                 child: CameraPreview(_cameraController!),
                               ),
                             ),
 
                             // Speedometer gauge overlay
-                            BlocBuilder<
-                              GaugeCustomizationBloc,
-                              GaugeCustomizationState
-                            >(
+                            BlocBuilder<GaugeCustomizationBloc, GaugeCustomizationState>(
                               builder: (context, gaugeCustomizationState) {
-                                return LayoutBuilder(
-                                  builder: (context, innerConstraints) {
-                                    final screenSize = Size(
-                                      innerConstraints.maxWidth,
-                                      innerConstraints.maxHeight,
-                                    );
+                                final config = gaugeCustomizationState.customization;
+                                final sizeFactor = config.sizeFactor ?? 1;
+                                // sizeFactor=1 → 80px base. User can scale up (e.g. sizeFactor=3 → 120px).
+                                final double gaugeWidth = 80.0 * sizeFactor;
+                                final placement = config.placement ?? GaugePlacement.topRight;
+                                // Use the Stack's constraints (camera viewport), not MediaQuery
+                                final viewportSize = Size(
+                                  constraints.maxWidth,
+                                  constraints.maxHeight,
+                                );
 
-                                    return BlocBuilder<
-                                      SpeedometerBloc,
-                                      SpeedometerState
-                                    >(
-                                      builder: (context, speedometerState) {
-                                        final double speed =
-                                            gaugeCustomizationState
-                                                        .customization
-                                                        .isMetric ==
-                                                    true
-                                                ? speedometerState.speedKmh
-                                                : speedometerState.speedMph;
-                                        return SpeedometerOverlay3(
-                                          speed: speed,
-                                          maxSpeed: 240,
-                                          screenSize: screenSize,
-                                        );
-                                      },
+                                return BlocBuilder<SpeedometerBloc, SpeedometerState>(
+                                  builder: (context, speedometerState) {
+                                    double currentSpeed = config.isMetric == true
+                                      ? speedometerState.speedKmh
+                                      : speedometerState.speedMph;
+
+                                    return placement.buildPositioned(
+                                      gaugeSize: gaugeWidth,
+                                      screenSize: viewportSize,
+                                      margin: 20,
+                                      child: SpeedometerOverlay3(
+                                        speed: currentSpeed,
+                                        maxSpeed: 240,
+                                        size: gaugeWidth,
+                                      ),
                                     );
                                   },
                                 );
@@ -378,7 +378,7 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
                   ),
                   const Divider(),
                   const SizedBox(height: 16),
-                  Expanded(child: GaugeSettingsScreen()),
+                  Expanded(child: GaugeSettingsScreen2()),
                 ],
               ),
             );

@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
@@ -311,6 +312,248 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
     );
   }
 
+  // ─── Text Color Bottom Sheet ───
+
+  void _showTextColorSheet() {
+    const presetColors = <Color>[
+      Colors.white,
+      Color(0xFFE0E0E0),
+      Color(0xFF9E9E9E),
+      Colors.black,
+      Color(0xFFFF1744),
+      Color(0xFFFF9100),
+      Color(0xFFFFEA00),
+      Color(0xFF00E676),
+      Color(0xFF00B0FF),
+      Color(0xFFD500F9),
+      Color(0xFFFF4081),
+      Color(0xFF00BFA5),
+    ];
+
+    final currentColor = _config.textColor ?? Colors.white;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.grey[900],
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (sheetContext) {
+        Color previewColor = currentColor;
+        final hexController = TextEditingController(
+          text: _colorToHex(currentColor),
+        );
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            return Padding(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Select Text Color',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 6,
+                          crossAxisSpacing: 10,
+                          mainAxisSpacing: 10,
+                        ),
+                    itemCount: presetColors.length,
+                    itemBuilder: (ctx, index) {
+                      final color = presetColors[index];
+                      final isSelected = color.value == previewColor.value;
+                      return GestureDetector(
+                        onTap: () {
+                          setSheetState(() {
+                            previewColor = color;
+                            hexController.text = _colorToHex(color);
+                          });
+                        },
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: color,
+                            shape: BoxShape.circle,
+                            border: Border.all(
+                              color:
+                                  isSelected
+                                      ? Colors.blueAccent
+                                      : Colors.grey[600]!,
+                              width: isSelected ? 3 : 1.5,
+                            ),
+                            boxShadow:
+                                isSelected
+                                    ? [
+                                      BoxShadow(
+                                        color: Colors.blueAccent.withValues(
+                                          alpha: 0.5,
+                                        ),
+                                        blurRadius: 8,
+                                      ),
+                                    ]
+                                    : null,
+                          ),
+                          child:
+                              isSelected
+                                  ? Icon(
+                                    Icons.check,
+                                    color:
+                                        color.computeLuminance() > 0.5
+                                            ? Colors.black
+                                            : Colors.white,
+                                    size: 20,
+                                  )
+                                  : null,
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 20),
+                  const Divider(color: Colors.white24),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Custom Hex Color',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          color: previewColor,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: Colors.grey[600]!,
+                            width: 1.5,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: TextField(
+                          controller: hexController,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontFamily: 'monospace',
+                            fontSize: 16,
+                          ),
+                          decoration: InputDecoration(
+                            prefixText: '#',
+                            prefixStyle: const TextStyle(
+                              color: Colors.white54,
+                              fontFamily: 'monospace',
+                              fontSize: 16,
+                            ),
+                            hintText: 'FFFFFF',
+                            hintStyle: TextStyle(color: Colors.grey[600]),
+                            filled: true,
+                            fillColor: Colors.grey[800],
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide.none,
+                            ),
+                            focusedBorder: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: const BorderSide(
+                                color: Colors.blueAccent,
+                                width: 2,
+                              ),
+                            ),
+                            contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 14,
+                            ),
+                          ),
+                          maxLength: 6,
+                          onChanged: (text) {
+                            final color = _hexToColor(text);
+                            if (color != null) {
+                              setSheetState(() {
+                                previewColor = color;
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        _updateConfig(
+                          (c) => c.copyWith(textColor: previewColor),
+                        );
+                        Navigator.pop(sheetContext);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blueAccent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: const Text(
+                        'Apply Color',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  String _colorToHex(Color c) {
+    return '${c.red.toRadixString(16).padLeft(2, '0')}'
+        '${c.green.toRadixString(16).padLeft(2, '0')}'
+        '${c.blue.toRadixString(16).padLeft(2, '0')}';
+  }
+
+  Color? _hexToColor(String hex) {
+    hex = hex.replaceAll('#', '').trim();
+    if (hex.length == 6) {
+      final intVal = int.tryParse(hex, radix: 16);
+      if (intVal != null) {
+        return Color(0xFF000000 | intVal);
+      }
+    }
+    return null;
+  }
+
   // ─── Export ───
 
   Future<void> _export() async {
@@ -576,12 +819,18 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                   child: _thumbnailPath != null
                       ? Image.file(File(_thumbnailPath!), fit: BoxFit.cover)
                       : const Center(
-                          child: Icon(Icons.video_file,
-                              size: 48, color: Colors.grey),
-                        ),
+                    child: Icon(Icons.video_file,
+                        size: 48, color: Colors.grey),
+                  ),
                 ),
 
-                const SizedBox(height: 24),
+
+                const SizedBox(height: 16),
+                Text('Use these options to customize and export your video.',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+
+                const SizedBox(height: 16),
 
                 // ─── Measurement System ───
                 _buildSectionHeader('Measurement System'),
@@ -594,10 +843,10 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                     value: !imperial,
                     activeColor: Colors.blueAccent,
                     onChanged: (val) =>
-                        _updateConfig((c) => c.copyWith(imperial: !val)),
+                        _updateConfig((c) => c.copyWith(isMetric: !val)),
                   ),
                   onTap: () =>
-                      _updateConfig((c) => c.copyWith(imperial: !imperial)),
+                      _updateConfig((c) => c.copyWith(isMetric: !imperial)),
                 ),
 
                 const SizedBox(height: 20),
@@ -611,8 +860,18 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                   subtitle: _selectedNeedle != null
                       ? 'Needle: ${_selectedNeedle!.color ?? _selectedNeedle!.id ?? "default"}'
                       : 'No needle',
-                  trailing: const Icon(Icons.chevron_right,
-                      color: Colors.white54, size: 24),
+                  trailing:
+                  _selectedOption.dial?.assetType == AssetType.network
+                      ? Stack(
+                        children: [
+                          Image.network(_selectedOption.dial?.path??"", height: 30, width: 30, fit: BoxFit.contain,),
+                          Transform.rotate(
+                            angle: -pi/4,
+                              child: Image.network(_selectedNeedle?.path??"", height: 30, width: 30, fit: BoxFit.contain,)
+                          ),
+                        ],
+                      )
+                      : const Icon(Icons.chevron_right, color: Colors.white54, size: 24),
                   onTap: _showGaugeAndNeedleSheet,
                 ),
 
@@ -630,6 +889,112 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                 ),
 
                 const SizedBox(height: 20),
+
+                  // ─── Gauge Size ───
+                  _buildSectionHeader('Gauge Size'),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.grey[900],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.blueAccent.withValues(
+                                  alpha: 0.12,
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: const Icon(
+                                Icons.photo_size_select_large,
+                                color: Colors.blueAccent,
+                                size: 22,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Size Factor',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${((_config.sizeFactor ?? 0.25) * 100).toStringAsFixed(0)}% of video',
+                                    style: TextStyle(
+                                      color: Colors.grey[500],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Text(
+                              (_config.sizeFactor ?? 0.25).toStringAsFixed(2),
+                              style: const TextStyle(
+                                color: Colors.blueAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                          ],
+                        ),
+                        Slider(
+                          value: (_config.sizeFactor ?? 0.25).toDouble(),
+                          min: 0.10,
+                          max: 0.50,
+                          divisions: 8,
+                          activeColor: Colors.blueAccent,
+                          label:
+                              '${((_config.sizeFactor ?? 0.25) * 100).toStringAsFixed(0)}%',
+                          onChanged:
+                              (val) => _updateConfig(
+                                (c) => c.copyWith(sizeFactor: val),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ─── Text Color ───
+                  _buildSectionHeader('Text Color'),
+                  const SizedBox(height: 8),
+                  _buildOptionTile(
+                    icon: Icons.format_color_text,
+                    title: 'Text Color',
+                    subtitle:
+                        '#${(_config.textColor ?? Colors.white).value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
+                    trailing: Container(
+                      width: 28,
+                      height: 28,
+                      decoration: BoxDecoration(
+                        color: _config.textColor ?? Colors.white,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.grey, width: 1.5),
+                      ),
+                    ),
+                    onTap: () => _showTextColorSheet(),
+                  ),
+
+                  const SizedBox(height: 20),
 
                 // ─── TurboGauge Branding ───
                 _buildSectionHeader('Branding'),
@@ -821,7 +1186,7 @@ class _GaugeTile extends StatelessWidget {
               const Icon(Icons.speed, color: Colors.white54, size: 40),
             const SizedBox(height: 6),
             Text(
-              option.id ?? '',
+              option.name ?? '',
               style: TextStyle(
                 color: isSelected ? Colors.blueAccent : Colors.white70,
                 fontSize: 12,
@@ -894,7 +1259,7 @@ class _NeedleTile extends StatelessWidget {
                   size: 30),
             const SizedBox(height: 4),
             Text(
-              needle.color ?? needle.id ?? '',
+              needle.name ?? needle.color ?? needle.id ?? '',
               style: TextStyle(
                 color: isSelected ? Colors.blueAccent : Colors.white70,
                 fontSize: 10,

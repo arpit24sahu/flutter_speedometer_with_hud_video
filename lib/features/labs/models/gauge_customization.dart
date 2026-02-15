@@ -1,21 +1,13 @@
 import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
-import '../../../presentation/bloc/overlay_gauge_configuration_bloc.dart';
+import '../data/gauge_options.dart';
 
 // ─── Enums ───
 
-enum DialStyle {
-  analog,
-  digital,
-}
+enum DialStyle { analog, digital }
 
-enum AssetType {
-  asset,
-  network,
-  memory,
-  widget,
-}
+enum AssetType { asset, network, memory, widget }
 
 // ─── 3×3 Gauge Placement ───
 
@@ -31,7 +23,7 @@ enum GaugePlacement {
   bottomRight,
 }
 
-extension LabsGaugePlacementExt on GaugePlacement {
+extension GaugePlacementExt on GaugePlacement {
   String get displayName {
     switch (this) {
       case GaugePlacement.topLeft: return 'Top Left';
@@ -82,6 +74,96 @@ extension LabsGaugePlacementExt on GaugePlacement {
         return 'x=(main_w-overlay_w)/2:y=main_h-overlay_h-$margin';
       case GaugePlacement.bottomRight:
         return 'x=main_w-overlay_w-$margin:y=main_h-overlay_h-$margin';
+    }
+  }
+
+  Positioned buildPositioned({
+    required Widget child,
+    required double gaugeSize,
+    required Size screenSize,
+    double margin = 20,
+  }) {
+    switch (this) {
+      case GaugePlacement.topLeft:
+        return Positioned(
+          top: margin,
+          left: margin,
+          width: gaugeSize,
+          height: gaugeSize,
+          child: child,
+        );
+
+      case GaugePlacement.topCenter:
+        return Positioned(
+          top: margin,
+          left: (screenSize.width - gaugeSize) / 2,
+          width: gaugeSize,
+          height: gaugeSize,
+          child: child,
+        );
+
+      case GaugePlacement.topRight:
+        return Positioned(
+          top: margin,
+          right: margin,
+          width: gaugeSize,
+          height: gaugeSize,
+          child: child,
+        );
+
+      case GaugePlacement.centerLeft:
+        return Positioned(
+          top: (screenSize.height - gaugeSize) / 2,
+          left: margin,
+          width: gaugeSize,
+          height: gaugeSize,
+          child: child,
+        );
+
+      case GaugePlacement.center:
+        return Positioned(
+          top: (screenSize.height - gaugeSize) / 2,
+          left: (screenSize.width - gaugeSize) / 2,
+          width: gaugeSize,
+          height: gaugeSize,
+          child: child,
+        );
+
+      case GaugePlacement.centerRight:
+        return Positioned(
+          top: (screenSize.height - gaugeSize) / 2,
+          right: margin,
+          width: gaugeSize,
+          height: gaugeSize,
+          child: child,
+        );
+
+      case GaugePlacement.bottomLeft:
+        return Positioned(
+          bottom: margin,
+          left: margin,
+          width: gaugeSize,
+          height: gaugeSize,
+          child: child,
+        );
+
+      case GaugePlacement.bottomCenter:
+        return Positioned(
+          bottom: margin,
+          left: (screenSize.width - gaugeSize) / 2,
+          width: gaugeSize,
+          height: gaugeSize,
+          child: child,
+        );
+
+      case GaugePlacement.bottomRight:
+        return Positioned(
+          bottom: margin,
+          right: margin,
+          width: gaugeSize,
+          height: gaugeSize,
+          child: child,
+        );
     }
   }
 }
@@ -176,7 +258,8 @@ class GaugeCustomizationOption {
   final Map<String, dynamic>? extra;
 
   const GaugeCustomizationOption({
-    this.id, this.name,
+    this.id,
+    this.name,
     this.dial,
     this.needles,
     this.extra,
@@ -202,7 +285,7 @@ class GaugeCustomization extends Equatable {
   final bool? showSpeed;
   final bool? showBranding;
   final bool? isMetric;
-
+  final Color? textColor;
   /// Aspect ratio of the full gauge area (height / width). Default 7:5.
   final double? gaugeAspectRatio;
 
@@ -216,14 +299,15 @@ class GaugeCustomization extends Equatable {
 
   const GaugeCustomization({
     this.id,
-    this.dial,
-    this.needle,
+    this.dial = defaultDial,
+    this.needle = defaultNeedle,
     this.dialStyle = DialStyle.analog,
     this.showSpeed = true,
     this.showBranding = true,
     this.isMetric = false,
+    this.textColor = const Color(0xFFFFFFFF),
     this.gaugeAspectRatio = 1.4, // 7/5
-    this.sizeFactor = 0.25,
+    this.sizeFactor = 1,
     this.placement = GaugePlacement.topRight,
     this.extra,
   });
@@ -235,7 +319,8 @@ class GaugeCustomization extends Equatable {
     DialStyle? dialStyle,
     bool? showSpeed,
     bool? showBranding,
-    bool? imperial,
+    bool? isMetric,
+    Color? textColor,
     double? gaugeAspectRatio,
     double? sizeFactor,
     GaugePlacement? placement,
@@ -248,7 +333,8 @@ class GaugeCustomization extends Equatable {
       dialStyle: dialStyle ?? this.dialStyle,
       showSpeed: showSpeed ?? this.showSpeed,
       showBranding: showBranding ?? this.showBranding,
-      isMetric: imperial ?? this.isMetric,
+      isMetric: isMetric ?? this.isMetric,
+      textColor: textColor ?? this.textColor,
       gaugeAspectRatio: gaugeAspectRatio ?? this.gaugeAspectRatio,
       sizeFactor: sizeFactor ?? this.sizeFactor,
       placement: placement ?? this.placement,
@@ -256,18 +342,24 @@ class GaugeCustomization extends Equatable {
     );
   }
 
-  /// Resolve the LabsGaugePlacement from the placement string.
+  /// Resolve the GaugePlacement from the placement field.
   GaugePlacement get labsPlacement {
-    return GaugePlacement.values.firstWhere(
-      (p) => p.name == placement,
-      orElse: () => GaugePlacement.bottomRight,
-    );
+    return placement ?? GaugePlacement.topRight;
+  }
+
+  /// Converts the textColor to an FFmpeg-compatible hex string (e.g. 'FFFFFF').
+  String get textColorHex {
+    final c = textColor ?? const Color(0xFFFFFFFF);
+    return '${c.red.toRadixString(16).padLeft(2, '0')}'
+        '${c.green.toRadixString(16).padLeft(2, '0')}'
+        '${c.blue.toRadixString(16).padLeft(2, '0')}';
   }
 
   @override
   String toString() =>
-      'GaugeCustomizationSelected(dial: ${dial?.id}, needle: ${needle?.id}, '
-      'imperial: $isMetric, sizeFactor: $sizeFactor, placement: $placement)';
+      'GaugeCustomization(dial: ${dial?.id}, needle: ${needle?.id}, '
+      'isMetric: $isMetric, sizeFactor: $sizeFactor, placement: $placement, '
+      'textColor: $textColor)';
 
   @override
   List<Object?> get props => [
@@ -278,6 +370,7 @@ class GaugeCustomization extends Equatable {
     showSpeed,
     showBranding,
     isMetric,
+    textColor,
     gaugeAspectRatio,
     sizeFactor,
     placement,

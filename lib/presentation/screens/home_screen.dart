@@ -43,10 +43,10 @@ class AppTabState {
     switch(index) {
       case 0: return 'camera';
       // case 1: return 'speedometer';
-      case 1: return 'files';
-    // case 3: return 'Settings';
-      case 2: return 'jobs';
-      case 3: return 'labs';
+    //   case 1: return 'files';
+    // // case 3: return 'Settings';
+    //   case 2: return 'jobs';
+      case 1: return 'labs';
       default: return 'camera';
     }
   }
@@ -68,28 +68,28 @@ class _HomeScreenState extends State<HomeScreen> {
   int _selectedIndex = 0;
   final List<GlobalKey> _screenKeys = [
     GlobalKey(),
-    GlobalKey(),
-    GlobalKey(),
+    // GlobalKey(),
+    // GlobalKey(),
     GlobalKey(),
   ];
 
   List<Widget> _screens() => [
     CameraScreen(key: _screenKeys[0]),
     // SpeedometerScreen(key: _screenKeys[1],),
-    FilesScreen(key: _screenKeys[1],),
+    // FilesScreen(key: _screenKeys[1],),
     // const SettingsScreen(),
-    JobsScreen(key: _screenKeys[2]),
-    LabsScreen(key: _screenKeys[3]),
+    // JobsScreen(key: _screenKeys[2]),
+    LabsScreen(key: _screenKeys[1]),
   ];
 
   String screenName(int index){
     switch(index) {
       case 0: return 'Camera';
       // case 1: return 'Speedometer';
-      case 1: return 'Files';
+      // case 1: return 'Files';
     // case 3: return 'Settings';
-      case 2: return 'Jobs';
-      case 3: return 'Labs';
+    //   case 2: return 'Jobs';
+      case 1: return 'Labs';
       default: return 'Camera';
     }
   }
@@ -199,7 +199,7 @@ class _HomeScreenState extends State<HomeScreen> {
         body: Stack(
           children: [
             Positioned.fill(child: IndexedStack(index: _selectedIndex, children: _screens())),
-            Positioned(
+            if(false) Positioned(
                 top: 100,
                 left: 20,
                 // width: 100,
@@ -217,8 +217,8 @@ class _HomeScreenState extends State<HomeScreen> {
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.videocam), label: 'Record'),
             // BottomNavigationBarItem(icon: Icon(Icons.speed), label: 'Speed'),
-            BottomNavigationBarItem(icon: Icon(Icons.folder), label: 'Files'),
-            BottomNavigationBarItem(icon: Icon(Icons.work_history), label: 'Jobs'),
+            if(false) BottomNavigationBarItem(icon: Icon(Icons.folder), label: 'Files'),
+            if(false) BottomNavigationBarItem(icon: Icon(Icons.work_history), label: 'Jobs'),
             BottomNavigationBarItem(icon: Icon(Icons.science), label: 'Labs'),
           ],
         ),

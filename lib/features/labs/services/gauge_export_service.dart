@@ -419,7 +419,7 @@ class GaugeExportService {
       if((config.showSpeed??true)){
         filterComplex += '${lastLabel}drawtext='
             'text=\'%{eif\\:$speedMathExpr\\:d} $unitLabel\':'
-            'fontcolor=white:'
+            'fontcolor=0x${config.textColorHex}:'
             'fontfile=$fontFile:'
             'fontsize=$fontSizeSpeed:'
             'x=(w-text_w)/2:'
@@ -431,7 +431,7 @@ class GaugeExportService {
       if(config.showBranding??true){
         filterComplex += '${lastLabel}drawtext='
             'text=\'TURBOGAUGE\':'
-            'fontcolor=white:'
+            'fontcolor=0x${config.textColorHex}:'
             'fontfile=$fontFile:'
             'fontsize=$fontSizeBrand:'
             'x=(w-text_w)/2:'

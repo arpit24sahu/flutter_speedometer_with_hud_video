@@ -12,6 +12,7 @@ import 'package:speedometer/presentation/widgets/video_recorder_service.dart';
 import 'package:speedometer/services/hive_service.dart';
 
 import '../features/analytics/di/analytics_injection.dart';
+import '../features/labs/presentation/bloc/gauge_customization_bloc.dart';
 import '../features/premium/di/premium_injection.dart';
 import '../features/premium/repository/purchase_repository.dart';
 import '../features/premium/service/purchase_service.dart';
@@ -51,6 +52,7 @@ Future<void> initializeDependencies() async {
   ));
 
   getIt.registerFactory<FilesBloc>(() => FilesBloc());
+  getIt.registerFactory<GaugeCustomizationBloc>(() => GaugeCustomizationBloc());
 
   // Processing Feature
 

@@ -323,7 +323,7 @@ class GaugeExportService {
   ///   3. Overlay needle on dial (centered)
   ///   4. Overlay gauge composite on source video at chosen placement
   static Future<String> buildCommand({
-    required GaugeCustomizationSelected config,
+    required GaugeCustomization config,
     required String inputVideoPath,
     required Map<int, PositionData> positionData,
     required String outputPath,
@@ -351,7 +351,7 @@ class GaugeExportService {
         '(${(sizeFactor * 100).toStringAsFixed(0)}% of ${refDimension}px)');
 
     // 4. Sample speed data
-    final imperial = config.imperial ?? false;
+    final imperial = config.isMetric ?? false;
     final List<_SpeedSample> samples = _processRawData(positionData, imperial: imperial);
 
     print("Printing speed Samples");
@@ -405,64 +405,40 @@ class GaugeExportService {
         'rotate=angle=\'$rotExpr\':ow=$gs:oh=$gs:fillcolor=none[nrot];'
         '[dial][nrot]overlay=0:0:format=auto[base_gauge];';
 
+    String lastLabel = '[base_gauge]';
 
-    final ByteData data = await rootBundle.load("assets/fonts/RacingSansOne-Regular.ttf");
-    final Uint8List bytes = data.buffer.asUint8List();
+    if((config.showSpeed??true) || (config.showBranding??true)) {
+      final ByteData data = await rootBundle.load("assets/fonts/RacingSansOne-Regular.ttf");
+      final Uint8List bytes = data.buffer.asUint8List();
 
-    final Directory dir = await getTemporaryDirectory();
-    final File file = File('${dir.path}/RacingSansOne-Regular.ttf');
-    await file.writeAsBytes(bytes, flush: true);
-    String fontFile = file.path;
+      final Directory dir = await getTemporaryDirectory();
+      final File file = File('${dir.path}/RacingSansOne-Regular.ttf');
+      await file.writeAsBytes(bytes, flush: true);
+      String fontFile = file.path;
 
-    // // Add Dynamic Speed Text
-    filterComplex += '[base_gauge]drawtext='
-        'text=\'%{eif\\:$speedMathExpr\\:d} $unitLabel\':'
-        'fontcolor=white:'
-        'fontfile=$fontFile:'
-        'fontsize=$fontSizeSpeed:'
-        'x=(w-text_w)/2:'
-        'y=h-text_h-text_h-$verticalPadding'
-        '[gauge_with_speed];';
-
-
-    // filterComplex += '[base_gauge]drawtext='
-    //     'text=\'%{eif\\:$speedMathExpr\\:d}\':'
-    //     'fontfile=$fontFile:'
-    //     'fontcolor=white:'
-    //     'fontsize=$fontSizeSpeed:'
-    //     'x=(w/2)-(text_w)-10:'
-    //     'y=h-$fontSizeSpeed-$verticalPadding'
-    //     '[speed_layer];';
-    //
-    // filterComplex +=
-    // '[speed_layer]drawtext='
-    //     'text=\'$unitLabel\':'
-    //     'fontfile=$fontFile:'
-    //     'fontcolor=white:'
-    //     'fontsize=${fontSizeSpeed*0.8}:'
-    //     'x=(w/2)-10:'
-    //     'y=h-${fontSizeSpeed*0.8}-$verticalPadding'
-    //     '[gauge_with_speed];';
-
-
-
-    // Add Static Branding (TurboGauge) if enabled
-    // Assuming config has a boolean for watermark. If not, add one to your model.
-    bool showWatermark = true; // Replace with config.showWatermark if available
-    String lastLabel = '[gauge_with_speed]';
-
-    if(showWatermark){
+      if((config.showSpeed??true)){
         filterComplex += '${lastLabel}drawtext='
-      'text=\'TURBOGAUGE\':'
-      'fontcolor=white:'
-      'fontfile=$fontFile:'
-      'fontsize=$fontSizeBrand:'
-      'x=(w-text_w)/2:'
-      'y=h-text_h'
-      '[gauge_final];';
-      lastLabel = '[gauge_final]';
-    } else {
-      lastLabel = '[gauge_with_speed]';
+            'text=\'%{eif\\:$speedMathExpr\\:d} $unitLabel\':'
+            'fontcolor=white:'
+            'fontfile=$fontFile:'
+            'fontsize=$fontSizeSpeed:'
+            'x=(w-text_w)/2:'
+            'y=h-text_h-text_h-$verticalPadding'
+            '[gauge_with_speed];';
+        lastLabel = '[gauge_with_speed]';
+      }
+
+      if(config.showBranding??true){
+        filterComplex += '${lastLabel}drawtext='
+            'text=\'TURBOGAUGE\':'
+            'fontcolor=white:'
+            'fontfile=$fontFile:'
+            'fontsize=$fontSizeBrand:'
+            'x=(w-text_w)/2:'
+            'y=h-text_h'
+            '[gauge_final];';
+        lastLabel = '[gauge_final]';
+      }
     }
 
     // Final overlay onto the main video

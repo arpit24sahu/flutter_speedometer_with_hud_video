@@ -4,6 +4,7 @@ import 'package:get/get_navigation/src/root/get_material_app.dart';
 import 'package:speedometer/core/theme/app_theme.dart';
 import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/features/files/bloc/files_bloc.dart';
+import 'package:speedometer/features/labs/presentation/bloc/gauge_customization_bloc.dart';
 import 'package:speedometer/features/processing/bloc/jobs_bloc.dart';
 import 'package:speedometer/features/processing/bloc/processor_bloc.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
@@ -33,6 +34,7 @@ class PlaneSpeedometerApp extends StatelessWidget {
         BlocProvider<FilesBloc>(create: (_) => getIt<FilesBloc>()..add(RefreshFiles())),
         BlocProvider<ProcessorBloc>(create: (_) => getIt<ProcessorBloc>()..add(StartProcessing())),
         BlocProvider<JobsBloc>(create: (_) => getIt<JobsBloc>()..add(LoadJobs())),
+        BlocProvider<GaugeCustomizationBloc>(create: (_) => getIt<GaugeCustomizationBloc>()),
         // BlocProvider<VideoRecorderBloc>(create: (_) => getIt<VideoRecorderBloc>()),
       ],
       child: GetMaterialApp(

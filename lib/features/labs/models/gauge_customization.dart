@@ -1,4 +1,7 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
+
+import '../../../presentation/bloc/overlay_gauge_configuration_bloc.dart';
 
 // ─── Enums ───
 
@@ -16,7 +19,7 @@ enum AssetType {
 
 // ─── 3×3 Gauge Placement ───
 
-enum LabsGaugePlacement {
+enum GaugePlacement {
   topLeft,
   topCenter,
   topRight,
@@ -28,50 +31,32 @@ enum LabsGaugePlacement {
   bottomRight,
 }
 
-extension LabsGaugePlacementExt on LabsGaugePlacement {
+extension LabsGaugePlacementExt on GaugePlacement {
   String get displayName {
     switch (this) {
-      case LabsGaugePlacement.topLeft:
-        return 'Top Left';
-      case LabsGaugePlacement.topCenter:
-        return 'Top Center';
-      case LabsGaugePlacement.topRight:
-        return 'Top Right';
-      case LabsGaugePlacement.centerLeft:
-        return 'Center Left';
-      case LabsGaugePlacement.center:
-        return 'Center';
-      case LabsGaugePlacement.centerRight:
-        return 'Center Right';
-      case LabsGaugePlacement.bottomLeft:
-        return 'Bottom Left';
-      case LabsGaugePlacement.bottomCenter:
-        return 'Bottom Center';
-      case LabsGaugePlacement.bottomRight:
-        return 'Bottom Right';
+      case GaugePlacement.topLeft: return 'Top Left';
+      case GaugePlacement.topCenter: return 'Top Center';
+      case GaugePlacement.topRight: return 'Top Right';
+      case GaugePlacement.centerLeft: return 'Center Left';
+      case GaugePlacement.center: return 'Center';
+      case GaugePlacement.centerRight: return 'Center Right';
+      case GaugePlacement.bottomLeft: return 'Bottom Left';
+      case GaugePlacement.bottomCenter: return 'Bottom Center';
+      case GaugePlacement.bottomRight: return 'Bottom Right';
     }
   }
 
   IconData get icon {
     switch (this) {
-      case LabsGaugePlacement.topLeft:
-        return Icons.north_west;
-      case LabsGaugePlacement.topCenter:
-        return Icons.north;
-      case LabsGaugePlacement.topRight:
-        return Icons.north_east;
-      case LabsGaugePlacement.centerLeft:
-        return Icons.west;
-      case LabsGaugePlacement.center:
-        return Icons.center_focus_strong;
-      case LabsGaugePlacement.centerRight:
-        return Icons.east;
-      case LabsGaugePlacement.bottomLeft:
-        return Icons.south_west;
-      case LabsGaugePlacement.bottomCenter:
-        return Icons.south;
-      case LabsGaugePlacement.bottomRight:
-        return Icons.south_east;
+      case GaugePlacement.topLeft: return Icons.north_west;
+      case GaugePlacement.topCenter: return Icons.north;
+      case GaugePlacement.topRight: return Icons.north_east;
+      case GaugePlacement.centerLeft: return Icons.west;
+      case GaugePlacement.center: return Icons.center_focus_strong;
+      case GaugePlacement.centerRight: return Icons.east;
+      case GaugePlacement.bottomLeft: return Icons.south_west;
+      case GaugePlacement.bottomCenter: return Icons.south;
+      case GaugePlacement.bottomRight: return Icons.south_east;
     }
   }
 
@@ -79,23 +64,23 @@ extension LabsGaugePlacementExt on LabsGaugePlacement {
   /// Uses main_w, main_h (main video) and overlay_w, overlay_h (gauge).
   String overlayPosition({int margin = 20}) {
     switch (this) {
-      case LabsGaugePlacement.topLeft:
+      case GaugePlacement.topLeft:
         return 'x=$margin:y=$margin';
-      case LabsGaugePlacement.topCenter:
+      case GaugePlacement.topCenter:
         return 'x=(main_w-overlay_w)/2:y=$margin';
-      case LabsGaugePlacement.topRight:
+      case GaugePlacement.topRight:
         return 'x=main_w-overlay_w-$margin:y=$margin';
-      case LabsGaugePlacement.centerLeft:
+      case GaugePlacement.centerLeft:
         return 'x=$margin:y=(main_h-overlay_h)/2';
-      case LabsGaugePlacement.center:
+      case GaugePlacement.center:
         return 'x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2';
-      case LabsGaugePlacement.centerRight:
+      case GaugePlacement.centerRight:
         return 'x=main_w-overlay_w-$margin:y=(main_h-overlay_h)/2';
-      case LabsGaugePlacement.bottomLeft:
+      case GaugePlacement.bottomLeft:
         return 'x=$margin:y=main_h-overlay_h-$margin';
-      case LabsGaugePlacement.bottomCenter:
+      case GaugePlacement.bottomCenter:
         return 'x=(main_w-overlay_w)/2:y=main_h-overlay_h-$margin';
-      case LabsGaugePlacement.bottomRight:
+      case GaugePlacement.bottomRight:
         return 'x=main_w-overlay_w-$margin:y=main_h-overlay_h-$margin';
     }
   }
@@ -209,14 +194,14 @@ class GaugeCustomizationOption {
 // ─── GaugeCustomizationSelected ───
 
 /// The user's final selection of gauge settings for export.
-class GaugeCustomizationSelected {
+class GaugeCustomization extends Equatable {
   final String? id;
   final Dial? dial;
   final Needle? needle;
   final DialStyle? dialStyle;
   final bool? showSpeed;
   final bool? showBranding;
-  final bool? imperial;
+  final bool? isMetric;
 
   /// Aspect ratio of the full gauge area (height / width). Default 7:5.
   final double? gaugeAspectRatio;
@@ -225,25 +210,25 @@ class GaugeCustomizationSelected {
   final double? sizeFactor;
 
   /// Placement key (corresponds to LabsGaugePlacement.name).
-  final String? placement;
+  final GaugePlacement? placement;
 
   final Map<String, dynamic>? extra;
 
-  const GaugeCustomizationSelected({
+  const GaugeCustomization({
     this.id,
     this.dial,
     this.needle,
     this.dialStyle = DialStyle.analog,
     this.showSpeed = true,
     this.showBranding = true,
-    this.imperial = false,
+    this.isMetric = false,
     this.gaugeAspectRatio = 1.4, // 7/5
     this.sizeFactor = 0.25,
-    this.placement = 'bottomRight',
+    this.placement = GaugePlacement.topRight,
     this.extra,
   });
 
-  GaugeCustomizationSelected copyWith({
+  GaugeCustomization copyWith({
     String? id,
     Dial? dial,
     Needle? needle,
@@ -253,17 +238,17 @@ class GaugeCustomizationSelected {
     bool? imperial,
     double? gaugeAspectRatio,
     double? sizeFactor,
-    String? placement,
+    GaugePlacement? placement,
     Map<String, dynamic>? extra,
   }) {
-    return GaugeCustomizationSelected(
+    return GaugeCustomization(
       id: id ?? this.id,
       dial: dial ?? this.dial,
       needle: needle ?? this.needle,
       dialStyle: dialStyle ?? this.dialStyle,
       showSpeed: showSpeed ?? this.showSpeed,
       showBranding: showBranding ?? this.showBranding,
-      imperial: imperial ?? this.imperial,
+      isMetric: imperial ?? this.isMetric,
       gaugeAspectRatio: gaugeAspectRatio ?? this.gaugeAspectRatio,
       sizeFactor: sizeFactor ?? this.sizeFactor,
       placement: placement ?? this.placement,
@@ -272,15 +257,30 @@ class GaugeCustomizationSelected {
   }
 
   /// Resolve the LabsGaugePlacement from the placement string.
-  LabsGaugePlacement get labsPlacement {
-    return LabsGaugePlacement.values.firstWhere(
+  GaugePlacement get labsPlacement {
+    return GaugePlacement.values.firstWhere(
       (p) => p.name == placement,
-      orElse: () => LabsGaugePlacement.bottomRight,
+      orElse: () => GaugePlacement.bottomRight,
     );
   }
 
   @override
   String toString() =>
       'GaugeCustomizationSelected(dial: ${dial?.id}, needle: ${needle?.id}, '
-      'imperial: $imperial, sizeFactor: $sizeFactor, placement: $placement)';
+      'imperial: $isMetric, sizeFactor: $sizeFactor, placement: $placement)';
+
+  @override
+  List<Object?> get props => [
+    id,
+    dial,
+    needle,
+    dialStyle,
+    showSpeed,
+    showBranding,
+    isMetric,
+    gaugeAspectRatio,
+    sizeFactor,
+    placement,
+    extra,
+  ];
 }

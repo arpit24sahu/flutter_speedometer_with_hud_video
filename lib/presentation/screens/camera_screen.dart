@@ -14,16 +14,16 @@ import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/features/files/bloc/files_bloc.dart';
+import 'package:speedometer/features/labs/presentation/bloc/gauge_customization_bloc.dart';
+import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
+import 'package:speedometer/features/speedometer/bloc/speedometer_state.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
-import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
-import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
 import 'package:get_it/get_it.dart';
+import '../../features/labs/presentation/speedometer_overlay_3.dart';
 import '../../features/processing/bloc/jobs_bloc.dart';
 import '../../features/processing/bloc/processor_bloc.dart';
-import '../../core/services/screen_recorder.dart';
 import '../../packages/gal.dart';
 import '../bloc/video_recorder_bloc.dart';
-import '../widgets/digital_speedometer_overlay2.dart';
 import '../widgets/video_recorder_service.dart';
 import 'gauge_settings_screen.dart';
 import 'home_screen.dart';
@@ -38,7 +38,6 @@ class CameraScreen extends StatefulWidget {
 class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAware {
   CameraController? _cameraController;
   final CameraService _cameraService = getIt<CameraService>();
-  final ScreenRecorderController _screenRecorderController = ScreenRecorderController(pixelRatio: 1);
   final GlobalKey _speedometerKey = GlobalKey();
 
   int _currentCameraIndex = 0;
@@ -46,17 +45,12 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
   @override
   void initState() {
     super.initState();
-    // Permissions are already guaranteed by PermissionsGate
     _initializeCamera(_currentCameraIndex);
   }
 
   Future<void> _initializeCamera(int cameraIndex) async {
-    final List<CameraDescription> cameras = await _cameraService.getAvailableCameras();
-    int index = 0;
-    print("Camera Desc");
-    for(var x in cameras){
-      print("Camera ${index++}: ${x.name} ${x.lensDirection} ${x.sensorOrientation}");
-    }
+    final List<CameraDescription> cameras =
+        await _cameraService.getAvailableCameras();
     if (cameras.isEmpty) {
       return;
     }
@@ -70,14 +64,11 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
 
     try {
       await _cameraController!.initialize();
-      if (mounted) {
-        setState(() {});
-      }
+      if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Error initializing camera: $e');
     }
   }
-
 
   @override
   void onTabInvisible() {
@@ -88,7 +79,6 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
   void onTabVisible() {
     _cameraController?.resumePreview();
   }
-
 
   @override
   void dispose() {
@@ -107,7 +97,6 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
       return;
     }
 
-    // Safety check for mounted state
     if (!mounted) return;
 
     try {
@@ -131,423 +120,6 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
       }
     }
   }
-  //
-  // Future<void> _showRecordingResults(String finalVideoPath) async {
-  //   final videoFile = File(finalVideoPath);
-  //
-  //   Get.dialog(
-  //     Dialog(
-  //       shape: RoundedRectangleBorder(
-  //         borderRadius: BorderRadius.circular(16),
-  //       ),
-  //       elevation: 8,
-  //       backgroundColor: Colors.transparent,
-  //       child: Container(
-  //         decoration: BoxDecoration(
-  //           gradient: LinearGradient(
-  //             begin: Alignment.topLeft,
-  //             end: Alignment.bottomRight,
-  //             colors: [
-  //               Colors.blue.shade800,
-  //               Colors.indigo.shade900,
-  //             ],
-  //           ),
-  //           borderRadius: BorderRadius.circular(16),
-  //           boxShadow: [
-  //             BoxShadow(
-  //               color: Colors.black.withOpacity(0.3),
-  //               blurRadius: 16,
-  //               spreadRadius: 2,
-  //             ),
-  //           ],
-  //         ),
-  //         child: Column(
-  //           mainAxisSize: MainAxisSize.min,
-  //           children: [
-  //             Container(
-  //               padding: EdgeInsets.symmetric(vertical: 20, horizontal: 16),
-  //               decoration: BoxDecoration(
-  //                 color: Colors.black.withOpacity(0.2),
-  //                 borderRadius: BorderRadius.only(
-  //                   topLeft: Radius.circular(16),
-  //                   topRight: Radius.circular(16),
-  //                 ),
-  //               ),
-  //               child: Row(
-  //                 children: [
-  //                   Icon(
-  //                     Icons.check_circle,
-  //                     color: Colors.greenAccent,
-  //                     size: 36,
-  //                   ),
-  //                   SizedBox(width: 16),
-  //                   Expanded(
-  //                     child: Column(
-  //                       crossAxisAlignment: CrossAxisAlignment.start,
-  //                       children: [
-  //                         Text(
-  //                           'Recording Complete',
-  //                           style: TextStyle(
-  //                             fontSize: 22,
-  //                             fontWeight: FontWeight.bold,
-  //                             color: Colors.white,
-  //                           ),
-  //                         ),
-  //                         SizedBox(height: 4),
-  //                         Text(
-  //                           'Your video is ready to view and share!',
-  //                           style: TextStyle(
-  //                             fontSize: 14,
-  //                             color: Colors.white.withOpacity(0.8),
-  //                           ),
-  //                         ),
-  //                       ],
-  //                     ),
-  //                   ),
-  //                 ],
-  //               ),
-  //             ),
-  //
-  //             Container(
-  //               width: double.infinity,
-  //               padding: EdgeInsets.all(20),
-  //               child: Column(
-  //                 crossAxisAlignment: CrossAxisAlignment.start,
-  //                 children: [
-  //                   Text(
-  //                     'Your video has been saved:',
-  //                     style: TextStyle(
-  //                       fontSize: 16,
-  //                       color: Colors.white.withOpacity(0.9),
-  //                       fontWeight: FontWeight.w500,
-  //                     ),
-  //                   ),
-  //                   SizedBox(height: 12),
-  //                   Container(
-  //                     padding: EdgeInsets.all(12),
-  //                     decoration: BoxDecoration(
-  //                       color: Colors.white.withOpacity(0.1),
-  //                       borderRadius: BorderRadius.circular(8),
-  //                       border: Border.all(
-  //                         color: Colors.white.withOpacity(0.2),
-  //                         width: 1,
-  //                       ),
-  //                     ),
-  //                     child: Row(
-  //                       children: [
-  //                         Icon(
-  //                           Icons.videocam,
-  //                           color: Colors.greenAccent,
-  //                           size: 28,
-  //                         ),
-  //                         SizedBox(width: 12),
-  //                         Expanded(
-  //                           child: Column(
-  //                             crossAxisAlignment: CrossAxisAlignment.start,
-  //                             children: [
-  //                               Text(
-  //                                 'Video with Speedometer',
-  //                                 style: TextStyle(
-  //                                   fontSize: 16,
-  //                                   color: Colors.white,
-  //                                   fontWeight: FontWeight.bold,
-  //                                 ),
-  //                               ),
-  //                               SizedBox(height: 4),
-  //                               Text(
-  //                                 path.basename(finalVideoPath),
-  //                                 style: TextStyle(
-  //                                   fontSize: 13,
-  //                                   color: Colors.white.withOpacity(0.7),
-  //                                 ),
-  //                                 overflow: TextOverflow.ellipsis,
-  //                                 maxLines: 1,
-  //                               ),
-  //                               FutureBuilder<int>(
-  //                                 future: videoFile.exists() ? videoFile.length() : Future.value(0),
-  //                                 builder: (context, snapshot) {
-  //                                   if (snapshot.hasData && snapshot.data! > 0) {
-  //                                     final size = snapshot.data! / (1024 * 1024);
-  //                                     return Padding(
-  //                                       padding: const EdgeInsets.only(top: 4),
-  //                                       child: Text(
-  //                                         '${size.toStringAsFixed(2)} MB',
-  //                                         style: TextStyle(
-  //                                           fontSize: 12,
-  //                                           color: Colors.greenAccent,
-  //                                         ),
-  //                                       ),
-  //                                     );
-  //                                   }
-  //                                   return SizedBox.shrink();
-  //                                 },
-  //                               ),
-  //                             ],
-  //                           ),
-  //                         ),
-  //                       ],
-  //                     ),
-  //                   ),
-  //
-  //                   // Share prompt
-  //                   Container(
-  //                     margin: EdgeInsets.symmetric(vertical: 16),
-  //                     padding: EdgeInsets.all(16),
-  //                     decoration: BoxDecoration(
-  //                       color: Colors.amber.withOpacity(0.2),
-  //                       borderRadius: BorderRadius.circular(8),
-  //                       border: Border.all(
-  //                         color: Colors.amber.withOpacity(0.4),
-  //                         width: 1,
-  //                       ),
-  //                     ),
-  //                     child: Row(
-  //                       children: [
-  //                         Icon(
-  //                           Icons.lightbulb,
-  //                           color: Colors.amber,
-  //                           size: 24,
-  //                         ),
-  //                         SizedBox(width: 12),
-  //                         Expanded(
-  //                           child: Text(
-  //                             'Share your video with friends and family to show off your speed data!',
-  //                             style: TextStyle(
-  //                               fontSize: 14,
-  //                               color: Colors.white,
-  //                               fontWeight: FontWeight.w500,
-  //                             ),
-  //                           ),
-  //                         ),
-  //                       ],
-  //                     ),
-  //                   ),
-  //
-  //                   // Action buttons
-  //                   SizedBox(height: 10),
-  //                   Row(
-  //                     children: [
-  //                       Expanded(
-  //                         child: ElevatedButton.icon(
-  //                           style: ElevatedButton.styleFrom(
-  //                             backgroundColor: Colors.white.withOpacity(0.2),
-  //                             foregroundColor: Colors.white,
-  //                             padding: EdgeInsets.symmetric(vertical: 12),
-  //                             shape: RoundedRectangleBorder(
-  //                               borderRadius: BorderRadius.circular(8),
-  //                             ),
-  //                           ),
-  //                           icon: Icon(Icons.play_circle_outline),
-  //                           label: Text('Play Video'),
-  //                           onPressed: () async {
-  //                             final result = await OpenFile.open(finalVideoPath);
-  //                             print('OpenFile result: ${result.type}, ${result.message}');
-  //                           },
-  //                         ),
-  //                       ),
-  //                       SizedBox(width: 12),
-  //                       Expanded(
-  //                         child: ElevatedButton.icon(
-  //                           style: ElevatedButton.styleFrom(
-  //                             backgroundColor: Colors.greenAccent,
-  //                             foregroundColor: Colors.black,
-  //                             padding: EdgeInsets.symmetric(vertical: 12),
-  //                             elevation: 2,
-  //                             shape: RoundedRectangleBorder(
-  //                               borderRadius: BorderRadius.circular(8),
-  //                             ),
-  //                           ),
-  //                           icon: Icon(Icons.share),
-  //                           label: Text(
-  //                             'Share Video',
-  //                             style: TextStyle(fontWeight: FontWeight.bold),
-  //                           ),
-  //                           onPressed: () async {
-  //                             Get.back(); // Close dialog
-  //                             try {
-  //                               await Share.shareXFiles(
-  //                                   [XFile(finalVideoPath)],
-  //                                   text: 'Check out my driving data captured with Speedometer app!'
-  //                               );
-  //                             } catch (e) {
-  //                               print('Error sharing: $e');
-  //                               ScaffoldMessenger.of(context).showSnackBar(
-  //                                 SnackBar(
-  //                                   content: Text('Error sharing video: $e'),
-  //                                   backgroundColor: Colors.red,
-  //                                 ),
-  //                               );
-  //                             }
-  //                           },
-  //                         ),
-  //                       ),
-  //                     ],
-  //                   ),
-  //                 ],
-  //               ),
-  //             ),
-  //
-  //             // Close button at the bottom
-  //             Padding(
-  //               padding: EdgeInsets.only(bottom: 20, top: 10),
-  //               child: TextButton(
-  //                 style: TextButton.styleFrom(
-  //                   foregroundColor: Colors.white.withOpacity(0.7),
-  //                 ),
-  //                 onPressed: () => Get.back(),
-  //                 child: Text('Close'),
-  //               ),
-  //             ),
-  //           ],
-  //         ),
-  //       ),
-  //     ),
-  //     barrierDismissible: false,
-  //   );
-  // }
-  //
-  // Future<void> _toggleCameraRecording() async {
-  //   if (_controller == null || !_controller!.value.isInitialized) {
-  //     return;
-  //   }
-  //
-  //   if (_isRecording) {
-  //     try {
-  //       final XFile file = await _controller!.stopVideoRecording();
-  //
-  //       final newPath = await _getVideoFilePath();
-  //       final newFile = File(newPath);
-  //       await newFile.writeAsBytes(await file.readAsBytes());
-  //
-  //       setState(() {
-  //         _isRecording = false;
-  //         _lastVideoPath = file.path; // Store the file path
-  //       });
-  //       print("------------ New Path: $newPath");
-  //       _showFileActionsDialog(newPath);
-  //
-  //       if (mounted) {
-  //         ScaffoldMessenger.of(context).showSnackBar(
-  //           SnackBar(
-  //             content: Text('Video saved to ${newPath}'),
-  //             duration: Duration(seconds: 10),
-  //             action: SnackBarAction(
-  //               label: 'Open',
-  //               onPressed: () => _openVideo(XFile(newPath)),
-  //             ),
-  //           ),
-  //         );
-  //       }
-  //     } catch (e) {
-  //       debugPrint('Error stopping recording: $e');
-  //     }
-  //   } else {
-  //     try {
-  //       await _controller!.startVideoRecording();
-  //       setState(() {
-  //         _isRecording = true;
-  //       });
-  //     } catch (e) {
-  //       debugPrint('Error starting recording: $e');
-  //       if (mounted) {
-  //         ScaffoldMessenger.of(context).showSnackBar(
-  //           SnackBar(
-  //             content: Text('Could not start recording: $e'),
-  //             backgroundColor: Colors.red,
-  //           ),
-  //         );
-  //       }
-  //     }
-  //   }
-  // }
-  //
-  //
-  // Future<void> _toggleScreenRecording() async {
-  //   print('[Screen Recording] Toggle called. Recording state: $_isRecording');
-  //
-  //   if (_isRecording) {
-  //     try {
-  //       print('[Screen Recording] Attempting to stop recording...');
-  //
-  //       _screenRecorderController.stop();
-  //       setState(() {
-  //         _isRecording = false;
-  //         _isProcessing = true;
-  //       });
-  //       print('[Screen Recording] Recording stopped successfully');
-  //
-  //       print('[Screen Recording] Exporting as GIF...');
-  //       final List<int>? gif = await _screenRecorderController.exporter.exportGif();
-  //
-  //       if (gif != null) {
-  //         print('[Screen Recording] GIF exported successfully. Size: ${gif.length} bytes');
-  //
-  //         // Save the GIF to file
-  //         final newPath = await _getGifFilePath();
-  //         print('[Screen Recording] Saving GIF to: $newPath');
-  //
-  //         final newFile = File(newPath);
-  //         await newFile.writeAsBytes(gif);
-  //         print('[Screen Recording] GIF saved successfully');
-  //
-  //         setState(() {
-  //           _isProcessing = false;
-  //           _lastVideoPath = newPath;
-  //         });
-  //
-  //         print('[Screen Recording] Showing file actions dialog...');
-  //         _showFileActionsDialog(newPath);
-  //
-  //         if (mounted) {
-  //           ScaffoldMessenger.of(context).showSnackBar(
-  //             SnackBar(
-  //               content: Text('GIF saved to $newPath'),
-  //               duration: const Duration(seconds: 10),
-  //               action: SnackBarAction(
-  //                 label: 'Open',
-  //                 onPressed: () => _openFile(newPath),
-  //               ),
-  //             ),
-  //           );
-  //         }
-  //       } else {
-  //         print('[Screen Recording] ERROR: Failed to export GIF (null value returned)');
-  //       }
-  //     } catch (e) {
-  //       print('[Screen Recording] ERROR during stop recording: $e');
-  //       debugPrint('Error stopping recording: $e');
-  //       setState(() {
-  //         _isRecording = false;
-  //         _isProcessing = false;
-  //       });
-  //     }
-  //   } else {
-  //     try {
-  //       print('[Screen Recording] Attempting to start recording...');
-  //
-  //       _screenRecorderController.start();
-  //       print('[Screen Recording] Recording started successfully');
-  //
-  //       setState(() {
-  //         _isRecording = true;
-  //       });
-  //     } catch (e) {
-  //       print('[Screen Recording] ERROR during start recording: $e');
-  //       debugPrint('Error starting recording: $e');
-  //       if (mounted) {
-  //         ScaffoldMessenger.of(context).showSnackBar(
-  //           SnackBar(
-  //             content: Text('Could not start recording: $e'),
-  //             backgroundColor: Colors.red,
-  //           ),
-  //         );
-  //       }
-  //     }
-  //   }
-  //
-  //   print('[Screen Recording] Toggle function completed');
-  // }
-  //
 
   @override
   Widget build(BuildContext context) {
@@ -567,439 +139,338 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
             jobsBloc: GetIt.I<JobsBloc>(),
             processorBloc: GetIt.I<ProcessorBloc>(),
           ),
-      child: BlocBuilder<SettingsBloc, SettingsState>(
-        builder: (context, settingsState) {
-          return BlocConsumer<VideoRecorderBloc, VideoRecorderState>(
-            listener: (context, videoRecorderState){
-              if (videoRecorderState is VideoProcessed) {
-                // Show success dialog from external function
-                WidgetsBinding.instance.addPostFrameCallback((_) async {
-                  await Future.delayed(Duration(milliseconds: 1500));
-                  try {
-                    final galService = getIt<GalService>();
-                    await galService.saveVideoToGallery(
-                      videoRecorderState.finalVideoPath,
-                      albumName: 'Speedometer Videos',
-                    );
-                  } catch (e) {
-                    debugPrint('Error saving video to gallery: $e');
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Error saving video to gallery: $e'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                  try {
-                    Future.delayed(Duration(seconds: 1), () {
-                      if (context.mounted) {
-                        context.read<FilesBloc>().add(RefreshFiles());
-                      }
-                    });
-                    if (context.mounted)
-                      showVideoSuccessDialog(
-                        context,
-                        videoRecorderState.finalVideoPath,
-                      );
-                  } catch (e) {
-                    debugPrint('Error showing video success dialog: $e');
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text('Please check your File in the Files Tab.'),
-                          backgroundColor: Colors.red,
-                        ),
-                      );
-                    }
-                  }
-                });
-              } else if (videoRecorderState is VideoProcessingError) {
-                // Show error dialog from external function
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  showVideoErrorDialog(context, videoRecorderState.message);
-                });
-              } else if (videoRecorderState is VideoJobSaved) {
-                // Show snackbar informing user job was saved
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Recording saved! ${videoRecorderState.positionDataPoints} GPS points captured. Go to Jobs tab to build video with speedometer overlay.',
-                        ),
-                        backgroundColor: Colors.green,
-                        duration: const Duration(seconds: 5),
-                        action: SnackBarAction(
-                          label: 'Jobs',
-                          textColor: Colors.white,
-                          onPressed: () {
-                            // Navigate to Jobs tab (index 3)
-                            AppTabState.updateCurrentTab(3);
-                          },
-                        ),
-                      ),
-                    );
-                    // Reset to initial state after showing feedback
-                    context.read<VideoRecorderBloc>().add(ResetRecorder());
-                  }
-                });
-              }
-            },
-            builder: (context, videoRecorderState) {
-              print("Emitted State: ${videoRecorderState.runtimeType}");
-              String? statusText; Color? statusColor;
-              if(videoRecorderState is VideoProcessing){
-                statusText = 'Please wait. The Video is being processed in background';
-              } else {
-                statusText = null;
-              }
-              // else if(videoRecorderState is VideoProcessed){
-              //   statusText = 'Video processed successfully: ${videoRecorderState.finalVideoPath}';
-              //   statusColor = Colors.green;
-              //   Future.delayed(const Duration(seconds: 2), () {statusText = null;});
-              // } else if(videoRecorderState is VideoProcessingError) {
-              //   statusText = 'Error processing video: ${videoRecorderState.message}';
-              // }
-              return SafeArea(
-                child: Scaffold(
-                  backgroundColor: Colors.black,
-                  body: Column(
-                    children: [
+      child: BlocConsumer<VideoRecorderBloc, VideoRecorderState>(
+        listener: _handleVideoRecorderState,
+        builder: (context, videoRecorderState) {
+          final String? statusText =
+              videoRecorderState is VideoProcessing
+                  ? 'Please wait. The Video is being processed in background'
+                  : null;
 
-                      Expanded(
-                        flex: 4,
-                        child: LayoutBuilder(
-                          builder: (context, constraints){
-                            return ScreenRecorder(
-                              height: constraints.maxHeight,
-                              width: constraints.maxWidth,
-                              controller: _screenRecorderController,
-                              child: Stack(
-                                children: [
-                                  // Camera preview
-                                  Positioned.fill(
-                                    child: AspectRatio(
-                                      aspectRatio: _cameraController!.value.aspectRatio,
-                                      child: CameraPreview(
-                                        _cameraController!,
-                                        // child: (_isProcessing)
-                                        //     ? Center(
-                                        //   child: Stack(
-                                        //     children: [
-                                        //       // Black stroke text
-                                        //       Text(
-                                        //         "Processing your Clip...",
-                                        //         style: TextStyle(
-                                        //           fontSize: 24,
-                                        //           fontWeight: FontWeight.bold,
-                                        //           foreground: Paint()
-                                        //             ..style = PaintingStyle.stroke
-                                        //             ..strokeWidth = 2
-                                        //             ..color = Colors.black,
-                                        //         ),
-                                        //       ),
-                                        //       // White fill text
-                                        //       Text(
-                                        //         "Processing your Clip...",
-                                        //         style: TextStyle(
-                                        //           fontSize: 24,
-                                        //           fontWeight: FontWeight.bold,
-                                        //           color: Colors.white,
-                                        //         ),
-                                        //       ),
-                                        //     ],
-                                        //   ),
-                                        // )
-                                        //     : null
-
-                                      ),
-                                    ),
-                                  ),
-
-                                  // Speedometer overlay
-                                  BlocBuilder<OverlayGaugeConfigurationBloc, OverlayGaugeConfigurationState>(
-                                    builder: (context, OverlayGaugeConfigurationState gaugeState) {
-                                      final screenSize = Size(constraints.maxWidth, constraints.maxHeight);
-                                      final gaugeSize = MediaQuery.of(context).size.width * gaugeState.gaugeRelativeSize;
-
-                                      final position = calculateGaugePosition(
-                                        placement: gaugeState.gaugePlacement,
-                                        gaugeSize: gaugeSize,
-                                        screenSize: screenSize,
-                                      );
-
-                                      return Positioned(
-                                        top: position.top > 0 ? position.top : null,
-                                        bottom: position.bottom > 0 ? position.bottom : null,
-                                        left: position.left > 0 ? position.left : null,
-                                        right: position.right > 0 ? position.right : null,
-                                        width: gaugeSize,
-                                        height: gaugeSize+32, // Increase size here to add more widgets
-                                        // Don't keep extra height. It messes other placements.
-                                        child: RepaintBoundary(
-                                          key: _speedometerKey,
-                                          child: DigitalSpeedometerOverlay2(
-                                            isMetric: settingsState.isMetric,
-                                            size: gaugeSize,
-                                          ),
-                                        ),
-                                      );
-                                    }
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      if(statusText?.isNotEmpty??false) Row(
-                          mainAxisSize: MainAxisSize.max,
-                          mainAxisAlignment: MainAxisAlignment.center,
+          return SafeArea(
+            child: Scaffold(
+              backgroundColor: Colors.black,
+              body: Column(
+                children: [
+                  // ── Camera Preview + Overlay ──
+                  Expanded(
+                    flex: 4,
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Stack(
                           children: [
-                            Expanded(
-                              child: Container(
-                                color: Colors.yellow,
-                              child: Text(statusText ?? '',
-                                  style: TextStyle(
-                                    color: Colors.black,
-                                    fontWeight: FontWeight.bold
-                                  ),
-                                ),
+                            // Camera preview
+                            Positioned.fill(
+                              child: AspectRatio(
+                                aspectRatio:
+                                    _cameraController!.value.aspectRatio,
+                                child: CameraPreview(_cameraController!),
                               ),
                             ),
-                          ],
-                        ),
-                      Expanded(
-                        flex: 1,
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                            children: [
-                              if(!(videoRecorderState is VideoProcessing || videoRecorderState is VideoRecording))
-                                IconButton(
-                                  icon: const Icon(Icons.flip_camera_android),
-                                  color: Colors.white,
-                                  iconSize: 32,
-                                  onPressed: () {
-                                    HapticFeedback.mediumImpact();
-                                    AnalyticsService().trackEvent(AnalyticsEvents.flipCamera,
-                                      properties: {
-                                        "previousOrientation": _currentCameraIndex%2==0 ? "FRONT" : "BACK",
-                                        "newOrientation": _currentCameraIndex%2==0 ? "BACK" : "FRONT",
-                                        "previousOrientationIndex": _currentCameraIndex,
-                                        "newOrientationIndex": (_currentCameraIndex+1)%2,
-                                      }
+
+                            // Speedometer gauge overlay
+                            BlocBuilder<
+                              GaugeCustomizationBloc,
+                              GaugeCustomizationState
+                            >(
+                              builder: (context, gaugeCustomizationState) {
+                                return LayoutBuilder(
+                                  builder: (context, innerConstraints) {
+                                    final screenSize = Size(
+                                      innerConstraints.maxWidth,
+                                      innerConstraints.maxHeight,
                                     );
-                                    _initializeCamera((_currentCameraIndex+1)%2);
-                                    // Navigator.pop(context);
-                                  },
-                                )
-                              else IconButton(
-                                icon: const Icon(Icons.flip_camera_android),
-                                color: Colors.transparent,
-                                iconSize: 32,
-                                onPressed: () {
-                                  // _initializeCamera((_currentCameraIndex+1)%2);
-                                  // Navigator.pop(context);
-                                },
-                              ),
 
-
-                              // PremiumBadge(),
-                              // Container(width: 10, height: 10,),
-                              BlocBuilder<VideoRecorderBloc, VideoRecorderState>(
-                                builder: (context, VideoRecorderState state) {
-                                  final bool isRecording = state is VideoRecording;
-                                  final bool isProcessing = state is VideoProcessing;
-                                  final double processingProgress =
-                                      state is VideoProcessing ? state.progress : 0.0;
-
-                                  return FloatingActionButton(
-                                    backgroundColor: isRecording ? Colors.red : Colors.white,
-                                    onPressed:(){
-                                      print("Recording toggled");
-                                      if(!isProcessing){
-                                        HapticFeedback.mediumImpact();
-                                        if(isRecording){
-                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStopped,
-                                            properties: {
-                                              "cameraOrientation": _currentCameraIndex%2==0 ? "BACK" : "FRONT",
-                                              "cameraOrientationIndex": _currentCameraIndex,
-                                              "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson()
-                                            }
-                                          );
-                                        } else {
-                                          AnalyticsService().trackEvent(AnalyticsEvents.recordingStarted,
-                                              properties: {
-                                                "cameraOrientation": _currentCameraIndex%2==0 ? "BACK" : "FRONT",
-                                                "cameraOrientationIndex": _currentCameraIndex,
-                                                "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson()
-                                              }
-                                          );
-                                        }
-
-                                        _toggleRecording(context);
-                                      } else {
-                                        AnalyticsService().trackEvent(AnalyticsEvents.recordButtonPressedWhileProcessing,
-                                          properties: {
-                                            "progress": state.progress
-                                          }
-                                        );
-                                        print("Still Processing");
-                                      }
-                                    },
-                                    child: isProcessing
-                                            ? CupertinoActivityIndicator(
-                                              color: Colors.red,
-                                    ) : Icon(
-                                            isRecording ? Icons.stop : Icons.videocam,
-                                            color: isRecording ? Colors.white : Colors.black,
-                                            ),
-                                  );
-                                },
-                              ),
-                              if (true)
-                                IconButton(
-                                  icon: const Icon(Icons.settings),
-                                  color: Colors.white,
-                                  iconSize: 32,
-                                  onPressed: () {
-                                    HapticFeedback.mediumImpact();
-                                    showModalBottomSheet(
-                                      context: context,
-                                      isScrollControlled: true,
-                                      backgroundColor: Colors.transparent,
-                                      builder: (context) {
-                                        return Container(
-                                          height: MediaQuery.of(context).size.height * 0.75,
-                                          decoration: BoxDecoration(
-                                            color: Theme.of(context).scaffoldBackgroundColor,
-                                            borderRadius: const BorderRadius.only(
-                                                  topLeft: Radius.circular(16),
-                                                  topRight: Radius.circular(16),
-                                                ),
-                                          ),
-                                          padding: const EdgeInsets.all(16),
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                                            children: [
-                                              Row(
-                                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                                children: [
-                                                  Text(
-                                                    'Customize',
-                                                    style: Theme.of(context).textTheme.titleLarge,
-                                                  ),
-                                                  IconButton(
-                                                    icon: const Icon(Icons.close),
-                                                    onPressed: () => Navigator.pop(context),
-                                                  ),
-                                                ],
-                                              ),
-                                              const Divider(),
-                                              const SizedBox(height: 16),
-                                              Expanded(
-                                                child: GaugeSettingsScreen(),
-                                              ),
-                                            ],
-                                          ),
+                                    return BlocBuilder<
+                                      SpeedometerBloc,
+                                      SpeedometerState
+                                    >(
+                                      builder: (context, speedometerState) {
+                                        final double speed =
+                                            gaugeCustomizationState
+                                                        .customization
+                                                        .isMetric ==
+                                                    true
+                                                ? speedometerState.speedKmh
+                                                : speedometerState.speedMph;
+                                        return SpeedometerOverlay3(
+                                          speed: speed,
+                                          maxSpeed: 240,
+                                          screenSize: screenSize,
                                         );
                                       },
                                     );
-                                    if(false) showDialog(
-                                        context: context,
-                                      builder: (context) => AlertDialog(
-                                              title: const Text('Camera Mode'),
-                                              content: const Text(
-                                                'This mode allows you to record video with a speedometer overlay. '
-                                                'The recorded video will include the speed information.\n\n'
-                                                'If recording is not available on your device, you can use screen recording '
-                                                'to capture this view.',
-                                              ),
-                                              actions: [
-                                                TextButton(
-                                            onPressed: () => Navigator.pop(context),
-                                                  child: const Text('OK'),
-                                                ),
-                                              ],
-                                            ),
-                                      );
                                   },
-                                ),
-                            ],
-                          ),
-                        ),
-                      )
-                    ],
+                                );
+                              },
+                            ),
+                          ],
+                        );
+                      },
+                    ),
                   ),
-                ),
-              );
-            }
+
+                  // ── Processing Status Banner ──
+                  if (statusText?.isNotEmpty ?? false)
+                    Container(
+                      width: double.infinity,
+                      color: Colors.yellow,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      child: Text(
+                        statusText!,
+                        style: const TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+
+                  // ── Control Bar ──
+                  Expanded(
+                    flex: 1,
+                    child: Center(
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                        children: [
+                          // Flip camera (hidden while recording/processing)
+                          _buildFlipCameraButton(videoRecorderState),
+
+                          // Record / Stop button
+                          _buildRecordButton(context, videoRecorderState),
+
+                          // Settings button
+                          _buildSettingsButton(),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
           );
         },
       ),
     );
   }
-}
 
+  // ─────────────────────────────────────────────────────────────────────
+  // Extracted UI builders
+  // ─────────────────────────────────────────────────────────────────────
 
-/// Calculates the position values for gauge placement
-/// Returns EdgeInsets that can be used with Positioned widget
-EdgeInsets calculateGaugePosition({
-  required GaugePlacement placement,
-  required double gaugeSize,
-  required Size screenSize,
-  double margin = 20.0,
-}) {
-  final height = gaugeSize * 0.65;
+  Widget _buildFlipCameraButton(VideoRecorderState state) {
+    final bool isActive =
+        !(state is VideoProcessing || state is VideoRecording);
 
-  switch (placement) {
-    case GaugePlacement.topLeft:
-      return EdgeInsets.only(top: margin, left: margin);
+    if (!isActive) {
+      return const SizedBox(width: 48, height: 48);
+    }
 
-    case GaugePlacement.topCenter:
-      return EdgeInsets.only(
-        top: margin,
-        left: (screenSize.width - gaugeSize) / 2,
-      );
+    return IconButton(
+      icon: const Icon(Icons.flip_camera_android),
+      color: Colors.white,
+      iconSize: 32,
+      onPressed: () {
+        HapticFeedback.mediumImpact();
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.flipCamera,
+          properties: {
+            "previousOrientation":
+                _currentCameraIndex % 2 == 0 ? "FRONT" : "BACK",
+            "newOrientation": _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
+            "previousOrientationIndex": _currentCameraIndex,
+            "newOrientationIndex": (_currentCameraIndex + 1) % 2,
+          },
+        );
+        _initializeCamera((_currentCameraIndex + 1) % 2);
+      },
+    );
+  }
 
-    case GaugePlacement.topRight:
-      return EdgeInsets.only(top: margin, right: margin);
+  Widget _buildRecordButton(
+    BuildContext contextWithBloc,
+    VideoRecorderState state,
+  ) {
+    final bool isRecording = state is VideoRecording;
+    final bool isProcessing = state is VideoProcessing;
 
-    case GaugePlacement.centerLeft:
-      return EdgeInsets.only(
-        top: (screenSize.height - height) / 2,
-        left: margin,
-      );
+    return FloatingActionButton(
+      backgroundColor: isRecording ? Colors.red : Colors.white,
+      onPressed: () {
+        if (state is VideoProcessing) {
+          AnalyticsService().trackEvent(
+            AnalyticsEvents.recordButtonPressedWhileProcessing,
+            properties: {"progress": state.progress},
+          );
+        } else {
+          HapticFeedback.mediumImpact();
+          AnalyticsService().trackEvent(
+            isRecording
+                ? AnalyticsEvents.recordingStopped
+                : AnalyticsEvents.recordingStarted,
+            properties: {
+              "cameraOrientation":
+                  _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
+              "cameraOrientationIndex": _currentCameraIndex,
+              "gaugeState":
+                  contextWithBloc
+                      .read<OverlayGaugeConfigurationBloc>()
+                      .state
+                      .toJson(),
+            },
+          );
+          _toggleRecording(contextWithBloc);
+        }
+      },
+      child:
+          isProcessing
+              ? const CupertinoActivityIndicator(color: Colors.red)
+              : Icon(
+                isRecording ? Icons.stop : Icons.videocam,
+                color: isRecording ? Colors.white : Colors.black,
+              ),
+    );
+  }
 
-    case GaugePlacement.center:
-      return EdgeInsets.only(
-        top: (screenSize.height - height) / 2,
-        left: (screenSize.width - gaugeSize) / 2,
-      );
+  Widget _buildSettingsButton() {
+    return IconButton(
+      icon: const Icon(Icons.settings),
+      color: Colors.white,
+      iconSize: 32,
+      onPressed: () {
+        HapticFeedback.mediumImpact();
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.transparent,
+          builder: (sheetContext) {
+            return Container(
+              height: MediaQuery.of(sheetContext).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: Theme.of(sheetContext).scaffoldBackgroundColor,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Customize',
+                        style: Theme.of(sheetContext).textTheme.titleLarge,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(sheetContext),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    'Good News! You will be able to customize these after you have recorded your video. Go to Labs Page for more options.',
+                    style: Theme.of(sheetContext).textTheme.titleMedium,
+                  ),
+                  const Divider(),
+                  const SizedBox(height: 16),
+                  Expanded(child: GaugeSettingsScreen()),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
-    case GaugePlacement.centerRight:
-      return EdgeInsets.only(
-        top: (screenSize.height - height) / 2,
-        right: margin,
-      );
+  // ─────────────────────────────────────────────────────────────────────
+  // Bloc listener handler
+  // ─────────────────────────────────────────────────────────────────────
 
-    case GaugePlacement.bottomLeft:
-      return EdgeInsets.only(bottom: margin, left: margin);
-
-    case GaugePlacement.bottomCenter:
-      return EdgeInsets.only(
-        bottom: margin,
-        left: (screenSize.width - gaugeSize) / 2,
-      );
-
-    case GaugePlacement.bottomRight:
-      return EdgeInsets.only(bottom: margin, right: margin);
+  void _handleVideoRecorderState(
+    BuildContext context,
+    VideoRecorderState videoRecorderState,
+  ) {
+    if (videoRecorderState is VideoProcessed) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await Future.delayed(const Duration(milliseconds: 1500));
+        try {
+          final galService = getIt<GalService>();
+          await galService.saveVideoToGallery(
+            videoRecorderState.finalVideoPath,
+            albumName: 'Speedometer Videos',
+          );
+        } catch (e) {
+          debugPrint('Error saving video to gallery: $e');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error saving video to gallery: $e'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+        try {
+          Future.delayed(const Duration(seconds: 1), () {
+            if (context.mounted) {
+              context.read<FilesBloc>().add(RefreshFiles());
+            }
+          });
+          if (context.mounted) {
+            showVideoSuccessDialog(context, videoRecorderState.finalVideoPath);
+          }
+        } catch (e) {
+          debugPrint('Error showing video success dialog: $e');
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Please check your File in the Files Tab.'),
+                backgroundColor: Colors.red,
+              ),
+            );
+          }
+        }
+      });
+    } else if (videoRecorderState is VideoProcessingError) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        showVideoErrorDialog(context, videoRecorderState.message);
+      });
+    } else if (videoRecorderState is VideoJobSaved) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                'Recording saved! ${videoRecorderState.positionDataPoints} GPS points captured. Go to Jobs tab to build video with speedometer overlay.',
+              ),
+              backgroundColor: Colors.green,
+              duration: const Duration(seconds: 5),
+              action: SnackBarAction(
+                label: 'Jobs',
+                textColor: Colors.white,
+                onPressed: () {
+                  AppTabState.updateCurrentTab(3);
+                },
+              ),
+            ),
+          );
+          context.read<VideoRecorderBloc>().add(ResetRecorder());
+        }
+      });
+    }
   }
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════
+// Dialogs
+// ═══════════════════════════════════════════════════════════════════════
 
 /// Shows a success dialog after video processing is complete
 void showVideoSuccessDialog(BuildContext context, String finalVideoPath) {
@@ -1179,7 +650,7 @@ void showVideoSuccessDialog(BuildContext context, String finalVideoPath) {
                           size: 24,
                         ),
                         const SizedBox(width: 12),
-                        Expanded(
+                        const Expanded(
                           child: Text(
                             'Share your video with friends and family to show off your speed data!',
                             style: TextStyle(
@@ -1245,7 +716,7 @@ void showVideoSuccessDialog(BuildContext context, String finalVideoPath) {
                                 "videoSize": await videoFile.length()
                               }
                             );
-                            Get.back(); // Close dialog
+                            Get.back();
                             try {
                               await Share.shareXFiles(
                                 [XFile(finalVideoPath)],
@@ -1478,7 +949,7 @@ void showVideoErrorDialog(BuildContext context, String errorMessage) {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       onPressed: () {
-                        Get.back(); // Close dialog
+                        Get.back();
                       },
                     ),
                   ),

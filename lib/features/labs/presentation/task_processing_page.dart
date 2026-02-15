@@ -24,7 +24,7 @@ class TaskProcessingPage extends StatefulWidget {
 
 class _TaskProcessingPageState extends State<TaskProcessingPage> {
   // ─── State ───
-  late GaugeCustomizationSelected _config;
+  late GaugeCustomization _config;
   late GaugeCustomizationOption _selectedOption;
   Needle? _selectedNeedle;
 
@@ -41,16 +41,16 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
     _selectedNeedle =
         _selectedOption.hasNeedles ? _selectedOption.needles!.first : null;
 
-    _config = GaugeCustomizationSelected(
+    _config = GaugeCustomization(
       dial: _selectedOption.dial,
       needle: _selectedNeedle,
       dialStyle: DialStyle.analog,
       showSpeed: true,
       showBranding: true,
-      imperial: false,
+      isMetric: false,
       gaugeAspectRatio: 1.4, // 7:5
       sizeFactor: 0.25,
-      placement: LabsGaugePlacement.bottomRight.name,
+      placement: GaugePlacement.topRight,
     );
 
     _generateThumbnail();
@@ -69,7 +69,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
     } catch (_) {}
   }
 
-  void _updateConfig(GaugeCustomizationSelected Function(GaugeCustomizationSelected) updater) {
+  void _updateConfig(GaugeCustomization Function(GaugeCustomization) updater) {
     setState(() {
       _config = updater(_config);
     });
@@ -250,15 +250,13 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                     crossAxisSpacing: 8,
                     mainAxisSpacing: 8,
                   ),
-                  itemCount: LabsGaugePlacement.values.length,
+                  itemCount: GaugePlacement.values.length,
                   itemBuilder: (context, index) {
-                    final placement = LabsGaugePlacement.values[index];
-                    final isSelected =
-                        placement == _config.labsPlacement;
+                    final placement = GaugePlacement.values[index];
+                    final isSelected = placement == _config.labsPlacement;
                     return GestureDetector(
                       onTap: () {
-                        _updateConfig(
-                            (c) => c.copyWith(placement: placement.name));
+                        _updateConfig((c) => c.copyWith(placement: placement));
                         Navigator.pop(context);
                       },
                       child: Container(
@@ -515,7 +513,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final imperial = _config.imperial ?? false;
+    final imperial = _config.isMetric ?? false;
     final placement = _config.labsPlacement;
 
     return Scaffold(

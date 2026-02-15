@@ -13,6 +13,7 @@ import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.d
 import 'package:speedometer/presentation/widgets/video_recorder_service.dart';
 
 import 'package:uuid/uuid.dart';
+import '../../features/labs/models/gauge_customization.dart';
 import '../../features/processing/models/processing_job.dart';
 import '../../features/processing/bloc/jobs_bloc.dart';
 import '../../features/processing/bloc/processor_bloc.dart';

@@ -15,6 +15,8 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:video_player/video_player.dart';
 import 'dart:io';
 
+import 'features/labs/models/gauge_customization.dart';
+
 
 Future<String> getDownloadsPath()async{
   final directory = await getApplicationDocumentsDirectory();

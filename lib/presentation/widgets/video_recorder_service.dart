@@ -11,6 +11,8 @@ import 'package:speedometer/features/speedometer/models/position_data.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'dart:typed_data';
 
+import '../../features/labs/models/gauge_customization.dart';
+
 
 class StopRecordingReturnObject {
   final String? cameraVideoPath;

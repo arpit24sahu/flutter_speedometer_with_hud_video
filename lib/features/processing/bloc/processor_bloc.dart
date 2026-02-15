@@ -6,6 +6,7 @@ import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import '../../../../utils.dart';
+import '../../labs/models/gauge_customization.dart';
 import '../models/processing_job.dart';
 import '../repository/processing_repository.dart';
 

@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_event.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_state.dart';
+import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
 import 'package:speedometer/presentation/widgets/compass_widget.dart';
+
+import '../../features/speedometer/bloc/speedometer_state.dart';
 
 class CompassScreen extends StatelessWidget {
   const CompassScreen({super.key});

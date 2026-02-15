@@ -5,7 +5,7 @@ import 'package:speedometer/core/services/sensors_service.dart';
 import 'package:speedometer/features/files/bloc/files_bloc.dart';
 import 'package:speedometer/features/premium/bloc/premium_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
+import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speedometer/presentation/bloc/video_recorder_bloc.dart';
 import 'package:speedometer/presentation/widgets/video_recorder_service.dart';
@@ -32,7 +32,7 @@ Future<void> initializeDependencies() async {
   await initAnalyticsFeature();
   // Services
   getIt.registerLazySingleton<GalService>(() => GalService());
-  getIt.registerLazySingleton<LocationService>(() => LocationServiceImpl());
+  getIt.registerLazySingleton<LocationService>(() => LocationService());
   getIt.registerLazySingleton<CameraService>(() => CameraServiceImpl());
   getIt.registerLazySingleton<SensorsService>(() => SensorsServiceImpl());
 

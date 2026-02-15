@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/presentation/screens/home_screen.dart';
+import 'package:speedometer/services/permission_service.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -110,7 +111,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       future: shouldSkipOnboarding(),
       builder: (BuildContext context, AsyncSnapshot<bool> snapshot){
         if(!snapshot.hasData) return CircularProgressIndicator();
-        if(snapshot.data == true) return HomeScreen();
+        if (snapshot.data == true) return PermissionsGate(child: HomeScreen());
 
 
         return Scaffold(

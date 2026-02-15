@@ -3,8 +3,8 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/widgets/speed_gauge.dart';
 
-import '../bloc/speedometer/speedometer_bloc.dart';
-import '../bloc/speedometer/speedometer_state.dart';
+import '../../features/speedometer/bloc/speedometer_bloc.dart';
+import '../../features/speedometer/bloc/speedometer_state.dart';
 
 /// Sizing constants for the speedometer overlay container.
 /// All sizes are multipliers of the base size passed to the widget.

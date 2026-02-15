@@ -4,8 +4,8 @@ import 'package:flutter_compass/flutter_compass.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:speedometer/core/services/location_service.dart';
 import 'package:speedometer/core/services/sensors_service.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_event.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_state.dart';
+import 'package:speedometer/features/speedometer/bloc/speedometer_event.dart';
+import 'package:speedometer/features/speedometer/bloc/speedometer_state.dart';
 
 class SpeedometerBloc extends Bloc<SpeedometerEvent, SpeedometerState> {
   final LocationService locationService;

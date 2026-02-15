@@ -78,6 +78,7 @@ class AnalyticsParams {
   static const String appVersion = 'app_version';
   static const String buildNumber = 'build_number';
   static const String timestamp = 'timestamp';
+  static const String debugMode = 'debug_mode';
   static const String androidModel = 'android_model';
   static const String androidBrand = 'android_brand';
   static const String androidManufacturer = 'android_manufacturer';

@@ -9,7 +9,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get/get.dart';
 import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:speedometer/core/services/camera_service.dart';
 import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
@@ -42,49 +41,13 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
   final ScreenRecorderController _screenRecorderController = ScreenRecorderController(pixelRatio: 1);
   final GlobalKey _speedometerKey = GlobalKey();
 
-  bool _isPermissionGranted = false;
-  bool _checkingPermissions = true;
   int _currentCameraIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _checkPermissionsAndInit();
-  }
-
-  Future<void> _checkPermissionsAndInit() async {
-    setState(() {
-      _checkingPermissions = true;
-    });
-
-    final granted = await _permissionCheck();
-
-    setState(() {
-      _isPermissionGranted = granted;
-      _checkingPermissions = false;
-    });
-
-    if (granted) {
-      _initializeCamera(_currentCameraIndex);
-    }
-  }
-
-  Future<bool> _permissionCheck() async {
-    Map<Permission, PermissionStatus> statuses =
-        await [
-          Permission.camera,
-          Permission.microphone,
-          Permission.location,
-        ].request();
-
-    bool allGranted = true;
-    statuses.forEach((permission, status) {
-      if (!status.isGranted) {
-        allGranted = false;
-      }
-    });
-
-    return allGranted;
+    // Permissions are already guaranteed by PermissionsGate
+    _initializeCamera(_currentCameraIndex);
   }
 
   Future<void> _initializeCamera(int cameraIndex) async {
@@ -588,117 +551,6 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
 
   @override
   Widget build(BuildContext context) {
-    if (_checkingPermissions) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const CircularProgressIndicator(color: Colors.red),
-              const SizedBox(height: 20),
-              const Text(
-                "Verifying Permissions...",
-                style: TextStyle(color: Colors.white, fontSize: 16),
-              ),
-              const SizedBox(height: 12),
-              const Text(
-                "We need Camera, Microphone, and Location access to record your drive with a speedometer overlay.",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: (){
-                  AnalyticsService().trackEvent(AnalyticsEvents.permissionCheckAgainPress);
-                  _checkPermissionsAndInit();
-                },
-                icon: const Icon(Icons.refresh),
-                label: const Text("Check Again"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 24,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              const TextButton(
-                onPressed: openAppSettings,
-                child: const Text(
-                  "Open App Settings",
-                  style: TextStyle(color: Colors.redAccent),
-                ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    if (!_isPermissionGranted) {
-      return Scaffold(
-        backgroundColor: Colors.black,
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(
-                  Icons.no_photography_outlined,
-                  size: 80,
-                  color: Colors.redAccent,
-                ),
-                const SizedBox(height: 24),
-                const Text(
-                  "Permissions Required",
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                const Text(
-                  "We need Camera, Microphone, and Location access to record your drive with a speedometer overlay.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.grey),
-                ),
-                const SizedBox(height: 32),
-                ElevatedButton.icon(
-                  onPressed: (){
-                    AnalyticsService().trackEvent(AnalyticsEvents.permissionCheckAgainPress);
-                    _checkPermissionsAndInit();
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text("Check Again"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 24,
-                      vertical: 12,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-                TextButton(
-                  onPressed: openAppSettings,
-                  child: const Text(
-                    "Open App Settings",
-                    style: TextStyle(color: Colors.redAccent),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -767,6 +619,31 @@ class _CameraScreenState extends State<CameraScreen> implements TabVisibilityAwa
                 // Show error dialog from external function
                 WidgetsBinding.instance.addPostFrameCallback((_) {
                   showVideoErrorDialog(context, videoRecorderState.message);
+                });
+              } else if (videoRecorderState is VideoJobSaved) {
+                // Show snackbar informing user job was saved
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(
+                          'Recording saved! ${videoRecorderState.positionDataPoints} GPS points captured. Go to Jobs tab to build video with speedometer overlay.',
+                        ),
+                        backgroundColor: Colors.green,
+                        duration: const Duration(seconds: 5),
+                        action: SnackBarAction(
+                          label: 'Jobs',
+                          textColor: Colors.white,
+                          onPressed: () {
+                            // Navigate to Jobs tab (index 3)
+                            AppTabState.updateCurrentTab(3);
+                          },
+                        ),
+                      ),
+                    );
+                    // Reset to initial state after showing feedback
+                    context.read<VideoRecorderBloc>().add(ResetRecorder());
+                  }
                 });
               }
             },

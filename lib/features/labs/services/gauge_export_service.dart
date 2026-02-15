@@ -1,0 +1,384 @@
+import 'dart:io';
+import 'dart:math';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:ffmpeg_kit_flutter_new_video/ffprobe_kit.dart';
+import 'package:speedometer/features/labs/models/gauge_customization.dart';
+import 'package:speedometer/features/speedometer/models/position_data.dart';
+
+/// A single speed sample at a point in time.
+class _SpeedSample {
+  final double timeSec; // seconds from video start
+  final double speedInUnit; // speed in km/h or mph
+
+  const _SpeedSample(this.timeSec, this.speedInUnit);
+}
+
+/// Video metadata obtained from FFprobe.
+class VideoInfo {
+  final int width;
+  final int height;
+  final double durationSec;
+  final double fps;
+
+  const VideoInfo({
+    required this.width,
+    required this.height,
+    required this.durationSec,
+    required this.fps,
+  });
+}
+
+/// Service that builds FFmpeg commands with speed-synchronized
+/// needle rotation overlays.
+class GaugeExportService {
+  GaugeExportService._();
+
+  // ─── Public API ───
+
+  /// Probes the video and returns its metadata.
+  static Future<VideoInfo> probeVideo(String videoPath) async {
+    int width = 1080;
+    int height = 1920;
+    double durationSec = 0;
+    double fps = 30;
+
+    try {
+      final session = await FFprobeKit.getMediaInformation(videoPath);
+      final info = session.getMediaInformation();
+
+      if (info != null) {
+        // Duration
+        final durStr = info.getDuration();
+        if (durStr != null) {
+          durationSec = double.tryParse(durStr) ?? 0;
+        }
+
+        // Video stream
+        final streams = info.getStreams();
+        for (final stream in streams) {
+          final type = stream.getType();
+          if (type == 'video') {
+            width = int.tryParse(
+                    stream.getProperty('width')?.toString() ?? '') ??
+                width;
+            height = int.tryParse(
+                    stream.getProperty('height')?.toString() ?? '') ??
+                height;
+            // Parse frame rate (may be "30/1" or "29.97")
+            final rateStr =
+                stream.getProperty('r_frame_rate')?.toString() ?? '';
+            if (rateStr.contains('/')) {
+              final parts = rateStr.split('/');
+              final num = double.tryParse(parts[0]) ?? 30;
+              final den = double.tryParse(parts[1]) ?? 1;
+              fps = den > 0 ? num / den : 30;
+            } else {
+              fps = double.tryParse(rateStr) ?? 30;
+            }
+            break; // first video stream is enough
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('[GaugeExport] Probe failed: $e');
+    }
+
+    return VideoInfo(
+      width: width,
+      height: height,
+      durationSec: durationSec,
+      fps: fps,
+    );
+  }
+
+  /// Copies a bundled asset to a temporary file and returns the path.
+  /// For network URLs, downloads the image to a temp file first
+  /// (FFmpeg is not compiled with SSL support).
+  static Future<String> resolveAssetPath(
+      AssetType? assetType, String? path) async {
+    if (path == null || path.isEmpty) return '';
+
+    if (assetType == AssetType.asset) {
+      // Copy from Flutter asset bundle to temp directory
+      final data = await rootBundle.load(path);
+      final bytes = data.buffer.asUint8List();
+      final dir = await getTemporaryDirectory();
+      final fileName = path.split('/').last;
+      final tempFile = File('${dir.path}/gauge_asset_$fileName');
+      await tempFile.writeAsBytes(bytes);
+      return tempFile.path;
+    }
+
+    if (assetType == AssetType.network) {
+      // Download network image to temp file since FFmpeg lacks HTTPS support
+      try {
+        debugPrint('[GaugeExport] Downloading network image: $path');
+        final uri = Uri.parse(path);
+        final httpClient = HttpClient();
+        final request = await httpClient.getUrl(uri);
+        final response = await request.close();
+
+        if (response.statusCode == 200) {
+          final dir = await getTemporaryDirectory();
+          // Use a hash-like name to avoid collisions
+          final fileName = uri.pathSegments.isNotEmpty
+              ? uri.pathSegments.last
+              : 'network_image_${path.hashCode}.png';
+          final tempFile = File('${dir.path}/gauge_net_$fileName');
+          final bytes = await consolidateHttpClientResponseBytes(response);
+          await tempFile.writeAsBytes(bytes);
+          debugPrint('[GaugeExport] Downloaded to: ${tempFile.path}');
+          httpClient.close();
+          return tempFile.path;
+        } else {
+          debugPrint('[GaugeExport] Download failed: HTTP ${response.statusCode}');
+          httpClient.close();
+          return path; // fallback to original URL
+        }
+      } catch (e) {
+        debugPrint('[GaugeExport] Failed to download network image: $e');
+        return path; // fallback to original URL
+      }
+    }
+
+    // For memory, widget — return as-is
+    return path;
+  }
+
+  /// Determines the dial max speed based on the highest recorded speed.
+  ///
+  /// Speed thresholds (in the selected unit):
+  ///   - max < 200  → dial shows 0–240
+  ///   - 200 ≤ max < 1200 → dial shows 0–1200
+  ///   - max ≥ 1200 → dial shows 0–6000
+  static double dialMaxSpeed(double maxRecordedSpeed) {
+    if (maxRecordedSpeed < 200) return 240;
+    if (maxRecordedSpeed < 1200) return 1200;
+    return 6000;
+  }
+
+  /// Samples the position data at regular intervals and converts
+  /// speeds to the requested unit.
+  ///
+  /// [positionData] — raw data points with speed in m/s and timestamp in ms.
+  /// [imperial] — if true, convert to mph; otherwise km/h.
+  /// [sampleIntervalSec] — interval at which to sample speeds.
+  static List<_SpeedSample> _sampleSpeeds(
+    List<PositionData> positionData, {
+    required bool imperial,
+    double sampleIntervalSec = 1.0,
+  }) {
+    if (positionData.isEmpty) return [const _SpeedSample(0, 0)];
+
+    // Sort by timestamp ascending
+    final sorted = List<PositionData>.from(positionData)
+      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+
+    final firstTs = sorted.first.timestamp;
+    final lastTs = sorted.last.timestamp;
+    final totalDurationSec = (lastTs - firstTs) / 1000.0;
+
+    // Conversion factor: m/s → km/h or mph
+    final conversionFactor = imperial ? 2.23694 : 3.6;
+
+    final samples = <_SpeedSample>[];
+
+    // Generate samples at regular intervals
+    double t = 0;
+    while (t <= totalDurationSec + 0.001) {
+      final targetMs = firstTs + (t * 1000).round();
+      final speed = _interpolateSpeed(sorted, targetMs) * conversionFactor;
+      samples.add(_SpeedSample(t, speed.clamp(0, double.infinity)));
+      t += sampleIntervalSec;
+    }
+
+    // Ensure we have the very last point
+    if (samples.isEmpty ||
+        (samples.last.timeSec - totalDurationSec).abs() > 0.01) {
+      final lastSpeed = sorted.last.speed * conversionFactor;
+      samples.add(_SpeedSample(totalDurationSec, lastSpeed.clamp(0, double.infinity)));
+    }
+
+    return samples;
+  }
+
+  /// Linear interpolation of speed at a given timestamp (ms since epoch).
+  static double _interpolateSpeed(
+      List<PositionData> sorted, int targetMs) {
+    if (sorted.isEmpty) return 0;
+    if (targetMs <= sorted.first.timestamp) return sorted.first.speed;
+    if (targetMs >= sorted.last.timestamp) return sorted.last.speed;
+
+    // Find the bracketing points
+    int i = 1;
+    while (i < sorted.length && sorted[i].timestamp < targetMs) {
+      i++;
+    }
+
+    final prev = sorted[i - 1];
+    final next = sorted[i];
+    final dt = (next.timestamp - prev.timestamp).toDouble();
+    if (dt <= 0) return prev.speed;
+
+    final fraction = (targetMs - prev.timestamp) / dt;
+    return prev.speed + (next.speed - prev.speed) * fraction;
+  }
+
+  /// Builds the FFmpeg piecewise linear rotation expression for the
+  /// needle, synchronized with sampled speed data.
+  ///
+  /// The expression uses `t` (time in seconds) and evaluates to an
+  /// angle in radians. Positive = clockwise in FFmpeg's rotate filter.
+  ///
+  /// Needle math:
+  ///   - Needle image points straight up (0°)
+  ///   - At speed 0: rotate by -halfSweep (counterclockwise)
+  ///   - At max speed: rotate by +halfSweep (clockwise)
+  ///   - angle = (-halfSweep + fraction * totalSweep) × π / 180
+  static String _buildRotationExpression(
+    List<_SpeedSample> samples,
+    double dialMax,
+    Dial dial,
+  ) {
+    final halfSweepRad = dial.halfSweep * pi / 180;
+    final totalSweepRad = dial.totalSweep * pi / 180;
+
+    // Convert each sample to a target rotation angle in radians
+    List<double> angles = samples.map((s) {
+      final fraction = (s.speedInUnit / dialMax).clamp(0.0, 1.0);
+      return -halfSweepRad + fraction * totalSweepRad;
+    }).toList();
+
+    if (samples.length <= 1) {
+      return angles.isNotEmpty
+          ? angles.first.toStringAsFixed(6)
+          : '0';
+    }
+
+    // Build nested if(lt(t, t_next), lerp(a_i, a_next, (t-t_i)/(t_next-t_i)), ...)
+    // Start from the last interval and wrap backwards
+    String expr = angles.last.toStringAsFixed(6);
+
+    for (int i = samples.length - 2; i >= 0; i--) {
+      final tI = samples[i].timeSec;
+      final tNext = samples[i + 1].timeSec;
+      final aI = angles[i];
+      final aNext = angles[i + 1];
+      final dt = tNext - tI;
+
+      if (dt <= 0) continue;
+
+      final slope = (aNext - aI) / dt;
+
+      // Linear interpolation: a_i + slope * (t - t_i)
+      expr = 'if(lt(t\\,${tNext.toStringAsFixed(3)})\\,'
+          '${aI.toStringAsFixed(6)}+${slope.toStringAsFixed(6)}*(t-${tI.toStringAsFixed(3)})'
+          '\\,$expr)';
+    }
+
+    return expr;
+  }
+
+  /// Builds the complete FFmpeg command string for exporting a video
+  /// with a gauge overlay.
+  ///
+  /// Inputs:
+  ///   - [0] source video
+  ///   - [1] dial image (transparent PNG)
+  ///   - [2] needle image (transparent PNG, pointing up)
+  ///
+  /// Filter:
+  ///   1. Scale dial to gauge size
+  ///   2. Scale needle to gauge size, then rotate with time-based expression
+  ///   3. Overlay needle on dial (centered)
+  ///   4. Overlay gauge composite on source video at chosen placement
+  static Future<String> buildCommand({
+    required GaugeCustomizationSelected config,
+    required String inputVideoPath,
+    required List<PositionData> positionData,
+    required String outputPath,
+  }) async {
+    // 1. Probe video
+    final videoInfo = await probeVideo(inputVideoPath);
+    debugPrint('[GaugeExport] Video: ${videoInfo.width}×${videoInfo.height}, '
+        '${videoInfo.durationSec}s, ${videoInfo.fps}fps');
+
+    // 2. Resolve asset paths
+    final dialPath = await resolveAssetPath(
+        config.dial?.assetType, config.dial?.path);
+    final needlePath = await resolveAssetPath(
+        config.needle?.assetType, config.needle?.path);
+
+    // 3. Calculate gauge pixel size
+    final sizeFactor = config.sizeFactor ?? 0.25;
+    // Use the smaller dimension as reference for sizing
+    final refDimension = min(videoInfo.width, videoInfo.height);
+    final gaugeSize = (refDimension * sizeFactor).round();
+    // Ensure even number for FFmpeg compatibility
+    final gs = gaugeSize % 2 == 0 ? gaugeSize : gaugeSize + 1;
+
+    debugPrint('[GaugeExport] Gauge size: ${gs}px '
+        '(${(sizeFactor * 100).toStringAsFixed(0)}% of ${refDimension}px)');
+
+    // 4. Sample speed data
+    final imperial = config.imperial ?? false;
+    final samples =
+        _sampleSpeeds(positionData, imperial: imperial, sampleIntervalSec: 0.5);
+
+    // Find max speed for dial range
+    double maxSpeed = 0;
+    for (final s in samples) {
+      if (s.speedInUnit > maxSpeed) maxSpeed = s.speedInUnit;
+    }
+    final dialMax = dialMaxSpeed(maxSpeed);
+    debugPrint('[GaugeExport] Max speed: ${maxSpeed.toStringAsFixed(1)} '
+        '${imperial ? "mph" : "km/h"}, dial range: 0–$dialMax');
+
+    // 5. Build rotation expression
+    final dial = config.dial ?? const Dial();
+    final rotExpr = _buildRotationExpression(samples, dialMax, dial);
+    debugPrint('[GaugeExport] Rotation expression length: ${rotExpr.length} chars');
+
+    // 6. Determine placement
+    final placement = config.labsPlacement;
+    final overlayPos = placement.overlayPosition(margin: 20);
+
+    // 7. Build filter_complex
+    //
+    // [1:v] = dial image → scale to gauge size
+    // [2:v] = needle image → scale to gauge size → rotate by speed expression
+    // Overlay needle on dial → overlay composite on source video
+    // NOTE: Use bare commas for filter separators, and \, only inside
+    // expressions (like rotate=). The command wraps this in single quotes
+    // so ffmpeg_kit preserves backslashes literally for FFmpeg.
+    final filterComplex =
+        '[1:v]format=rgba,scale=$gs:$gs[dial];'
+        '[2:v]format=rgba,scale=$gs:$gs,'
+        'rotate=$rotExpr'
+        ':ow=$gs:oh=$gs:c=none:bilinear=1[nrot];'
+        '[dial][nrot]overlay=0:0:format=auto[gauge];'
+        '[0:v][gauge]overlay=$overlayPos:format=auto[out]';
+
+    // 8. Full command
+    // Use single quotes around filter_complex so ffmpeg_kit's argument
+    // parser preserves backslash-escapes (\,) literally for FFmpeg.
+    // Double quotes would strip \, → , and break expression parsing.
+    final command = '-y '
+        '-i "$inputVideoPath" '
+        '-i "$dialPath" '
+        '-i "$needlePath" '
+        "-filter_complex '${filterComplex}' "
+        '-map "[out]" '
+        '-map 0:a? '
+        '-c:v mpeg4 '
+        '-q:v 3 '
+        '-c:a aac '
+        '-b:a 192k '
+        '"$outputPath"';
+
+    debugPrint('[GaugeExport] Command length: ${command.length} chars');
+    return command;
+  }
+}

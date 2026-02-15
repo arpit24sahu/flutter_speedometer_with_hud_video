@@ -110,6 +110,7 @@ class AnalyticsService {
     // Build event properties with common parameters
     final eventProperties = <String, dynamic>{
       AnalyticsParams.timestamp: DateTime.now().toIso8601String(),
+      AnalyticsParams.debugMode: kDebugMode,
       AnalyticsParams.platform: Platform.operatingSystem,
       AnalyticsParams.osVersion: Platform.operatingSystemVersion,
       AnalyticsParams.appVersion: PackageInfoService().version,

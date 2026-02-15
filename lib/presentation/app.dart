@@ -8,7 +8,7 @@ import 'package:speedometer/features/processing/bloc/jobs_bloc.dart';
 import 'package:speedometer/features/processing/bloc/processor_bloc.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
+import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
 import 'package:speedometer/presentation/bloc/video_recorder_bloc.dart';
 import 'package:speedometer/presentation/screens/home_screen.dart';
 import 'package:speedometer/presentation/screens/onboarding_screen.dart';

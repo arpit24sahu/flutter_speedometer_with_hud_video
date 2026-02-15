@@ -44,3 +44,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+generated_plugins.cmake
+generated_plugin_registrant.cc
+GeneratedPluginRegistrant.swift

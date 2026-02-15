@@ -152,7 +152,15 @@ class _RecordedTaskTile extends StatelessWidget {
                 return Center(
                   child: ListView(
                     shrinkWrap: true,
-                    children: task.positionData?.map((e) => Text(e.speed.toStringAsFixed(2))).toList()??[],
+                  children:
+                      task.positionData?.entries
+                          .map(
+                            (e) => Text(
+                              '${e.key}ms: ${e.value.speed.toStringAsFixed(2)}',
+                            ),
+                          )
+                          .toList() ??
+                      [],
                   ),
                 );
               }

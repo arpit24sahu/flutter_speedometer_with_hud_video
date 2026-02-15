@@ -338,7 +338,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
       final command = await GaugeExportService.buildCommand(
         config: _config,
         inputVideoPath: widget.task.videoFilePath!,
-        positionData: widget.task.positionData ?? [],
+        positionData: widget.task.positionData ?? {},
         outputPath: outputPath,
       );
 

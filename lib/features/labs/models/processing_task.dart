@@ -18,7 +18,7 @@ class ProcessingTask extends HiveObject with EquatableMixin {
   final String? videoFilePath;
 
   @HiveField(3)
-  final List<PositionData>? positionData;
+  final Map<int, PositionData>? positionData;
 
   @HiveField(4)
   final double? sizeInKb;
@@ -39,7 +39,7 @@ class ProcessingTask extends HiveObject with EquatableMixin {
     String? id,
     String? name,
     String? videoFilePath,
-    List<PositionData>? positionData,
+    Map<int, PositionData>? positionData,
     double? sizeInKb,
     double? lengthInSeconds,
   }) {

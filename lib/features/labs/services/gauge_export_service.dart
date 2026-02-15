@@ -159,46 +159,42 @@ class GaugeExportService {
     return 6000;
   }
 
-  /// Samples the position data at regular intervals and converts
-  /// speeds to the requested unit.
+  /// Processes the position data map and converts speeds to the
+  /// requested unit.
   ///
-  /// [positionData] — raw data points with speed in m/s and timestamp in ms.
+  /// [positionData] — map of elapsed ms (from video start) → PositionData.
   /// [imperial] — if true, convert to mph; otherwise km/h.
-  /// [sampleIntervalSec] — interval at which to sample speeds.
-  static List<_SpeedSample> _sampleSpeeds(
-    List<PositionData> positionData, {
-    required bool imperial,
-    double sampleIntervalSec = 1.0,
-  }) {
+  static List<_SpeedSample> _processRawData(
+      Map<int, PositionData> positionData, {
+        required bool imperial,
+      }) {
+    print("Position Data before processing");
+    print(" ElapsedMs: Speed (m/s)");
+    for (final entry in positionData.entries) {
+      print(" ${entry.key}: ${entry.value.speed}");
+    }
+
     if (positionData.isEmpty) return [const _SpeedSample(0, 0)];
 
-    // Sort by timestamp ascending
-    final sorted = List<PositionData>.from(positionData)
-      ..sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    // 1. Sort entries by key (elapsed ms) ascending — crucial for FFmpeg
+    final sortedEntries = positionData.entries.toList()..sort((a, b) => a.key.compareTo(b.key));
 
-    final firstTs = sorted.first.timestamp;
-    final lastTs = sorted.last.timestamp;
-    final totalDurationSec = (lastTs - firstTs) / 1000.0;
-
-    // Conversion factor: m/s → km/h or mph
     final conversionFactor = imperial ? 2.23694 : 3.6;
 
     final samples = <_SpeedSample>[];
 
-    // Generate samples at regular intervals
-    double t = 0;
-    while (t <= totalDurationSec + 0.001) {
-      final targetMs = firstTs + (t * 1000).round();
-      final speed = _interpolateSpeed(sorted, targetMs) * conversionFactor;
-      samples.add(_SpeedSample(t, speed.clamp(0, double.infinity)));
-      t += sampleIntervalSec;
+    // 2. Convert raw points directly to seconds & unit speed
+    for (final entry in sortedEntries) {
+      final t = entry.key / 1000.0; // Convert elapsed ms → seconds
+      final s = entry.value.speed * conversionFactor; // m/s → km/h or mph
+      // Prevent duplicate timestamps (FFmpeg crashes if time doesn't move forward)
+      if (samples.isNotEmpty && t <= samples.last.timeSec) continue;
+      samples.add(_SpeedSample(t, s.clamp(0, double.infinity)));
     }
 
-    // Ensure we have the very last point
-    if (samples.isEmpty ||
-        (samples.last.timeSec - totalDurationSec).abs() > 0.01) {
-      final lastSpeed = sorted.last.speed * conversionFactor;
-      samples.add(_SpeedSample(totalDurationSec, lastSpeed.clamp(0, double.infinity)));
+    // 3. Ensure we start at 0.0s (good for video start)
+    if (samples.isNotEmpty && samples.first.timeSec > 0) {
+      samples.insert(0, _SpeedSample(0.0, samples.first.speedInUnit));
     }
 
     return samples;
@@ -297,7 +293,7 @@ class GaugeExportService {
   static Future<String> buildCommand({
     required GaugeCustomizationSelected config,
     required String inputVideoPath,
-    required List<PositionData> positionData,
+    required Map<int, PositionData> positionData,
     required String outputPath,
   }) async {
     // 1. Probe video
@@ -324,8 +320,12 @@ class GaugeExportService {
 
     // 4. Sample speed data
     final imperial = config.imperial ?? false;
-    final samples =
-        _sampleSpeeds(positionData, imperial: imperial, sampleIntervalSec: 0.5);
+    final List<_SpeedSample> samples = _processRawData(positionData, imperial: imperial);
+
+    print("Printing speed Samples");
+    for(_SpeedSample sample in samples){
+      print("   ${sample.timeSec}: ${sample.speedInUnit}");
+    }
 
     // Find max speed for dial range
     double maxSpeed = 0;
@@ -356,8 +356,8 @@ class GaugeExportService {
     final filterComplex =
         '[1:v]format=rgba,scale=$gs:$gs[dial];'
         '[2:v]format=rgba,scale=$gs:$gs,'
-        'rotate=$rotExpr'
-        ':ow=$gs:oh=$gs:c=none:bilinear=1[nrot];'
+    // Wrap $rotExpr in single quotes '...'
+        'rotate=angle=\'$rotExpr\':ow=$gs:oh=$gs:fillcolor=none[nrot];'
         '[dial][nrot]overlay=0:0:format=auto[gauge];'
         '[0:v][gauge]overlay=$overlayPos:format=auto[out]';
 
@@ -367,11 +367,12 @@ class GaugeExportService {
     // Double quotes would strip \, → , and break expression parsing.
     final command = '-y '
         '-i "$inputVideoPath" '
-        '-i "$dialPath" '
-        '-i "$needlePath" '
-        "-filter_complex '${filterComplex}' "
+        '-loop 1 -i "$dialPath" '
+        '-loop 1 -i "$needlePath" '
+        '-filter_complex "$filterComplex" ' // Use double quotes outside
         '-map "[out]" '
         '-map 0:a? '
+        '-shortest '                  // Stop when video ends -> CRITICAL
         '-c:v mpeg4 '
         '-q:v 3 '
         '-c:a aac '

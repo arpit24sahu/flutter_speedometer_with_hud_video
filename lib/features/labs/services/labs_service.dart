@@ -79,7 +79,7 @@ class LabsService {
   /// Creates a ProcessingTask from recording data and saves it.
   Future<ProcessingTask> createFromRecording({
     required String videoFilePath,
-    required List<PositionData> positionData,
+    required Map<int, PositionData> positionData,
   }) async {
     final id = generateId();
     final file = File(videoFilePath);

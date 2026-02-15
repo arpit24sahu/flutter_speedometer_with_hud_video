@@ -14,7 +14,7 @@ class ProcessingTaskAdapter extends TypeAdapter<ProcessingTask> {
       id: fields[0] as String?,
       name: fields[1] as String?,
       videoFilePath: fields[2] as String?,
-      positionData: (fields[3] as List?)?.cast<PositionData>(),
+      positionData: (fields[3] as Map?)?.cast<int, PositionData>(),
       sizeInKb: (fields[4] as num?)?.toDouble(),
       lengthInSeconds: (fields[5] as num?)?.toDouble(),
     );

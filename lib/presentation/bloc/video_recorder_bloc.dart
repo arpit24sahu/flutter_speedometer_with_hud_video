@@ -140,7 +140,7 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
         print(positionDataList.map((e) => e.speed));
         await LabsService().createFromRecording(
           videoFilePath: cameraVideoPath,
-          positionData: positionDataList,
+          positionData: positionData //positionDataList,
         );
         print('DEBUG: ProcessingTask saved for Labs');
       } catch (e) {

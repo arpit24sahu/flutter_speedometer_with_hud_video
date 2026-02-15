@@ -16,7 +16,7 @@ class LocationService {
   // Existing functionality (UNCHANGED)
   // ─────────────────────────────────────────────
 
-  bool enableMockSpeed = true;
+  bool enableMockSpeed = false;
   final _random = Random();
 
   Future<bool> checkPermission() async {
@@ -87,6 +87,8 @@ class LocationService {
       },
     );
 
+    count = 0;
+
     _samplingTimer = Timer.periodic(
       const Duration(milliseconds: 500),
           (_) {
@@ -96,13 +98,15 @@ class LocationService {
         // trackedPositionData[elapsedMs] = PositionData.fromGeolocator(_latestPosition!);
         final realData = PositionData.fromGeolocator(_latestPosition!);
         trackedPositionData[elapsedMs] = enableMockSpeed
-            ? realData.copyWith(speed: 10 + _random.nextDouble() * 190)
+            ? realData.copyWith(speed: count++)
             : realData;
       },
     );
 
     return true;
   }
+
+  double count = 0;
 
   Map<int, PositionData> stopSpeedTracking() {
     if (!isTrackingSpeed) return trackedPositionData;

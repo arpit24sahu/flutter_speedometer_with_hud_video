@@ -44,10 +44,10 @@ android {
 
     signingConfigs {
         create("release") {
-            storeFile = file("tempkeystore.jks")
-            storePassword = "android"
-            keyAlias = "upload"
-            keyPassword = "android"
+            keyAlias = keystoreProperties["keyAlias"] as String
+            keyPassword = keystoreProperties["keyPassword"] as String
+            storeFile = keystoreProperties["storeFile"]?.let { file(it as String) }
+            storePassword = keystoreProperties["storePassword"] as String
         }
     }
 

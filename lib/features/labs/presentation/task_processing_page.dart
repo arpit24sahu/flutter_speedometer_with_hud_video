@@ -629,7 +629,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
               "process_run_time": processRunTime,
               "return_code": rc?.getValue(),
               AnalyticsParams.success: true,
-              "get_duration": session.getDuration(),
+              "get_duration": await session.getDuration(),
             }
         );
 
@@ -702,7 +702,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
               AnalyticsParams.success: true,
               "gallery_save_error": gallerySaveError,
               "raw_export_error": rawExportError,
-              "get_duration": session.getDuration(),
+              "get_duration": await session.getDuration(),
             }
         );
       } else {
@@ -723,7 +723,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
               AnalyticsParams.success: false,
               "logs": logs,
               "is_crash": false,
-              "get_duration": session.getDuration(),
+              "get_duration": await session.getDuration(),
             }
         );
         debugPrint('[Labs Export] FFmpeg failed. RC: $rc');

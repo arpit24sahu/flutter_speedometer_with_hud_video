@@ -142,7 +142,12 @@ class AnalyticsService {
     kPrint(eventProperties);
 
     // Send to all analytics services
-    _mixpanelService.trackEvent(eventName, properties: eventProperties);
+    _mixpanelService.trackEvent(eventName, properties: eventProperties.map((k,v) {
+      if(v is String || v is int || v is bool) {
+        return MapEntry(k,v);
+      }
+      return MapEntry(k,v.toString());
+    }));
     _firebaseAnalyticsService.logEvent(eventName, eventProperties.map((k,v) => MapEntry(k,v.toString())));
   }
 

@@ -1,19 +1,24 @@
 import 'dart:async';
 import 'dart:isolate';
+import 'dart:math';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:meta/meta.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:speedometer/core/services/location_service.dart';
+import 'package:speedometer/features/speedometer/models/position_data.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/widgets/video_recorder_service.dart';
 
 import 'package:uuid/uuid.dart';
+import '../../features/labs/models/gauge_customization.dart';
 import '../../features/processing/models/processing_job.dart';
 import '../../features/processing/bloc/jobs_bloc.dart';
 import '../../features/processing/bloc/processor_bloc.dart';
 import '../../utils.dart';
+import 'package:speedometer/features/labs/services/labs_service.dart';
 
 class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
   final WidgetRecorderService recorderService;
@@ -39,7 +44,11 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
     Emitter<VideoRecorderState> emit,
   ) async {
     try {
-      await recorderService.startRecording();
+      bool recordingStarted = await recorderService.startRecording();
+      if (recordingStarted) await LocationService().startSpeedTracking();
+
+      print("!!! Recording did not start");
+
       emit(VideoRecording());
     } catch (e) {
       emit(VideoRecordingError('Failed to start recording: $e'));
@@ -58,20 +67,25 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
       
       print('DEBUG: Calling recorderService.stopRecording()');
       // Start the actual processing in an isolate
-      final Map<String, String> initialResult = await recorderService
+      final StopRecordingReturnObject initialResult = await recorderService
           .stopRecording(event.gaugePlacement, event.relativeSize);
       print('DEBUG: stopRecording result: $initialResult');
 
-      if (initialResult.containsKey('error')) {
-        print('DEBUG: Error in initial result: ${initialResult['error']}');
-        add(ProcessingFailed(errorMessage: initialResult['error']!));
+      Map<int, PositionData> positionData =
+          LocationService().stopSpeedTracking();
+      print("SpeedTracking stopped: ${positionData.length}");
+      for (int key in positionData.keys) {
+        print("$key ${positionData[key]?.speed}");
+      }
+
+      if (initialResult.error != null && initialResult.error!.isNotEmpty) {
+        print('DEBUG: Error in initial result: ${initialResult.error}');
+        add(ProcessingFailed(errorMessage: initialResult.error!));
         return;
       }
 
-      final String cameraVideoPath = initialResult['cameraVideoPath'] ?? '';
-      final String widgetVideoPath = initialResult['widgetVideoPath'] ?? '';
+      final String cameraVideoPath = initialResult.cameraVideoPath ?? '';
       print('DEBUG: Camera video path: $cameraVideoPath');
-      print('DEBUG: Widget video path: $widgetVideoPath');
 
 
       // Construct the command string for reference
@@ -89,7 +103,7 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
       final commandDescription =
           '-y '
           '-i "$cameraVideoPath" '
-          '-i "$widgetVideoPath" '
+          // '-i "$widgetVideoPath" '
           '-filter_complex "$filterComplex" '
           '-map "[out]" '
           '-map 0:a? '
@@ -106,30 +120,41 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
         id: const Uuid().v4(),
         createdAt: DateTime.now(),
         videoFilePath: cameraVideoPath,
-        overlayFilePath: widgetVideoPath,
+        overlayFilePath: "",
         gaugePlacement: event.gaugePlacement.name,
         relativeSize: event.relativeSize,
         ffmpegCommand: commandDescription,
+        positionData: positionData
       );
 
       jobsBloc.add(AddJob(job));
 
-      // Future.delayed(Duration(milliseconds: 500), (){
-      //   // Trigger processing automatically as requested
-      //   processorBloc.add(StartProcessing());
-      // });
+      // Also save as a ProcessingTask for the Labs feature
+      try {
+        final List<PositionData> positionDataList = positionData.values.toList();
+        // final List<PositionData> positionDataList = positionData.values.map((PositionData data) {
+        //   return data.copyWith(
+        //     speed: 10 + Random().nextDouble() * 190, // 10 → 200
+        //   );
+        // }).toList();
+        print("Final Position Data");
+        print(positionDataList.map((e) => e.speed));
+        await LabsService().createFromRecording(
+          videoFilePath: cameraVideoPath,
+          positionData: positionData //positionDataList,
+        );
+        print('DEBUG: ProcessingTask saved for Labs');
+      } catch (e) {
+        print('DEBUG: Failed to save ProcessingTask for Labs: $e');
+      }
 
-      // We no longer wait for processing to complete here.
-      // We can emit Initial or a new State "RecordingSaved".
-      // For now, let's emit Initial or stay in "ProcessingStarted" but without progress?
-      // Actually, if we emit VideoProcessed with empty path or specific flag, UI can handle it.
-      // But let's just emit VideoRecorderInitial to reset the UI,
-      // AND maybe show a snackbar or notification in UI side?
-      // Since existing UI expects VideoProcessed to show dialog,
-      // I should probably change the UI expectation or emit a "JobQueued" state?
-      // For this step I will reset to Initial.
-
-      emit(VideoRecorderInitial());
+      // Emit job saved state for UI feedback
+      emit(
+        VideoJobSaved(
+          videoPath: cameraVideoPath,
+          positionDataPoints: positionData.length,
+        ),
+      );
     } catch (e, stackTrace) {
       print('DEBUG: Exception during video processing: $e');
       print('DEBUG: Stack trace: $stackTrace');
@@ -323,4 +348,15 @@ class VideoProcessingError extends VideoRecorderState {
   
   @override
   List<Object?> get props => [message];
+}
+
+/// Emitted when recording is stopped and job is saved for later processing
+class VideoJobSaved extends VideoRecorderState {
+  final String videoPath;
+  final int positionDataPoints;
+
+  VideoJobSaved({required this.videoPath, required this.positionDataPoints});
+
+  @override
+  List<Object?> get props => [videoPath, positionDataPoints];
 }

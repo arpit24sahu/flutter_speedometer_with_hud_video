@@ -10,10 +10,14 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
+import 'package:speedometer/features/speedometer/models/position_data.dart';
 import 'package:speedometer/firebase_options.dart';
 import 'package:speedometer/presentation/app.dart';
 import 'package:hive_ce_flutter/hive_ce_flutter.dart';
 import 'package:speedometer/features/processing/models/processing_job.dart';
+import 'package:speedometer/features/labs/models/processing_task.dart';
+import 'package:speedometer/features/labs/models/processed_task.dart';
+import 'package:speedometer/features/labs/services/labs_service.dart';
 import 'package:speedometer/services/app_initialization_tracker.dart';
 import 'package:speedometer/services/hive_service.dart';
 import 'package:speedometer/services/misc_service.dart';
@@ -50,8 +54,12 @@ Future<void> initializeApp()async{
 
   
   await Hive.initFlutter();
+  Hive.registerAdapter(PositionDataAdapter());
   Hive.registerAdapter(ProcessingJobAdapter());
+  Hive.registerAdapter(ProcessingTaskAdapter());
+  Hive.registerAdapter(ProcessedTaskAdapter());
   await HiveService().init();
+  await LabsService().init();
 
   PackageInfoService().init();
   DeviceInfoService().init();

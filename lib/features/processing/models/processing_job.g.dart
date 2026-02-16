@@ -31,13 +31,14 @@ class ProcessingJobAdapter extends TypeAdapter<ProcessingJob> {
       ffmpegCommand: fields[11] as String,
       processedFileSizeInKb: (fields[12] as num?)?.toInt(),
       status: fields[13] as ProcessingJobStatus?,
+      positionData: (fields[14] as Map?)?.cast<int, PositionData>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, ProcessingJob obj) {
     writer
-      ..writeByte(14)
+      ..writeByte(15)
       ..writeByte(0)
       ..write(obj.id)
       ..writeByte(1)
@@ -65,7 +66,9 @@ class ProcessingJobAdapter extends TypeAdapter<ProcessingJob> {
       ..writeByte(12)
       ..write(obj.processedFileSizeInKb)
       ..writeByte(13)
-      ..write(obj.status);
+      ..write(obj.status)
+      ..writeByte(14)
+      ..write(obj.positionData);
   }
 
   @override

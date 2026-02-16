@@ -4,6 +4,7 @@ import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
 import 'package:speedometer/features/premium/widgets/premium_upgrade_dialog.dart';
+import '../../features/labs/models/gauge_customization.dart';
 import '../bloc/overlay_gauge_configuration_bloc.dart';
 import '../bloc/settings/settings_bloc.dart';
 import '../bloc/settings/settings_event.dart';

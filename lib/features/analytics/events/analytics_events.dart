@@ -47,6 +47,10 @@ class AnalyticsEvents {
   static const String toggleMaxSpeedVisibility = 'toggle_max_speed_visibility';
   static const String toggleLabelVisibility = 'toggle_label_visibility';
   static const String gaugePlacementPickupCancelled = 'gauge_placement_pickup_cancelled';
+  static const String ffmpegProcessingStarted = 'ffmpeg_processing_started';
+  static const String ffmpegCommandResult = 'ffmpeg_command_result';
+  static const String ffmpegProcessingFinished = 'ffmpeg_processing_finished';
+  static const String ffmpegProcessingFailed = 'ffmpeg_processing_failed';
 
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -78,6 +82,7 @@ class AnalyticsParams {
   static const String appVersion = 'app_version';
   static const String buildNumber = 'build_number';
   static const String timestamp = 'timestamp';
+  static const String debugMode = 'debug_mode';
   static const String androidModel = 'android_model';
   static const String androidBrand = 'android_brand';
   static const String androidManufacturer = 'android_manufacturer';

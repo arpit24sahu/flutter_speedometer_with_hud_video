@@ -1,5 +1,6 @@
 import 'package:hive_ce/hive.dart';
 import 'package:equatable/equatable.dart';
+import 'package:speedometer/features/speedometer/models/position_data.dart';
 
 part 'processing_job.g.dart';
 
@@ -51,6 +52,9 @@ class ProcessingJob extends HiveObject with EquatableMixin {
   @HiveField(13)
   final ProcessingJobStatus? status;
 
+  @HiveField(14)
+  final Map<int, PositionData>? positionData;
+
   ProcessingJob({
     required this.id,
     required this.createdAt,
@@ -66,6 +70,7 @@ class ProcessingJob extends HiveObject with EquatableMixin {
     required this.ffmpegCommand,
     this.processedFileSizeInKb,
     this.status,
+    this.positionData
   });
 
   ProcessingJob copyWith({
@@ -83,6 +88,7 @@ class ProcessingJob extends HiveObject with EquatableMixin {
     String? ffmpegCommand,
     int? processedFileSizeInKb,
     ProcessingJobStatus? status,
+    Map<int, PositionData>? positionData
   }) {
     return ProcessingJob(
       id: id ?? this.id,
@@ -99,12 +105,13 @@ class ProcessingJob extends HiveObject with EquatableMixin {
       ffmpegCommand: ffmpegCommand ?? this.ffmpegCommand,
       processedFileSizeInKb: processedFileSizeInKb ?? this.processedFileSizeInKb,
       status: status ?? this.status,
+      positionData: positionData ?? this.positionData
     );
   }
 
   @override
   String toString() {
-    return 'ProcessingJob(id: $id, createdAt: $createdAt, videoFilePath: $videoFilePath, overlayFilePath: $overlayFilePath, processedFilePath: $processedFilePath, failureCount: $failureCount, processedAt: $processedAt, failedAt: $failedAt, lastError: $lastError, gaugePlacement: $gaugePlacement, relativeSize: $relativeSize, ffmpegCommand: $ffmpegCommand, processedFileSizeInKb: $processedFileSizeInKb, status: $status)';
+    return 'ProcessingJob(id: $id, createdAt: $createdAt, videoFilePath: $videoFilePath, overlayFilePath: $overlayFilePath, processedFilePath: $processedFilePath, failureCount: $failureCount, processedAt: $processedAt, failedAt: $failedAt, lastError: $lastError, gaugePlacement: $gaugePlacement, relativeSize: $relativeSize, ffmpegCommand: $ffmpegCommand, processedFileSizeInKb: $processedFileSizeInKb, status: $status, positionData: ${positionData?.length} values})';
   }
 
   @override
@@ -123,5 +130,6 @@ class ProcessingJob extends HiveObject with EquatableMixin {
     ffmpegCommand,
     processedFileSizeInKb,
     status,
+    positionData
   ];
 }

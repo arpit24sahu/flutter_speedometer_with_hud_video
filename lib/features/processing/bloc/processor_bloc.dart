@@ -1,11 +1,21 @@
 import 'dart:io';
 
-import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
+import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import '../../../../utils.dart';
+import '../../labs/models/gauge_customization.dart';
 import '../models/processing_job.dart';
 import '../repository/processing_repository.dart';
+
+import 'dart:async';
+import 'dart:io';
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
 
 // Events
 abstract class ProcessorEvent extends Equatable {
@@ -108,7 +118,7 @@ class ProcessorBloc extends Bloc<ProcessorEvent, ProcessorState> {
       return;
     }
 
-    final job = event.job ?? repository.getNextPendingJob();
+    final ProcessingJob? job = event.job ?? repository.getNextPendingJob();
     if (job == null) {
       emit(state.copyWith(status: ProcessorStatus.idle, currentJob: null));
       return;
@@ -117,6 +127,66 @@ class ProcessorBloc extends Bloc<ProcessorEvent, ProcessorState> {
     emit(state.copyWith(status: ProcessorStatus.ongoing, currentJob: job, progress: 0));
 
     try {
+
+      String speedometerFilePath = await _generateSpeedometerVideoFile(job);
+
+      // // String tempDirPath = job.framesFolderPath??"";
+      // String outputPath = job.overlayFilePath??"";
+      // int frameCaptureInterval = 50;
+      //
+      // print("Temp frames directory: $tempDirPath");
+      // print("Output video path: $outputPath");
+      // final tempDir = Directory(tempDirPath);
+      // if (!await tempDir.exists()) {
+      //   await tempDir.create(recursive: true);
+      // }
+      //
+      // // Set up conversion parameters
+      // final fps = (1000 / frameCaptureInterval)
+      //     .round(); // Calculate FPS based on capture interval
+      // print("Converting frames to video at $fps FPS...");
+      //
+      // try {
+      //   final command = [
+      //     '-framerate', '$fps',
+      //     '-i', '${tempDirPath}/frame_%06d.png',
+      //     '-c:v', 'mpeg4', // Use `mpeg4` instead of `libx264`
+      //     '-q:v', '5', // Adjust quality (lower = better)
+      //     '-preset', 'ultrafast',
+      //     outputPath,
+      //   ].join(' ');
+      //
+      //   // final command = '-framerate $fps -i ${tempDirPath}/frame_%06d.png -c:v libx264 -pix_fmt yuv420p -b:v 2M ${outputPath}';
+      //   print("Executing FFmpeg command: $command");
+      //   final session = await FFmpegKit.execute(command);
+      //   final rc = await session.getReturnCode();
+      //   print("FFmpeg execution return code: $rc");
+      //
+      //   if (ReturnCode.isSuccess(rc)) {
+      //     print("Success");
+      //   } else if (ReturnCode.isCancel(rc)) {
+      //     print("Cancelled");
+      //   } else {
+      //     print("Failed");
+      //   }
+      //
+      //   // Convert frames to video
+      //   // final result = await ffmpeg.executeFFmpeg(
+      //   //   inputPath: tempDirPath,
+      //   //   inputPattern: 'frame_%06d.png',
+      //   //   outputPath: outputPath,
+      //   //   frameRate: fps,
+      //   //   videoBitrate: "2M",  // 2 Mbps - adjust as needed
+      //   // );
+      // } catch (e) {
+      //   print("Error converting frames to video: $e");
+      // }
+
+
+
+      print("Now starting chroma processing");
+
+
         final placement = _parsePlacement(job.gaugePlacement);
         //
         Future<void> onUpdateProgress(double progress)async{
@@ -136,7 +206,7 @@ class ProcessorBloc extends Bloc<ProcessorEvent, ProcessorState> {
         // effectively, so "Pause" will only take effect after this finishes.
         final resultPath = await processChromaKeyVideo(
             backgroundPath: job.videoFilePath,
-            foregroundPath: job.overlayFilePath,
+            foregroundPath: speedometerFilePath,
             placement: placement,
             relativeSize: job.relativeSize,
             onUpdateProgress: onUpdateProgress,
@@ -160,7 +230,14 @@ class ProcessorBloc extends Bloc<ProcessorEvent, ProcessorState> {
         add(_ProcessingActionFailed(job, e.toString()));
     }
   }
-  
+  //
+  // Future<String> _generateSpeedometerVideoFile(StartProcessing event)async{
+  //
+  //
+  //   // TODO
+  //   return "";
+  // }
+  //
   GaugePlacement _parsePlacement(String name) {
       return GaugePlacement.values.firstWhere(
           (e) => e.name == name, 
@@ -206,4 +283,222 @@ class ProcessorBloc extends Bloc<ProcessorEvent, ProcessorState> {
          emit(state.copyWith(currentJob: null, status: ProcessorStatus.idle));
        });
    }
+}
+
+// Assuming these are already imported in your file:
+// import 'package:equatable/equatable.dart';
+// import 'package:hive/hive.dart';
+// ... your event/job classes
+
+Future<String> _generateSpeedometerVideoFile(ProcessingJob job) async {
+  print('[SpeedoVideo] Started - Processing job: ${job.id ?? "no job"}');
+
+  // final job = job;
+  if (job == null || job.positionData == null || job.positionData!.isEmpty) {
+    print('[SpeedoVideo] No job or no position data, exiting');
+    return '';
+  }
+
+  // Extract speed data: timestamp (ms) → speed (double)
+  // We use .toDouble() since speed in PositionData is double
+  final Map<int, double> timeToSpeedMs = {};
+  for (final entry in job.positionData!.entries) {
+    final int timestampMs = entry.key;
+    final double speed = entry.value.speed; // m/s from location data
+    timeToSpeedMs[timestampMs] = speed;
+  }
+
+  if (timeToSpeedMs.isEmpty) {
+    print('[SpeedoVideo] No valid speed data found');
+    return '';
+  }
+
+  // For simplicity: hardcoded speedometer image URL
+  // Later: you can add it to ProcessingJob or config
+  const String imageUrl = 'https://i.ibb.co/whLrrLNy/image.png'; // ← REPLACE WITH REAL URL
+
+  print('[SpeedoVideo] Downloading base speedometer image');
+  final response = await http.get(Uri.parse(imageUrl));
+  if (response.statusCode != 200) {
+    print('[SpeedoVideo] Image download failed: ${response.statusCode}');
+    // You can decide: throw or return ''
+    return '';
+  }
+
+  final bytes = response.bodyBytes;
+  final codec = await ui.instantiateImageCodec(bytes);
+  final frame = await codec.getNextFrame();
+  final ui.Image baseImage = frame.image;
+
+  final double size = baseImage.width.toDouble();
+  if (baseImage.height != baseImage.width) {
+    print('[SpeedoVideo] Image is not square (${baseImage.width}x${baseImage.height})');
+    return '';
+  }
+
+  print('[SpeedoVideo] Base image loaded: ${size.toInt()}x${size.toInt()}');
+
+  final dir = await getTemporaryDirectory();
+  final String tempDirPath = dir.path;
+  print('[SpeedoVideo] Temp directory: $tempDirPath');
+
+  // Timestamps in ms
+  final timesMs = timeToSpeedMs.keys.toList()..sort();
+  final int firstMs = timesMs.first;
+  final int lastMs = timesMs.last;
+  final double totalSeconds = (lastMs - firstMs) / 1000.0;
+
+  const int fps = 2;
+  final int numFrames = (totalSeconds * fps).ceil() + 1; // +1 to include end
+
+  print('[SpeedoVideo] Duration: ${totalSeconds.toStringAsFixed(2)}s | FPS: $fps | Frames: $numFrames');
+
+  const double minSpeed = 0.0;
+  const double maxSpeed = 240.0; // assuming km/h – adjust if your speed is in m/s!
+  // If speed is in m/s (from PositionData), convert: speedKmh = speedMs * 3.6
+  // For now assuming km/h — change multiplier below if needed
+
+  const double minAngle = 4.1887902047863905; // ≈240° in radians
+  const double maxAngle = 1.0471975511965976; // ≈60°
+  const double sweepRad = minAngle - maxAngle;
+
+  double getSpeedAt(double secondsElapsed) {
+    final double msElapsed = secondsElapsed * 1000.0;
+    final double targetMs = firstMs + msElapsed;
+
+    if (targetMs <= timesMs.first) return timeToSpeedMs[timesMs.first]!;
+    if (targetMs >= timesMs.last) return timeToSpeedMs[timesMs.last]!;
+
+    int i = 1;
+    while (i < timesMs.length && targetMs > timesMs[i]) {
+      i++;
+    }
+
+    final double prevMs = timesMs[i - 1].toDouble();
+    final double nextMs = timesMs[i].toDouble();
+    final double frac = (targetMs - prevMs) / (nextMs - prevMs);
+
+    return timeToSpeedMs[timesMs[i - 1]]! +
+        frac * (timeToSpeedMs[timesMs[i]]! - timeToSpeedMs[timesMs[i - 1]]!);
+  }
+
+  print('[SpeedoVideo] Generating frames...');
+
+  for (int frameIndex = 1; frameIndex <= numFrames; frameIndex++) {
+    if (frameIndex % 30 == 0 || frameIndex == 1 || frameIndex == numFrames) {
+      print('[SpeedoVideo] Frame $frameIndex / $numFrames');
+    }
+
+    final double tSec = (frameIndex - 1) / fps.toDouble();
+    double speed = getSpeedAt(tSec);
+
+    // If your PositionData.speed is in m/s → uncomment next line:
+    speed *= 3.6; // convert m/s → km/h
+
+    final double fraction = ((speed - minSpeed) / (maxSpeed - minSpeed)).clamp(0.0, 1.0);
+    final double angle = minAngle - fraction * sweepRad;
+
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder, ui.Rect.fromLTWH(0, 0, size, size));
+
+    canvas.drawImage(baseImage, ui.Offset.zero, ui.Paint());
+
+    final double cx = size / 2;
+    final double cy = size / 2;
+    final double length = size * 0.4;
+
+    final needleX = cx + length * math.cos(angle);
+    final needleY = cy - length * math.sin(angle);
+
+    final paint = ui.Paint()
+      ..color = const ui.Color.fromARGB(255, 255, 0, 0)
+      ..style = ui.PaintingStyle.stroke
+      ..strokeWidth = 5;
+
+    canvas.drawLine(ui.Offset(cx, cy), ui.Offset(needleX, needleY), paint);
+
+    // Draw current speed text
+    final textStyle = ui.TextStyle(
+      color: const ui.Color.fromARGB(255, 0, 0, 0),
+      fontSize: size * 0.06,
+      fontWeight: ui.FontWeight.bold,
+      height: 1.0,
+    );
+
+    final paragraphStyle = ui.ParagraphStyle(
+      textAlign: ui.TextAlign.center,
+      textDirection: ui.TextDirection.ltr,
+      maxLines: 1,
+    );
+
+    final builder = ui.ParagraphBuilder(paragraphStyle)
+      ..pushStyle(textStyle)
+      ..addText('${speed.toInt()}');
+
+    final paragraph = builder.build();
+    paragraph.layout(const ui.ParagraphConstraints(width: double.infinity)); // auto-size for accurate width
+
+    final textX = cx - paragraph.width / 2;
+    final textY = cy + size * 0.12 - paragraph.height / 2;
+
+    canvas.drawParagraph(paragraph, ui.Offset(textX, textY));
+
+    final picture = recorder.endRecording();
+    final img = await picture.toImage(size.toInt(), size.toInt());
+    final byteData = await img.toByteData(format: ui.ImageByteFormat.png);
+
+    final framePath = '$tempDirPath/frame_${frameIndex.toString().padLeft(6, '0')}.png';
+    await File(framePath).writeAsBytes(byteData!.buffer.asUint8List());
+
+    picture.dispose();
+    img.dispose();
+  }
+
+  print('[SpeedoVideo] Frame generation completed');
+
+  final String outputPath = '$tempDirPath/speedo_${job.id}_${DateTime.now().millisecondsSinceEpoch}.mp4';
+
+  final command = [
+    '-framerate', '$fps',
+    '-i', '$tempDirPath/frame_%06d.png',
+    '-c:v', 'mpeg4',           // better compatibility than mpeg4 on modern devices
+    '-pix_fmt', 'yuv420p',       // important for broad playback support
+    '-crf', '23',                // good quality/size balance (18–28 range)
+    '-preset', 'ultrafast',
+    '-y',                        // overwrite if exists
+    outputPath,
+  ].join(' ');
+
+  print('[SpeedoVideo] Running FFmpeg');
+  print('[SpeedoVideo] Command: $command');
+
+  try {
+    final session = await FFmpegKit.execute(command);
+    final rc = await session.getReturnCode();
+
+    print('[SpeedoVideo] FFmpeg return code: $rc');
+
+    if (rc?.isValueSuccess() ?? false) {
+      print('[SpeedoVideo] Video created successfully: $outputPath');
+      // Optional: clean up frames if you want (delete after success)
+      // for (int i = 1; i <= numFrames; i++) {
+      //   final p = File('$tempDirPath/frame_${i.toString().padLeft(6, '0')}.png');
+      //   if (await p.exists()) await p.delete();
+      // }
+      return outputPath;
+    } else {
+      print('[SpeedoVideo] FFmpeg failed');
+      final logs = await session.getLogs();
+      if ((logs).isNotEmpty) {
+        print('Logs:');
+        for (final log in logs) {
+          print(log.getMessage());
+        }
+      }
+      return '';
+    }
+  } catch (e) {
+    print('[SpeedoVideo] FFmpeg exception: $e');
+    return '';
+  }
 }

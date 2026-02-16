@@ -3,12 +3,13 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_event.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_state.dart';
+import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
+import 'package:speedometer/features/speedometer/bloc/speedometer_event.dart';
 import 'package:speedometer/presentation/screens/settings_screen.dart';
 import 'package:speedometer/presentation/widgets/analog_speedometer.dart';
 import 'package:speedometer/presentation/widgets/digital_speedometer.dart';
+
+import '../../features/speedometer/bloc/speedometer_state.dart';
 
 class SpeedometerScreen extends StatefulWidget {
   const SpeedometerScreen({super.key});

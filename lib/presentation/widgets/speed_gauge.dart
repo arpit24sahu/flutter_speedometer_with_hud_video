@@ -2,9 +2,9 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
-import 'package:speedometer/presentation/bloc/speedometer/speedometer_bloc.dart';
+import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
 
-import '../bloc/speedometer/speedometer_state.dart';
+import '../../features/speedometer/bloc/speedometer_state.dart';
 
 /// Sizing constants as multipliers of the base size.
 /// All child elements scale proportionally based on these ratios.

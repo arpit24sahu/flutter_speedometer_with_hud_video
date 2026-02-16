@@ -2,35 +2,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 
-// Enum for gauge placement options
-enum GaugePlacement {
-  topLeft,
-  topCenter,
-  topRight,
-  centerLeft,
-  center,
-  centerRight,
-  bottomLeft,
-  bottomCenter,
-  bottomRight,
-}
+import '../../features/labs/models/gauge_customization.dart';
 
-// Extension to get descriptive names for the enum values
-extension GaugePlacementExtension on GaugePlacement {
-  String get displayName {
-    switch (this) {
-      case GaugePlacement.topLeft: return 'Top Left';
-      case GaugePlacement.topCenter: return 'Top Center';
-      case GaugePlacement.topRight: return 'Top Right';
-      case GaugePlacement.centerLeft: return 'Center Left';
-      case GaugePlacement.center: return 'Center';
-      case GaugePlacement.centerRight: return 'Center Right';
-      case GaugePlacement.bottomLeft: return 'Bottom Left';
-      case GaugePlacement.bottomCenter: return 'Bottom Center';
-      case GaugePlacement.bottomRight: return 'Bottom Right';
-    }
-  }
-}
+// // Enum for gauge placement options
+// enum GaugePlacement {
+//   topLeft,
+//   topCenter,
+//   topRight,
+//   centerLeft,
+//   center,
+//   centerRight,
+//   bottomLeft,
+//   bottomCenter,
+//   bottomRight,
+// }
+//
+// // Extension to get descriptive names for the enum values
+// extension GaugePlacementExtension on GaugePlacement {
+//   String get displayName {
+//     switch (this) {
+//       case GaugePlacement.topLeft: return 'Top Left';
+//       case GaugePlacement.topCenter: return 'Top Center';
+//       case GaugePlacement.topRight: return 'Top Right';
+//       case GaugePlacement.centerLeft: return 'Center Left';
+//       case GaugePlacement.center: return 'Center';
+//       case GaugePlacement.centerRight: return 'Center Right';
+//       case GaugePlacement.bottomLeft: return 'Bottom Left';
+//       case GaugePlacement.bottomCenter: return 'Bottom Center';
+//       case GaugePlacement.bottomRight: return 'Bottom Right';
+//     }
+//   }
+// }
 
 // Events
 abstract class OverlayGaugeConfigurationEvent extends Equatable {

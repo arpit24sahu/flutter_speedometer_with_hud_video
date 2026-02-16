@@ -10,6 +10,14 @@ import 'package:open_file/open_file.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 
+import 'dart:typed_data';
+import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:video_player/video_player.dart';
+import 'dart:io';
+
+import 'features/labs/models/gauge_customization.dart';
+
+
 Future<String> getDownloadsPath()async{
   final directory = await getApplicationDocumentsDirectory();
   return directory.path;
@@ -108,7 +116,7 @@ Future<FFmpegSession?> processChromaKeyVideo({
       },
       (log) {
         // You can uncomment for very detailed output
-        // print('LOG: ${log.getMessage()}');
+        print('LOG: ${log.getMessage()}');
       },
       (statistics) async {
         if (totalDurationMs != null && onUpdateProgress != null) {
@@ -169,3 +177,35 @@ String buildFilterComplex(GaugePlacement placement, double relativeSize) {
 
   return filter;
 }
+
+Future<Uint8List?> generateVideoThumbnail(File file) async {
+  try {
+    final controller = VideoPlayerController.file(file);
+    await controller.initialize();
+
+    final duration = controller.value.duration;
+    controller.dispose();
+
+    int millisecond = 0;
+
+    if (duration.inSeconds > 5) {
+      millisecond = 2000; // 2nd second
+    } else if (duration.inMilliseconds > 0) {
+      millisecond = 0; // first frame
+    } else {
+      return null;
+    }
+
+    final thumbnail = await VideoThumbnail.thumbnailData(
+      video: file.path,
+      imageFormat: ImageFormat.JPEG,
+      timeMs: millisecond,
+      quality: 75,
+    );
+
+    return thumbnail;
+  } catch (e) {
+    return null;
+  }
+}
+

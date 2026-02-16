@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -93,24 +94,49 @@ class _FilesScreenContent extends StatelessWidget {
             onTap: () => openFile(file),
             onLongPress: () => _showFileOptions(file, context),
             child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const Icon(Icons.insert_drive_file, size: 40),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4.0),
-                  child: Text(
-                    file.path.split('/').last,
-                    textAlign: TextAlign.center,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                Expanded(
+                  flex: 3,
+                  child: FutureBuilder<Uint8List?>(
+                    future: generateVideoThumbnail(File(file.path)),
+                    builder: (context, snapshot) {
+                      if (snapshot.hasData && snapshot.data != null) {
+                        return ClipRRect(
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(4),
+                          ),
+                          child: Image.memory(
+                            snapshot.data!,
+                            fit: BoxFit.cover,
+                          ),
+                        );
+                      }
+                      return Container(color: Colors.black12);
+                    },
                   ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'Modified: ${stat.modified.toString().split(' ')[0]}',
-                  style: Theme.of(context).textTheme.labelSmall,
+                Expanded(
+                  flex: 2,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          file.path.split('/').last,
+                          textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Modified: ${stat.modified.toString().split(' ')[0]}',
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),

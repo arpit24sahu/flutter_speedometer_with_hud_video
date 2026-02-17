@@ -1,16 +1,12 @@
 import 'dart:async';
-import 'package:bloc/bloc.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-import 'package:meta/meta.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:speedometer/core/services/location_service.dart';
 import 'package:speedometer/features/speedometer/models/position_data.dart';
 import 'package:speedometer/presentation/widgets/video_recorder_service.dart';
 
 import '../../features/labs/models/gauge_customization.dart';
-import '../../utils.dart';
 import 'package:speedometer/features/labs/services/labs_service.dart';
 
 class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
@@ -77,12 +73,24 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
       print('DEBUG: Camera video path: $cameraVideoPath');
 
 
+      // Calculate approx duration from position data keys (timestamps)
+      double durationSeconds = 0;
+      if (positionData.isNotEmpty) {
+        final keys = positionData.keys.toList()..sort();
+        if (keys.isNotEmpty) {
+          final start = keys.first;
+          final end = keys.last;
+          durationSeconds = (end - start) / 1000.0; // Convert ms to seconds
+        }
+      }
+
       // Save as a ProcessingTask for the Labs feature
       try {
         print("Final Position Data: ${positionData.length} points");
         await LabsService().createFromRecording(
           videoFilePath: cameraVideoPath,
           positionData: positionData,
+          lengthInSeconds: durationSeconds,
         );
         print('DEBUG: ProcessingTask saved for Labs');
       } catch (e) {
@@ -94,6 +102,7 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
         VideoJobSaved(
           videoPath: cameraVideoPath,
           positionDataPoints: positionData.length,
+          durationSeconds: durationSeconds,
         ),
       );
     } catch (e, stackTrace) {
@@ -251,9 +260,14 @@ class VideoProcessingError extends VideoRecorderState {
 class VideoJobSaved extends VideoRecorderState {
   final String videoPath;
   final int positionDataPoints;
+  final double durationSeconds;
 
-  VideoJobSaved({required this.videoPath, required this.positionDataPoints});
+  VideoJobSaved({
+    required this.videoPath,
+    required this.positionDataPoints,
+    required this.durationSeconds,
+  });
 
   @override
-  List<Object?> get props => [videoPath, positionDataPoints];
+  List<Object?> get props => [videoPath, positionDataPoints, durationSeconds];
 }

@@ -33,6 +33,8 @@ class AnalyticsEvents {
   static const String onboardingCompleted = 'onboarding_completed';
   static const String recordingStarted = 'recording_started';
   static const String recordingStopped = 'recording_stopped';
+  static const String recordingError = 'recording_error';
+  static const String recordingSaved = 'recording_saved';
   static const String speedometerViewed = 'speedometer_viewed';
   static const String settingsChanged = 'settings_changed';
   static const String permissionCheckAgainPress = 'permission_check_again_press';
@@ -102,6 +104,14 @@ class AnalyticsEvents {
   static const String errorOccurred = 'error_occurred';
   static const String flutterFatalError = 'FLUTTER_FATAL_ERROR';
   static const String fatalErrorOccurred = 'FATAL_ERROR_OCCURRED';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // App Exit Events
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String closeAppDialogOpened = 'close_app_dialog_opened';
+  static const String closeAppYesSelected = 'close_app_yes_selected';
+  static const String closeAppNoSelected = 'close_app_no_selected';
+  static const String closeAppDialogDismissed = 'close_app_dialog_dismissed';
 }
 
 /// Common parameter keys for analytics events.

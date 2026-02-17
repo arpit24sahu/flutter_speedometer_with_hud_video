@@ -8,6 +8,8 @@ import 'package:speedometer/features/labs/services/labs_service.dart';
 import 'package:speedometer/features/labs/presentation/task_processing_page.dart';
 import 'package:speedometer/packages/gal.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 
 class RecordedTab extends StatefulWidget {
   const RecordedTab({super.key});
@@ -45,6 +47,15 @@ class _RecordedTabState extends State<RecordedTab> {
       return;
     }
     final result = await OpenFile.open(task.videoFilePath!);
+    AnalyticsService().trackEvent(
+      AnalyticsEvents.playRecordedVideo,
+      properties: {
+        'file_path': task.videoFilePath,
+        'size_kb': task.sizeInKb,
+        'duration_seconds': task.lengthInSeconds,
+        'source': 'RecordedTab',
+      },
+    );
     debugPrint('OpenFile result: ${result.type}, ${result.message}');
   }
 
@@ -54,6 +65,15 @@ class _RecordedTabState extends State<RecordedTab> {
       return;
     }
     await Share.shareXFiles([XFile(task.videoFilePath!)]);
+    AnalyticsService().trackEvent(
+      AnalyticsEvents.shareRecordedVideo,
+      properties: {
+        'file_path': task.videoFilePath,
+        'size_kb': task.sizeInKb,
+        'duration_seconds': task.lengthInSeconds,
+        'source': 'RecordedTab',
+      },
+    );
   }
 
   Future<void> _exportToGallery(ProcessingTask task) async {

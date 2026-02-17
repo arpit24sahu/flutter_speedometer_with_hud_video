@@ -1,5 +1,6 @@
 import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
@@ -221,7 +222,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _showExitConfirmation(context);
+      },
+      child: Scaffold(
         body: Stack(
           children: [
             Positioned.fill(child: IndexedStack(index: _selectedIndex, children: _screens())),
@@ -237,8 +244,90 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             BottomNavigationBarItem(icon: Icon(Icons.videocam), label: 'Record'),
             BottomNavigationBarItem(icon: Icon(Icons.science), label: 'Labs'),
           ],
+        ),
       ),
     );
+  }
+
+  Future<void> _showExitConfirmation(BuildContext context) async {
+    AnalyticsService().trackEvent(AnalyticsEvents.closeAppDialogOpened);
+    AnalyticsService().flush();
+
+    final shouldClose = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder:
+          (context) => AlertDialog(
+            backgroundColor: Colors.grey[900],
+            title: const Text(
+              'Exit Application',
+              style: TextStyle(color: Colors.white),
+            ),
+            content: const Text(
+              'Are you sure you want to close the app?',
+              style: TextStyle(color: Colors.white70),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  AnalyticsService().trackEvent(
+                    AnalyticsEvents.closeAppNoSelected,
+                  );
+                  AnalyticsService().flush(); // Flush on interaction
+                  AnalyticsService().trackEvent(
+                    AnalyticsEvents.closeAppDialogDismissed,
+                  );
+                  Navigator.of(context).pop(false);
+                },
+                child: const Text(
+                  'Cancel',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              TextButton(
+                onPressed: () {
+                  AnalyticsService().trackEvent(
+                    AnalyticsEvents.closeAppYesSelected,
+                  );
+                  // We will flush in the main flow before closing
+                  Navigator.of(context).pop(true);
+                },
+                child: const Text(
+                  'Exit',
+                  style: TextStyle(color: Colors.redAccent),
+                ),
+              ),
+            ],
+          ),
+    );
+
+    if (shouldClose == true) {
+      if (!context.mounted) return;
+
+      // Show loader
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder:
+            (context) => const Center(
+              child: CircularProgressIndicator(color: Colors.redAccent),
+            ),
+      );
+
+      // Clean up resources if needed
+      // Most BLoCs close automatically or can be closed here if needed.
+      // For example:
+      // context.read<SpeedometerBloc>().add(StopSpeedTracking()); // handled in CameraScreen/SpeedometerScreen dispose usually
+
+      // Flush analytics
+      AnalyticsService().flush();
+
+      // Wait for 200ms
+      await Future.delayed(const Duration(milliseconds: 200));
+
+      // Close app
+      SystemNavigator.pop();
+    }
   }
 }
 

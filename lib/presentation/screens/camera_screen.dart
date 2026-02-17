@@ -480,10 +480,32 @@ class _CameraScreenState extends State<CameraScreen>
         }
       });
     } else if (videoRecorderState is VideoProcessingError) {
+      AnalyticsService().trackEvent(
+        AnalyticsEvents.recordingError,
+        properties: {
+          "error_message": videoRecorderState.message,
+          "cameraOrientation": _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
+          "cameraOrientationIndex": _currentCameraIndex,
+          "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson(),
+        },
+      );
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showVideoErrorDialog(context, videoRecorderState.message);
       });
     } else if (videoRecorderState is VideoJobSaved) {
+      AnalyticsService().trackEvent(
+        AnalyticsEvents.recordingSaved,
+        properties: {
+          "duration_seconds": videoRecorderState.durationSeconds,
+          "position_data_points": videoRecorderState.positionDataPoints,
+          "video_path": videoRecorderState.videoPath,
+          "cameraOrientation": _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
+          "cameraOrientationIndex": _currentCameraIndex,
+          "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson(),
+        },
+      );
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(

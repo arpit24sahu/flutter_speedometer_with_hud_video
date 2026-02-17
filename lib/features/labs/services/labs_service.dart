@@ -80,11 +80,12 @@ class LabsService {
   Future<ProcessingTask> createFromRecording({
     required String videoFilePath,
     required Map<int, PositionData> positionData,
+    double lengthInSeconds = 0,
   }) async {
     final id = generateId();
     final file = File(videoFilePath);
     double sizeInKb = 0;
-    double lengthInSeconds = 0;
+
 
     if (await file.exists()) {
       final stat = await file.stat();

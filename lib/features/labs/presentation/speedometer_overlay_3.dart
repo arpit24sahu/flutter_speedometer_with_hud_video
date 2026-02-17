@@ -1,6 +1,8 @@
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:speedometer/services/remote_asset_service.dart';
 import '../models/gauge_customization.dart';
 import 'bloc/gauge_customization_bloc.dart';
 
@@ -37,7 +39,7 @@ class SpeedometerOverlay3 extends StatelessWidget {
 
         final dial = config.dial;
         final needle = config.needle;
-        print("Building Speedometer Overlay: ${dial == null}");
+        // print("Building Speedometer Overlay: ${dial == null}");
 
         if (dial == null) return const SizedBox.shrink();
 
@@ -101,7 +103,7 @@ class SpeedometerOverlay3 extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             /// ───── Dial ─────
-            _buildDial(dial, gaugeWidth),
+            BuildDial(dial: dial, size: gaugeWidth),
 
             /// ───── Needle ─────
             if (needle != null)
@@ -148,37 +150,6 @@ class SpeedometerOverlay3 extends StatelessWidget {
   // Dial Builder
   // ─────────────────────────────────────────────
 
-  Widget _buildDial(Dial dial, double size) {
-    switch (dial.assetType) {
-      case AssetType.asset:
-        return Image.asset(
-          dial.path ?? "",
-          width: size,
-          height: size,
-          fit: BoxFit.contain,
-        );
-
-      case AssetType.network:
-        return Image.network(
-          dial.path ?? "",
-          width: size,
-          height: size,
-          fit: BoxFit.contain,
-        );
-
-      case AssetType.memory:
-        return Image.memory(
-          dial.extra?['bytes'],
-          width: size,
-          height: size,
-          fit: BoxFit.contain,
-        );
-
-      default:
-        return const SizedBox.shrink();
-    }
-  }
-
   // ─────────────────────────────────────────────
   // Needle Builder
   // ─────────────────────────────────────────────
@@ -194,11 +165,10 @@ class SpeedometerOverlay3 extends StatelessWidget {
         );
 
       case AssetType.network:
-        return Image.network(
-          needle.path ?? "",
+        return _buildCachedImage(
+          url: needle.path ?? "",
           width: size,
           height: size,
-          fit: BoxFit.contain,
         );
 
       case AssetType.memory:
@@ -212,6 +182,38 @@ class SpeedometerOverlay3 extends StatelessWidget {
       default:
         return const SizedBox.shrink();
     }
+  }
+
+  // ─────────────────────────────────────────────
+  // Cached Network Image
+  // ─────────────────────────────────────────────
+
+  /// Loads a network image through RemoteAssetService's cache.
+  /// Uses Image.memory for cached bytes, with a transparent
+  /// placeholder while loading.
+  Widget _buildCachedImage({
+    required String url,
+    required double width,
+    required double height,
+  }) {
+    return FutureBuilder<Uint8List?>(
+      future: RemoteAssetService().getBytes(url),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            snapshot.hasData &&
+            snapshot.data != null) {
+          return Image.memory(
+            snapshot.data!,
+            width: width,
+            height: height,
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+          );
+        }
+        // Transparent placeholder while loading
+        return SizedBox(width: width, height: height);
+      },
+    );
   }
 
   // ─────────────────────────────────────────────
@@ -231,5 +233,55 @@ class SpeedometerOverlay3 extends StatelessWidget {
     final angleDegrees = dial.needleMinAngle + (dial.totalSweep * progress) - (dialAngleSpan/2);
 
     return (angleDegrees * pi) / 180;
+  }
+}
+
+class BuildDial extends StatelessWidget {
+  const BuildDial({super.key, required this.dial, required this.size});
+
+  final Dial dial;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    switch (dial.assetType) {
+      case AssetType.asset:
+        return Image.asset(
+          dial.path ?? "",
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+        );
+
+      case AssetType.network:
+        return FutureBuilder<Uint8List?>(
+          future: RemoteAssetService().getBytes(dial.path ?? ""),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.done &&
+                snapshot.hasData &&
+                snapshot.data != null) {
+              return Image.memory(
+                snapshot.data!,
+                width: size,
+                height: size,
+                fit: BoxFit.contain,
+                gaplessPlayback: true,
+              );
+            }
+            // Transparent placeholder while loading
+            return SizedBox(width: size, height: size);
+          },
+        );
+      case AssetType.memory:
+        return Image.memory(
+          dial.extra?['bytes'],
+          width: size,
+          height: size,
+          fit: BoxFit.contain,
+        );
+
+      default:
+        return const SizedBox.shrink();
+    }
   }
 }

@@ -52,13 +52,49 @@ class AnalyticsEvents {
   static const String ffmpegProcessingFinished = 'ffmpeg_processing_finished';
   static const String ffmpegProcessingFailed = 'ffmpeg_processing_failed';
 
-
   // ─────────────────────────────────────────────────────────────────────────
   // Premium Events
   // ─────────────────────────────────────────────────────────────────────────
   static const String premiumPurchased = 'premium_purchased';
   static const String premiumRestored = 'premium_restored';
   static const String premiumScreenViewed = 'premium_screen_viewed';
+  static const String premiumDialogViewed = 'premium_dialog_viewed';
+  static const String premiumDialogDismissed = 'premium_dialog_dismissed';
+  static const String premiumUpgradeButtonClicked =
+      'premium_upgrade_button_clicked';
+  static const String premiumRestoreClicked = 'premium_restore_clicked';
+  static const String premiumUpgradePageViewed = 'premium_upgrade_page_viewed';
+  static const String premiumUpgradePageClosed = 'premium_upgrade_page_closed';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Notification Events
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String notificationShown = 'notification_shown';
+  static const String notificationOpened = 'notification_opened';
+  static const String notificationDismissed = 'notification_dismissed';
+  static const String notificationScheduled = 'notification_scheduled';
+  static const String notificationCancelled = 'notification_cancelled';
+  static const String notificationPermissionRequested =
+      'notification_permission_requested';
+  static const String notificationPermissionGranted =
+      'notification_permission_granted';
+  static const String notificationPermissionDenied =
+      'notification_permission_denied';
+  static const String fcmTokenRefreshed = 'fcm_token_refreshed';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Deeplink Events
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String deeplinkReceived = 'deeplink_received';
+  static const String deeplinkHandled = 'deeplink_handled';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // App Update Events
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String appUpdateCheckPerformed = 'app_update_check_performed';
+  static const String appUpdatePromptShown = 'app_update_prompt_shown';
+  static const String appUpdateAccepted = 'app_update_accepted';
+  static const String appUpdateDismissed = 'app_update_dismissed';
 
   // ─────────────────────────────────────────────────────────────────────────
   // Error Events
@@ -93,8 +129,6 @@ class AnalyticsParams {
   static const String previousTabName = 'previous_tab_name';
   static const String reason = 'reason';
 
-
-
   // ─────────────────────────────────────────────────────────────────────────
   // Event-Specific Parameters
   // ─────────────────────────────────────────────────────────────────────────
@@ -107,4 +141,24 @@ class AnalyticsParams {
   static const String duration = 'duration';
   static const String success = 'success';
   static const String lifecycleState = 'lifecycle_state';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Notification Parameters
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String notificationId = 'notification_id';
+  static const String notificationTitle = 'notification_title';
+  static const String notificationBody = 'notification_body';
+  static const String notificationType = 'notification_type';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Deeplink Parameters
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String deeplinkUri = 'deeplink_uri';
+  static const String deeplinkRoute = 'deeplink_route';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Misc Parameters
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String source = 'source';
 }
+

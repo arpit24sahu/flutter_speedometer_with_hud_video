@@ -379,7 +379,10 @@ class _FilesScreenContent extends StatelessWidget {
                                     const SizedBox(height: 32),
                                     ElevatedButton(
                                       onPressed: () =>
-                                          PremiumUpgradeDialog.show(context),
+                                          PremiumUpgradeDialog.show(
+                                            context,
+                                            source: 'files_screen',
+                                          ),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.amber[700],
                                         foregroundColor: Colors.white,

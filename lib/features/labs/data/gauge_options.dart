@@ -183,3 +183,47 @@ final List<GaugeCustomizationOption> kGaugeOptions = [
   //   ],
   // ),
 ];
+
+/// Returns all unique remote (network) image URLs used by the
+/// gauge options. Used by [RemoteAssetService] for pre-warming.
+List<String> getAllRemoteAssetUrls() {
+  final urls = <String>{};
+
+  void collectFromDial(Dial? dial) {
+    if (dial?.assetType == AssetType.network && dial?.path != null) {
+      urls.add(dial!.path!);
+    }
+  }
+
+  void collectFromNeedle(Needle? needle) {
+    if (needle?.assetType == AssetType.network && needle?.path != null) {
+      urls.add(needle!.path!);
+    }
+  }
+
+  // Defaults
+  collectFromDial(defaultDial);
+  collectFromNeedle(defaultNeedle);
+
+  // All standalone needles
+  for (final needle in _needles) {
+    collectFromNeedle(needle);
+  }
+
+  // All dials
+  for (final dial in _dials) {
+    collectFromDial(dial);
+  }
+
+  // All options (in case they reference different assets)
+  for (final option in kGaugeOptions) {
+    collectFromDial(option.dial);
+    if (option.needles != null) {
+      for (final needle in option.needles!) {
+        collectFromNeedle(needle);
+      }
+    }
+  }
+
+  return urls.toList();
+}

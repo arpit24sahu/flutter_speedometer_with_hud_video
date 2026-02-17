@@ -3,19 +3,16 @@
 // Check in to version control
 
 import 'package:hive_ce/hive_ce.dart';
-import 'package:speedometer/features/processing/models/processing_job.dart';
 import 'package:speedometer/features/speedometer/models/position_data.dart';
 
 extension HiveRegistrar on HiveInterface {
   void registerAdapters() {
     registerAdapter(PositionDataAdapter());
-    registerAdapter(ProcessingJobAdapter());
   }
 }
 
 extension IsolatedHiveRegistrar on IsolatedHiveInterface {
   void registerAdapters() {
     registerAdapter(PositionDataAdapter());
-    registerAdapter(ProcessingJobAdapter());
   }
 }

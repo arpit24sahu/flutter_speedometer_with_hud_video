@@ -2,16 +2,49 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'dart:ui';
 
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
+import 'package:speedometer/services/scheduled_notification_service.dart';
+
 import '../bloc/premium_bloc.dart';
 
 class PremiumUpgradeDialog extends StatefulWidget {
-  const PremiumUpgradeDialog({super.key});
+  final String source;
 
-  static Future<bool?> show(BuildContext context) {
-    return showDialog<bool>(
-      context: context,
-      builder: (BuildContext context) => const PremiumUpgradeDialog(),
+  const PremiumUpgradeDialog({super.key, required this.source});
+
+  /// Show the premium upgrade as a modal bottom sheet.
+  ///
+  /// [source] identifies where this dialog was triggered from (e.g. 'labs_banner', 'feature_gate').
+  /// Tracks analytics for view/dismiss and schedules an upgrade reminder
+  /// if the user dismisses without purchasing.
+  static Future<bool?> show(
+    BuildContext context, {
+    required String source,
+  }) async {
+    AnalyticsService().trackEvent(
+      AnalyticsEvents.premiumUpgradePageViewed,
+      properties: {'source': source},
     );
+
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: Colors.black.withOpacity(0.5),
+      builder: (BuildContext context) => PremiumUpgradeDialog(source: source),
+    );
+
+    // If dismissed without purchasing, schedule a reminder
+    if (result == null || result == false) {
+      AnalyticsService().trackEvent(
+        AnalyticsEvents.premiumUpgradePageClosed,
+        properties: {'source': source},
+      );
+      ScheduledNotificationService().schedulePremiumUpgradeReminder();
+    }
+
+    return result;
   }
 
   @override
@@ -21,9 +54,8 @@ class PremiumUpgradeDialog extends StatefulWidget {
 class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
     with SingleTickerProviderStateMixin {
   late AnimationController _animationController;
-  late Animation<double> _fadeAnimation;
-  late Animation<double> _scaleAnimation;
-  
+  late Animation<double> _slideAnimation;
+
   int _currentIndex = 0;
   final List<Map<String, dynamic>> _premiumFeatures = [
     {
@@ -68,34 +100,27 @@ class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 600),
+      duration: const Duration(milliseconds: 400),
       vsync: this,
     );
-    
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+
+    _slideAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
       CurvedAnimation(
         parent: _animationController,
-        curve: Curves.easeInOut,
+        curve: Curves.easeOutCubic,
       ),
     );
-    
-    _scaleAnimation = Tween<double>(begin: 0.8, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _animationController,
-        curve: Curves.easeOutBack,
-      ),
-    );
-    
+
     _animationController.forward();
-    
+
     // Auto-scroll through features
-    Future.delayed(Duration(seconds: 1), () {
+    Future.delayed(const Duration(seconds: 1), () {
       _startAutoScroll();
     });
   }
-  
+
   void _startAutoScroll() {
-    Future.delayed(Duration(seconds: 3), () {
+    Future.delayed(const Duration(seconds: 3), () {
       if (!mounted) return;
       setState(() {
         _currentIndex = (_currentIndex + 1) % _premiumFeatures.length;
@@ -103,7 +128,7 @@ class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
       _startAutoScroll();
     });
   }
-  
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -115,55 +140,77 @@ class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
     return AnimatedBuilder(
       animation: _animationController,
       builder: (context, child) {
-        return FadeTransition(
-          opacity: _fadeAnimation,
-          child: ScaleTransition(
-            scale: _scaleAnimation,
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-              child: Dialog(
-                backgroundColor: Colors.transparent,
-                elevation: 0,
-                child: Container(
-                  width: MediaQuery.of(context).size.width * 0.9,
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [
-                        Color(0xFF1E1E2C),
-                        Color(0xFF2D2D44),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.5),
-                        spreadRadius: 1,
-                        blurRadius: 20,
-                        offset: Offset(0, 8),
-                      ),
-                    ],
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.1),
-                      width: 1.5,
-                    ),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      _buildHeader(context),
-                      SizedBox(height: 16),
-                      _buildFeatureHighlight(context),
-                      SizedBox(height: 16),
-                      _buildFeaturesList(context),
-                      SizedBox(height: 24),
-                      _buildActionButtons(context),
-                      SizedBox(height: 16),
-                    ],
-                  ),
+        return Transform.translate(
+          offset: Offset(
+            0,
+            MediaQuery.of(context).size.height * 0.3 * _slideAnimation.value,
+          ),
+          child: BackdropFilter(
+            filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+            child: Container(
+              constraints: BoxConstraints(
+                maxHeight: MediaQuery.of(context).size.height * 0.85,
+              ),
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Color(0xFF1E1E2C),
+                    Color(0xFF2D2D44),
+                    Color(0xFF1A1A2E),
+                  ],
                 ),
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(28),
+                  topRight: Radius.circular(28),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 20,
+                    offset: Offset(0, -5),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Handle bar
+                  const SizedBox(height: 12),
+                  Container(
+                    width: 40,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.3),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  // Content
+                  Flexible(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: 8),
+                          _buildHeader(context),
+                          const SizedBox(height: 20),
+                          _buildFeatureHighlight(context),
+                          const SizedBox(height: 16),
+                          _buildFeatureIndicators(context),
+                          const SizedBox(height: 20),
+                          _buildValueProposition(),
+                          const SizedBox(height: 24),
+                          _buildActionButtons(context),
+                          const SizedBox(height: 16),
+                          _buildSafeAreaPadding(context),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -175,99 +222,72 @@ class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
   Widget _buildHeader(BuildContext context) {
     return Column(
       children: [
-        Icon(
-          Icons.speed,
-          color: Colors.amber,
-          size: 32,
+        // Crown icon with glow
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: const RadialGradient(
+              colors: [Color(0x40FFD700), Colors.transparent],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.amber.withOpacity(0.3),
+                blurRadius: 30,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: const Icon(Icons.speed, color: Colors.amber, size: 40),
         ),
-        SizedBox(height: 8),
-        Wrap(
-          alignment: WrapAlignment.center,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 4, 
-          runSpacing: 0, 
+        const SizedBox(height: 12),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
               "TURBOGAUGE",
               style: TextStyle(
                 fontFamily: 'RacingSansOne',
-                fontSize: 24,
+                fontSize: 26,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
                 letterSpacing: 2,
                 shadows: [
                   Shadow(
-                    offset: Offset(0, 2),
+                    offset: const Offset(0, 2),
                     blurRadius: 6,
                     color: Colors.amber.withOpacity(0.7),
                   ),
                 ],
               ),
             ),
-            Text(
-              "PRO",
-              style: TextStyle(
-                fontFamily: 'RacingSansOne',
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                foreground: Paint()
-                  ..shader = LinearGradient(
-                    colors: [
-                      Colors.amber,
-                      Colors.deepOrange,
-                    ],
-                  ).createShader(Rect.fromLTWH(0, 0, 100, 50)),
-                letterSpacing: 2,
-                shadows: [
-                  Shadow(
-                    offset: Offset(0, 2),
-                    blurRadius: 2,
-                    color: Colors.deepOrange.withOpacity(0.7),
-                  ),
-                ],
+            const SizedBox(width: 6),
+            ShaderMask(
+              shaderCallback:
+                  (bounds) => const LinearGradient(
+                    colors: [Colors.amber, Colors.deepOrange],
+                  ).createShader(bounds),
+              child: const Text(
+                "PRO",
+                style: TextStyle(
+                  fontFamily: 'RacingSansOne',
+                  fontSize: 26,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 2,
+                ),
               ),
             ),
           ],
         ),
-        SizedBox(height: 8),
+        const SizedBox(height: 8),
         Text(
-          "Unlock premium features for your speedometer",
+          "Unlock the full power of your speedometer",
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Colors.white.withOpacity(0.8),
-            fontSize: 16,
-          ),
-        ),
-        SizedBox(height: 12),
-        if(false) Container(
-          padding: EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.amber.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: Colors.amber.withOpacity(0.3),
-              width: 1,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.verified_outlined,
-                size: 18,
-                color: Colors.amber,
-              ),
-              SizedBox(width: 6),
-              Text(
-                "ONE-TIME PURCHASE • LIFETIME ACCESS",
-                style: TextStyle(
-                  color: Colors.amber,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.5,
-                ),
-              ),
-            ],
+            color: Colors.white.withOpacity(0.75),
+            fontSize: 15,
+            height: 1.4,
           ),
         ),
       ],
@@ -276,15 +296,15 @@ class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
 
   Widget _buildFeatureHighlight(BuildContext context) {
     final feature = _premiumFeatures[_currentIndex];
-    
+
     return AnimatedSwitcher(
-      duration: Duration(milliseconds: 500),
+      duration: const Duration(milliseconds: 500),
       transitionBuilder: (Widget child, Animation<double> animation) {
         return FadeTransition(
           opacity: animation,
           child: SlideTransition(
             position: Tween<Offset>(
-              begin: Offset(0.05, 0),
+              begin: const Offset(0.05, 0),
               end: Offset.zero,
             ).animate(animation),
             child: child,
@@ -293,48 +313,62 @@ class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
       },
       child: Container(
         key: ValueKey<int>(_currentIndex),
-        padding: EdgeInsets.all(20),
+        padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: feature['color'].withOpacity(0.1),
-          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              (feature['color'] as Color).withOpacity(0.15),
+              (feature['color'] as Color).withOpacity(0.05),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: feature['color'].withOpacity(0.3),
+            color: (feature['color'] as Color).withOpacity(0.25),
             width: 1,
           ),
         ),
         child: Row(
           children: [
             Container(
-              padding: EdgeInsets.all(12),
+              padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
-                color: feature['color'].withOpacity(0.2),
+                color: (feature['color'] as Color).withOpacity(0.2),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: (feature['color'] as Color).withOpacity(0.2),
+                    blurRadius: 10,
+                  ),
+                ],
               ),
               child: Icon(
-                feature['icon'],
-                color: feature['color'],
+                feature['icon'] as IconData,
+                color: feature['color'] as Color,
                 size: 28,
               ),
             ),
-            SizedBox(width: 16),
+            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    feature['title'],
-                    style: TextStyle(
+                    feature['title'] as String,
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
-                  SizedBox(height: 4),
+                  const SizedBox(height: 4),
                   Text(
-                    feature['description'],
+                    feature['description'] as String,
                     style: TextStyle(
                       color: Colors.white.withOpacity(0.7),
                       fontSize: 14,
+                      height: 1.3,
                     ),
                   ),
                 ],
@@ -346,21 +380,22 @@ class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
     );
   }
 
-  Widget _buildFeaturesList(BuildContext context) {
-    return Container(
+  Widget _buildFeatureIndicators(BuildContext context) {
+    return SizedBox(
       height: 20,
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: List.generate(
           _premiumFeatures.length,
-          (index) => Container(
-            width: 10,
-            height: 10,
-            margin: EdgeInsets.symmetric(horizontal: 4),
+          (index) => AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
+            width: _currentIndex == index ? 24 : 8,
+            height: 8,
+            margin: const EdgeInsets.symmetric(horizontal: 3),
             decoration: BoxDecoration(
-              shape: BoxShape.circle,
+              borderRadius: BorderRadius.circular(4),
               color: _currentIndex == index
-                  ? _premiumFeatures[index]['color']
+                      ? _premiumFeatures[index]['color'] as Color
                   : Colors.grey.withOpacity(0.3),
             ),
           ),
@@ -369,113 +404,163 @@ class PremiumUpgradeDialogState extends State<PremiumUpgradeDialog>
     );
   }
 
+  Widget _buildValueProposition() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.amber.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.amber.withOpacity(0.15), width: 1),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.verified_outlined, size: 18, color: Colors.amber.shade300),
+          const SizedBox(width: 8),
+          Text(
+            "ONE-TIME PURCHASE • LIFETIME ACCESS",
+            style: TextStyle(
+              color: Colors.amber.shade200,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildActionButtons(BuildContext context) {
     return BlocConsumer<PremiumBloc, PremiumState>(
       listener: (context, state) {
         if (state is PremiumPurchaseSuccess) {
+          // Cancel the premium reminder since user purchased
+          ScheduledNotificationService().cancelPremiumUpgradeReminder();
           Navigator.of(context).pop(true);
         } else if (state is PremiumPurchaseFailure) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Purchase failed: ${state.message}'),
-              backgroundColor: Colors.red,
+              backgroundColor: Colors.red.shade700,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           );
         }
       },
       builder: (context, state) {
         final isLoading = state is PremiumLoading;
-        
+
         return Column(
           children: [
+            // Main CTA button
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed:
+                    isLoading
+                        ? null
+                        : () {
+                          AnalyticsService().trackEvent(
+                            AnalyticsEvents.premiumUpgradeButtonClicked,
+                          );
+                          context.read<PremiumBloc>().add(PurchasePremium());
+                        },
+                style: ElevatedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  backgroundColor: Colors.amber,
+                  disabledBackgroundColor: Colors.amber.withOpacity(0.5),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 8,
+                  shadowColor: Colors.amber.withOpacity(0.4),
+                ),
+                child:
+                    isLoading
+                        ? const SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: CircularProgressIndicator(
+                            color: Colors.black,
+                            strokeWidth: 2.5,
+                          ),
+                        )
+                        : const Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'UPGRADE TO PRO',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            SizedBox(width: 8),
+                            Icon(Icons.bolt, color: Colors.black, size: 22),
+                          ],
+                        ),
+              ),
+            ),
+            const SizedBox(height: 8),
             Text(
-              "One-time payment • No subscriptions",
+              "Buy once, use forever. No recurring charges.",
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Colors.white.withOpacity(0.9),
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+                color: Colors.green.shade300,
+                fontSize: 12,
+                fontStyle: FontStyle.italic,
               ),
             ),
-            SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: isLoading
-                  ? null
-                  : () => context.read<PremiumBloc>().add(PurchasePremium()),
-              style: ElevatedButton.styleFrom(
-                padding: EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-                backgroundColor: Colors.amber,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(30),
-                ),
-                elevation: 5,
-                shadowColor: Colors.amber.withOpacity(0.5),
-              ),
-              child: isLoading
-                  ? SizedBox(
-                      width: 24,
-                      height: 24,
-                      child: CircularProgressIndicator(
-                        color: Colors.white,
-                        strokeWidth: 2,
-                      ),
-                    )
-                  : Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          'UPGRADE NOW',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                        SizedBox(width: 8),
-                        Icon(
-                          Icons.bolt,
-                          color: Colors.black,
-                        ),
-                      ],
+            const SizedBox(height: 12),
+            // Dismiss + Restore row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(false),
+                  child: Text(
+                    'Maybe later',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.5),
+                      fontSize: 14,
                     ),
-            ),
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                "Buy once, use forever. No recurring charges.",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.green.shade300,
-                  fontSize: 13,
-                  fontStyle: FontStyle.italic,
+                  ),
                 ),
-              ),
-            ),
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(false),
-              child: Text(
-                'Maybe later',
-                style: TextStyle(
-                  color: Colors.white.withOpacity(0.6),
-                  fontSize: 14,
+                Container(
+                  width: 1,
+                  height: 16,
+                  color: Colors.white.withOpacity(0.15),
                 ),
-              ),
-            ),
-            SizedBox(height: 4),
-            TextButton(
-              onPressed: () => context.read<PremiumBloc>().add(RestorePurchases()),
-              child: Text(
-                'Restore Purchases',
-                style: TextStyle(
-                  color: Colors.amber.withOpacity(0.8),
-                  fontSize: 14,
+                TextButton(
+                  onPressed: () {
+                    AnalyticsService().trackEvent(
+                      AnalyticsEvents.premiumRestoreClicked,
+                    );
+                    context.read<PremiumBloc>().add(RestorePurchases());
+                  },
+                  child: Text(
+                    'Restore Purchases',
+                    style: TextStyle(
+                      color: Colors.amber.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ),
           ],
         );
       },
     );
+  }
+
+  Widget _buildSafeAreaPadding(BuildContext context) {
+    return SizedBox(height: MediaQuery.of(context).padding.bottom + 8);
   }
 }

@@ -75,7 +75,10 @@ class GaugeSettingsScreen extends StatelessWidget {
                             "showMaxSpeed": !state.showLabel // show value after toggle
                           }
                       );
-                      PremiumUpgradeDialog.show(context);
+                    PremiumUpgradeDialog.show(
+                      context,
+                      source: 'gauge_settings',
+                    );
                       // context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
                     },
                     trailing: Switch(
@@ -88,7 +91,10 @@ class GaugeSettingsScreen extends StatelessWidget {
                               "showMaxSpeed": !state.showLabel // show value after toggle
                             }
                         );
-                        PremiumUpgradeDialog.show(context);
+                      PremiumUpgradeDialog.show(
+                        context,
+                        source: 'gauge_settings',
+                      );
                         // context.read<OverlayGaugeConfigurationBloc>().add(ToggleLabelVisibility());
                       },
                       activeColor: state.gaugeColor,

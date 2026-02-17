@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:speedometer/features/labs/presentation/recorded_tab.dart';
 import 'package:speedometer/features/labs/presentation/exported_tab.dart';
+import 'package:speedometer/features/premium/widgets/premium_upgrade_banner.dart';
 
 class LabsScreen extends StatefulWidget {
   const LabsScreen({super.key});
@@ -55,11 +56,19 @@ class _LabsScreenState extends State<LabsScreen> with SingleTickerProviderStateM
           ],
         ),
       ),
-      body: TabBarView(
-        controller: _tabController,
-        children: const [
-          RecordedTab(),
-          ExportedTab(),
+      body: Column(
+        children: [
+          // Premium upgrade banner
+          PremiumUpgradeBanner(source: 'labs_screen'),
+
+          // Tab content
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: const [RecordedTab(), ExportedTab(),
+              ],
+            ),
+          ),
         ],
       ),
     );

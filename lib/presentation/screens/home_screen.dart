@@ -2,22 +2,14 @@ import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:open_file/open_file.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/features/files/bloc/files_bloc.dart';
-import 'package:speedometer/features/files/files_screen.dart';
-import 'package:speedometer/features/processing/bloc/jobs_bloc.dart';
-import 'package:speedometer/features/processing/bloc/processor_bloc.dart';
-import 'package:speedometer/features/processing/models/processing_queue.dart';
-import 'package:speedometer/features/processing/presentation/jobs_screen.dart';
 import 'package:speedometer/features/labs/presentation/labs_screen.dart';
+import 'package:speedometer/core/services/camera_state_service.dart';
 import 'package:speedometer/presentation/screens/camera_screen.dart';
-import 'package:speedometer/presentation/screens/speedometer_screen.dart';
-import 'package:speedometer/services/hive_service.dart';
-import 'package:flutter/painting.dart';
-import '../widgets/global_processing_indicator.dart';
+import 'package:speedometer/services/app_update_service.dart';
+import 'package:speedometer/services/deeplink_service.dart';
 import 'dart:async';
 import 'dart:io';
 import 'dart:math' as math;
@@ -64,8 +56,9 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _selectedIndex = 0;
+  final CameraStateService _cameraState = CameraStateService();
   final List<GlobalKey> _screenKeys = [
     GlobalKey(),
     // GlobalKey(),
@@ -96,6 +89,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _onItemTapped(int index) async {
     if(_selectedIndex == index) return;
+
+    // Block tab switching while recording
+    if (_cameraState.shouldBlockTabSwitch) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Cannot switch tabs while recording'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      return;
+    }
 
     AnalyticsService().trackEvent(
         AnalyticsEvents.tabPress,
@@ -143,19 +150,55 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _startProcessQueue(){
-    Future.delayed(Duration(milliseconds: 2000), (){
-      if(mounted) {
-        ProcessingQueue.init(context.read<ProcessorBloc>(), HiveService().pendingBox).start();
-      }
-    });
-  }
+  // Debounce to prevent duplicate lifecycle events from rapid
+  // activity transitions (e.g. ffmpeg-kit selectDocument loop).
+  DateTime? _lastLifecycleEventTime;
+  AppLifecycleState? _lastLifecycleState;
+  static const _lifecycleDebounceMs = 2000;
 
   @override
   void initState() {
     super.initState();
-    _startProcessQueue();
-    // Create screen keys to access their state
+    WidgetsBinding.instance.addObserver(this);
+    // Run checks after first frame when navigator is ready
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      AppUpdateService().checkForUpdate();
+      DeeplinkService().processPendingDeeplinks();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Debounce: ignore if same state fired within threshold
+    final now = DateTime.now();
+    if (_lastLifecycleState == state &&
+        _lastLifecycleEventTime != null &&
+        now.difference(_lastLifecycleEventTime!).inMilliseconds <
+            _lifecycleDebounceMs) {
+      return;
+    }
+    _lastLifecycleState = state;
+    _lastLifecycleEventTime = now;
+
+    AnalyticsService().trackAppLifeCycle(state);
+
+    // Forward to CameraScreen for speedometer start/stop
+    if (_selectedIndex == 0) {
+      final cameraState = _screenKeys[0].currentState;
+      if (cameraState is TabVisibilityAware) {
+        if (state == AppLifecycleState.resumed) {
+          (cameraState as TabVisibilityAware).onTabVisible();
+        } else if (state == AppLifecycleState.paused) {
+          (cameraState as TabVisibilityAware).onTabInvisible();
+        }
+      }
+    }
   }
 
   void _notifyVisible(int index) {
@@ -178,34 +221,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return BlocListener<ProcessorBloc, ProcessorState>(
-      listener: (BuildContext context, ProcessorState state){
-        if(state.status == ProcessorStatus.idle){
-          print("Processor found idle: Starting Job");
-          context.read<ProcessorBloc>().add(StartProcessing());
-          Future.delayed(Duration(milliseconds: 1000), (){
-            if(context.mounted) context.read<FilesBloc>().add(RefreshFiles());
-            if(context.mounted) context.read<JobsBloc>().add(LoadJobs());
-          });
-        }
-      },
-      listenWhen: (ProcessorState stateBefore, ProcessorState stateAfter){
-        if(stateBefore.status != ProcessorStatus.idle && stateAfter.status == ProcessorStatus.idle){
-          return true;
-        }
-         return false;
-      },
-      child: Scaffold(
+    return Scaffold(
         body: Stack(
           children: [
             Positioned.fill(child: IndexedStack(index: _selectedIndex, children: _screens())),
-            if(false) Positioned(
-                top: 100,
-                left: 20,
-                // width: 100,
-                // height: 50,
-                child: GlobalProcessingIndicator()
-            )
           ],
         ),
         bottomNavigationBar: BottomNavigationBar(
@@ -216,12 +235,8 @@ class _HomeScreenState extends State<HomeScreen> {
           unselectedItemColor: Colors.grey,
           items: const [
             BottomNavigationBarItem(icon: Icon(Icons.videocam), label: 'Record'),
-            // BottomNavigationBarItem(icon: Icon(Icons.speed), label: 'Speed'),
-            if(false) BottomNavigationBarItem(icon: Icon(Icons.folder), label: 'Files'),
-            if(false) BottomNavigationBarItem(icon: Icon(Icons.work_history), label: 'Jobs'),
             BottomNavigationBarItem(icon: Icon(Icons.science), label: 'Labs'),
           ],
-        ),
       ),
     );
   }

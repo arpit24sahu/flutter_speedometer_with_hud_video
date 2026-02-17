@@ -7,8 +7,6 @@ import 'package:speedometer/features/premium/bloc/premium_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:speedometer/presentation/bloc/video_recorder_bloc.dart';
-import 'package:speedometer/presentation/widgets/video_recorder_service.dart';
 import 'package:speedometer/services/hive_service.dart';
 
 import '../features/analytics/di/analytics_injection.dart';
@@ -18,9 +16,6 @@ import '../features/premium/repository/purchase_repository.dart';
 import '../features/premium/service/purchase_service.dart';
 import '../packages/gal.dart';
 import '../presentation/bloc/overlay_gauge_configuration_bloc.dart';
-import '../features/processing/repository/processing_repository.dart';
-import '../features/processing/bloc/jobs_bloc.dart';
-import '../features/processing/bloc/processor_bloc.dart';
 
 final getIt = GetIt.instance;
 
@@ -54,16 +49,5 @@ Future<void> initializeDependencies() async {
   getIt.registerFactory<FilesBloc>(() => FilesBloc());
   getIt.registerFactory<GaugeCustomizationBloc>(() => GaugeCustomizationBloc());
 
-  // Processing Feature
-
   getIt.registerSingleton<HiveService>(HiveService()..init());
-  getIt.registerSingleton<ProcessingRepository>(ProcessingRepository(getIt<HiveService>()));
-
-  getIt.registerFactory<JobsBloc>(
-    () => JobsBloc(repository: getIt<ProcessingRepository>()),
-  );
-
-  getIt.registerFactory<ProcessorBloc>(
-    () => ProcessorBloc(repository: getIt<ProcessingRepository>()),
-  );
 }

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
@@ -15,6 +16,7 @@ import 'package:speedometer/features/labs/services/gauge_export_service.dart';
 import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
 import 'package:speedometer/features/premium/widgets/premium_upgrade_dialog.dart';
 import 'package:speedometer/packages/gal.dart';
+import 'package:speedometer/services/remote_asset_service.dart';
 import 'package:get_it/get_it.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
@@ -964,10 +966,18 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                   _selectedOption.dial?.assetType == AssetType.network
                       ? Stack(
                         children: [
-                          Image.network(_selectedOption.dial?.path??"", height: 30, width: 30, fit: BoxFit.contain,),
+                                _buildCachedThumbnail(
+                                  _selectedOption.dial?.path ?? "",
+                                  30,
+                                  30,
+                                ),
                           Transform.rotate(
                             angle: -pi/4,
-                              child: Image.network(_selectedNeedle?.path??"", height: 30, width: 30, fit: BoxFit.contain,)
+                                  child: _buildCachedThumbnail(
+                                    _selectedNeedle?.path ?? "",
+                                    30,
+                                    30,
+                                  )
                           ),
                         ],
                       )
@@ -1110,7 +1120,10 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                           value: _config.showBranding ?? true,
                           activeColor: Colors.blueAccent,
                           onChanged: (val) {
-                            PremiumUpgradeDialog.show(context);
+                          PremiumUpgradeDialog.show(
+                            context,
+                            source: 'task_processing',
+                          );
                             _updateConfig((c) => c.copyWith(showBranding: val));
                           }
 
@@ -1130,13 +1143,19 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                           value: _config.showBranding ?? true,
                           activeColor: Colors.blueAccent,
                           onChanged: (val) {
-                            PremiumUpgradeDialog.show(context);
+                          PremiumUpgradeDialog.show(
+                            context,
+                            source: 'task_processing',
+                          );
                             // _updateConfig((c) => c.copyWith(showBranding: val));
                           }
 
                       ),
                       onTap: () {
-                        PremiumUpgradeDialog.show(context);
+                        PremiumUpgradeDialog.show(
+                          context,
+                          source: 'task_processing',
+                        );
                         // _updateConfig((c) =>
                         //     c.copyWith(showBranding: !(_config.showBranding ?? true)));
                       }
@@ -1262,6 +1281,27 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
       ),
     );
   }
+
+  /// Builds a cached thumbnail from a remote URL.
+  Widget _buildCachedThumbnail(String url, double width, double height) {
+    return FutureBuilder<Uint8List?>(
+      future: RemoteAssetService().getBytes(url),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done &&
+            snapshot.hasData &&
+            snapshot.data != null) {
+          return Image.memory(
+            snapshot.data!,
+            height: height,
+            width: width,
+            fit: BoxFit.contain,
+            gaplessPlayback: true,
+          );
+        }
+        return SizedBox(width: width, height: height);
+      },
+    );
+  }
 }
 
 // ─── Gauge Tile Widget ───
@@ -1301,13 +1341,16 @@ class _GaugeTile extends StatelessWidget {
             if (dialPath != null && isNetwork)
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: Image.network(
-                  dialPath,
+                child: _CachedNetworkImage(
+                  url: dialPath,
                   width: 50,
                   height: 50,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.speed, color: Colors.white54, size: 40),
+                  errorWidget: const Icon(
+                    Icons.speed,
+                    color: Colors.white54,
+                    size: 40,
+                  ),
                 ),
               )
             else
@@ -1373,12 +1416,12 @@ class _NeedleTile extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             if (path != null && isNetwork)
-              Image.network(
-                path,
+              _CachedNetworkImage(
+                url: path,
                 width: 35,
                 height: 35,
                 fit: BoxFit.contain,
-                errorBuilder: (_, __, ___) => const Icon(
+                errorWidget: const Icon(
                     Icons.navigation, color: Colors.white54, size: 30),
               )
             else
@@ -1400,6 +1443,49 @@ class _NeedleTile extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+// ─── Cached Network Image ───
+
+/// A reusable widget that loads images through RemoteAssetService cache.
+class _CachedNetworkImage extends StatelessWidget {
+  final String url;
+  final double width;
+  final double height;
+  final BoxFit fit;
+  final Widget? errorWidget;
+
+  const _CachedNetworkImage({
+    required this.url,
+    required this.width,
+    required this.height,
+    this.fit = BoxFit.contain,
+    this.errorWidget,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Uint8List?>(
+      future: RemoteAssetService().getBytes(url),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.done) {
+          if (snapshot.hasData && snapshot.data != null) {
+            return Image.memory(
+              snapshot.data!,
+              width: width,
+              height: height,
+              fit: fit,
+              gaplessPlayback: true,
+            );
+          }
+          // Error or null data
+          return errorWidget ?? SizedBox(width: width, height: height);
+        }
+        // Loading
+        return SizedBox(width: width, height: height);
+      },
     );
   }
 }

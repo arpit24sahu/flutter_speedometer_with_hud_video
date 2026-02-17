@@ -1,8 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:open_file/open_file.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:speedometer/features/labs/models/processed_task.dart';
 import 'package:speedometer/features/labs/services/labs_service.dart';
+import 'package:speedometer/packages/gal.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
 class ExportedTab extends StatefulWidget {
@@ -27,63 +30,168 @@ class _ExportedTabState extends State<ExportedTab> {
     });
   }
 
-  Future<void> _handleTap(ProcessedTask task) async {
-    if (task.savedVideoFilePath == null || !File(task.savedVideoFilePath!).existsSync()) {
-      _showFileNotFoundDialog(task);
+  Future<void> _openFile(ProcessedTask task) async {
+    if (task.savedVideoFilePath == null ||
+        !File(task.savedVideoFilePath!).existsSync()) {
+      _showSnackBar('Video file not found', isError: true);
       return;
     }
-    // Open the video file
     final result = await OpenFile.open(task.savedVideoFilePath!);
     debugPrint('OpenFile result: ${result.type}, ${result.message}');
   }
 
-  void _showFileNotFoundDialog(ProcessedTask task) {
-    showDialog(
+  Future<void> _shareTask(ProcessedTask task) async {
+    if (task.savedVideoFilePath == null ||
+        !File(task.savedVideoFilePath!).existsSync()) {
+      _showSnackBar('Video file not found', isError: true);
+      return;
+    }
+    await Share.shareXFiles([XFile(task.savedVideoFilePath!)]);
+  }
+
+  Future<void> _exportToGallery(ProcessedTask task) async {
+    if (task.savedVideoFilePath == null ||
+        !File(task.savedVideoFilePath!).existsSync()) {
+      _showSnackBar('Video file not found', isError: true);
+      return;
+    }
+    try {
+      final galService = GetIt.I<GalService>();
+      await galService.saveVideoToGallery(
+        task.savedVideoFilePath!,
+        albumName: 'TurboGauge Exports',
+      );
+      _showSnackBar('Video saved to gallery');
+    } catch (e) {
+      _showSnackBar('Failed to save to gallery: $e', isError: true);
+    }
+  }
+
+  Future<void> _deleteTask(ProcessedTask task) async {
+    final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: Colors.grey[900],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.orangeAccent, size: 28),
-            const SizedBox(width: 12),
-            const Expanded(
-              child: Text(
-                'File Not Found',
-                style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            title: const Text(
+              'Delete Export',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ],
-        ),
         content: const Text(
-          'We couldn\'t find this file. It might have been deleted or moved from its original location.',
-          style: TextStyle(color: Colors.white70, height: 1.5),
+              'This will permanently delete this exported video. This action cannot be undone.',
+              style: TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+                onPressed: () => Navigator.pop(context, false),
             child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
           ),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              if (task.id != null) {
-                await LabsService().deleteProcessedTask(task.id!);
-                _loadTasks();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Removed from app'),
-                      backgroundColor: Colors.redAccent,
-                    ),
-                  );
-                }
-              }
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Remove from App', style: TextStyle(fontWeight: FontWeight.bold)),
+                onPressed: () => Navigator.pop(context, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+            ],
           ),
-        ],
+    );
+
+    if (confirmed == true && task.id != null) {
+      if (task.savedVideoFilePath != null) {
+        final file = File(task.savedVideoFilePath!);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
+      await LabsService().deleteProcessedTask(task.id!);
+      _loadTasks();
+      _showSnackBar('Export deleted');
+    }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(12),
+      ),
+    );
+  }
+
+  void _showActionsSheet(ProcessedTask task) {
+    final fileExists =
+        task.savedVideoFilePath != null &&
+        File(task.savedVideoFilePath!).existsSync();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[900],
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 4),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[700],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  _SheetAction(
+                    label: 'Open File',
+                    enabled: fileExists,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openFile(task);
+                    },
+                  ),
+                  _SheetAction(
+                    label: 'Share',
+                    enabled: fileExists,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _shareTask(task);
+                    },
+                  ),
+                  _SheetAction(
+                    label: 'Export to Gallery',
+                    enabled: fileExists,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _exportToGallery(task);
+                    },
+                  ),
+                  _SheetAction(
+                    label: 'Delete',
+                    isDestructive: true,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _deleteTask(task);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
       ),
     );
   }
@@ -95,7 +203,11 @@ class _ExportedTabState extends State<ExportedTab> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.movie_creation_outlined, size: 64, color: Colors.grey[700]),
+            Icon(
+              Icons.movie_creation_outlined,
+              size: 64,
+              color: Colors.grey[700],
+            ),
             const SizedBox(height: 16),
             Text(
               'No exports yet',
@@ -123,7 +235,8 @@ class _ExportedTabState extends State<ExportedTab> {
         itemBuilder: (context, index) {
           return _ExportedTaskTile(
             task: _tasks[index],
-            onTap: () => _handleTap(_tasks[index]),
+            onTap: () => _openFile(_tasks[index]),
+            onLongPress: () => _showActionsSheet(_tasks[index]),
           );
         },
       ),
@@ -131,11 +244,60 @@ class _ExportedTabState extends State<ExportedTab> {
   }
 }
 
+// ─── Compact Bottom Sheet Action ───
+
+class _SheetAction extends StatelessWidget {
+  final String label;
+  final bool enabled;
+  final bool isDestructive;
+  final VoidCallback onTap;
+
+  const _SheetAction({
+    required this.label,
+    this.enabled = true,
+    this.isDestructive = false,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color =
+        !enabled
+            ? Colors.grey[600]!
+            : isDestructive
+            ? Colors.redAccent
+            : Colors.white;
+
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Exported Task Tile ───
+
 class _ExportedTaskTile extends StatelessWidget {
   final ProcessedTask task;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
-  const _ExportedTaskTile({required this.task, required this.onTap});
+  const _ExportedTaskTile({
+    required this.task,
+    required this.onTap,
+    required this.onLongPress,
+  });
 
   String _formatSize(double kb) {
     if (kb >= 1024) {
@@ -150,7 +312,9 @@ class _ExportedTaskTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fileExists = task.savedVideoFilePath != null && File(task.savedVideoFilePath!).existsSync();
+    final fileExists =
+        task.savedVideoFilePath != null &&
+        File(task.savedVideoFilePath!).existsSync();
 
     return Card(
       color: Colors.grey[900],
@@ -159,6 +323,7 @@ class _ExportedTaskTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
+        onLongPress: onLongPress,
         child: Row(
           children: [
             // Thumbnail
@@ -170,14 +335,21 @@ class _ExportedTaskTile extends StatelessWidget {
                   : Container(
                       color: Colors.grey[850],
                       child: const Center(
-                        child: Icon(Icons.broken_image, color: Colors.redAccent, size: 32),
+                          child: Icon(
+                            Icons.broken_image,
+                            color: Colors.redAccent,
+                            size: 32,
+                          ),
                       ),
                     ),
             ),
             // Details
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -203,15 +375,25 @@ class _ExportedTaskTile extends StatelessWidget {
                         if (task.sizeInKb != null && task.sizeInKb! > 0)
                           Text(
                             _formatSize(task.sizeInKb!),
-                            style: TextStyle(color: Colors.blueAccent[100], fontSize: 12),
+                            style: TextStyle(
+                              color: Colors.blueAccent[100],
+                              fontSize: 12,
+                            ),
                           ),
                         if (!fileExists) ...[
                           const SizedBox(width: 8),
-                          const Icon(Icons.warning_amber_rounded, size: 14, color: Colors.orangeAccent),
+                          const Icon(
+                            Icons.warning_amber_rounded,
+                            size: 14,
+                            color: Colors.orangeAccent,
+                          ),
                           const SizedBox(width: 4),
                           const Text(
                             'File missing',
-                            style: TextStyle(color: Colors.orangeAccent, fontSize: 11),
+                            style: TextStyle(
+                              color: Colors.orangeAccent,
+                              fontSize: 11,
+                            ),
                           ),
                         ],
                       ],
@@ -220,14 +402,11 @@ class _ExportedTaskTile extends StatelessWidget {
                 ),
               ),
             ),
-            // Chevron
-            Padding(
-              padding: const EdgeInsets.only(right: 8),
-              child: Icon(
-                fileExists ? Icons.play_circle_outline : Icons.warning_amber_rounded,
-                color: fileExists ? Colors.white54 : Colors.orangeAccent,
-                size: 24,
-              ),
+            // More options button
+            IconButton(
+              icon: const Icon(Icons.more_vert, color: Colors.white54),
+              onPressed: onLongPress,
+              tooltip: 'More options',
             ),
           ],
         ),
@@ -235,6 +414,8 @@ class _ExportedTaskTile extends StatelessWidget {
     );
   }
 }
+
+// ─── Export Thumbnail ───
 
 class _ExportThumbnail extends StatefulWidget {
   final String videoPath;
@@ -273,7 +454,9 @@ class _ExportThumbnailState extends State<_ExportThumbnail> {
     }
     return Container(
       color: Colors.grey[850],
-      child: const Center(child: Icon(Icons.video_file, size: 32, color: Colors.grey)),
+      child: const Center(
+        child: Icon(Icons.video_file, size: 32, color: Colors.grey),
+      ),
     );
   }
 }

@@ -10,6 +10,7 @@ import 'package:get/get.dart';
 import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:speedometer/core/services/camera_service.dart';
+import 'package:speedometer/core/services/camera_state_service.dart';
 import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
@@ -18,16 +19,13 @@ import 'package:speedometer/features/labs/presentation/bloc/gauge_customization_
 import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
 import 'package:speedometer/features/speedometer/bloc/speedometer_state.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
-import 'package:get_it/get_it.dart';
 import '../../features/labs/models/gauge_customization.dart';
 import '../../features/labs/presentation/speedometer_overlay_3.dart';
-import '../../features/processing/bloc/jobs_bloc.dart';
-import '../../features/processing/bloc/processor_bloc.dart';
+
 import '../../features/speedometer/bloc/speedometer_event.dart';
 import '../../packages/gal.dart';
 import '../bloc/video_recorder_bloc.dart';
 import '../widgets/video_recorder_service.dart';
-import 'gauge_settings_screen.dart';
 import 'gauge_settings_screen_2.dart';
 import 'home_screen.dart';
 
@@ -38,24 +36,12 @@ class CameraScreen extends StatefulWidget {
   State<CameraScreen> createState() => _CameraScreenState();
 }
 
-class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver implements TabVisibilityAware  {
-
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Also logs App Backgrounded or Foregrounded Events
-    AnalyticsService().trackAppLifeCycle(state);
-    if (state == AppLifecycleState.resumed) {
-      if(context.mounted) context.read<SpeedometerBloc>().add(StartSpeedTracking());
-    } else if (state == AppLifecycleState.paused) {
-      if(context.mounted) context.read<SpeedometerBloc>().add(StopSpeedTracking());
-    }
-  }
-
-
+class _CameraScreenState extends State<CameraScreen>
+    implements TabVisibilityAware {
 
   CameraController? _cameraController;
   final CameraService _cameraService = getIt<CameraService>();
+  final CameraStateService _cameraState = CameraStateService();
   final GlobalKey _speedometerKey = GlobalKey();
 
   int _currentCameraIndex = 0;
@@ -64,7 +50,6 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   void initState() {
     super.initState();
 
-    WidgetsBinding.instance.addObserver(this);
     if(context.mounted) context.read<SpeedometerBloc>().add(StartSpeedTracking());
 
     _initializeCamera(_currentCameraIndex);
@@ -77,6 +62,10 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
       return;
     }
 
+    // Dispose existing controller before creating a new one
+    await _cameraController?.dispose();
+    _cameraState.setControllerReady(false);
+
     _cameraController = CameraController(
       cameras[cameraIndex],
       ResolutionPreset.high,
@@ -86,6 +75,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
     try {
       await _cameraController!.initialize();
+      _cameraState.setControllerReady(true);
       if (mounted) setState(() {});
     } catch (e) {
       debugPrint('Error initializing camera: $e');
@@ -94,19 +84,30 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
 
   @override
   void onTabInvisible() {
-    _cameraController?.pausePreview();
+    // Don't stop camera if we're recording
+    if (_cameraState.isRecording) return;
+
+    // Fully dispose the camera to stop the capture session.
+    // This prevents SurfaceTexture "slot dropped" buffer spam.
+    _cameraController?.dispose();
+    _cameraController = null;
+    _cameraState.setControllerReady(false);
   }
 
   @override
   void onTabVisible() {
-    _cameraController?.resumePreview();
+    // Reinitialize camera when returning to this tab
+    if (_cameraController == null ||
+        !(_cameraController?.value.isInitialized ?? false)) {
+      _initializeCamera(_currentCameraIndex);
+    }
   }
 
   @override
   void dispose() {
     _cameraController?.dispose();
+    _cameraState.reset();
 
-    WidgetsBinding.instance.removeObserver(this);
     if(context.mounted) context.read<SpeedometerBloc>().add(StopSpeedTracking());
 
     super.dispose();
@@ -163,8 +164,6 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
               widgetKey: _speedometerKey,
               cameraController: _cameraController!,
             ),
-            jobsBloc: GetIt.I<JobsBloc>(),
-            processorBloc: GetIt.I<ProcessorBloc>(),
           ),
       child: BlocConsumer<VideoRecorderBloc, VideoRecorderState>(
         listener: _handleVideoRecorderState,
@@ -285,8 +284,7 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   // ─────────────────────────────────────────────────────────────────────
 
   Widget _buildFlipCameraButton(VideoRecorderState state) {
-    final bool isActive =
-        !(state is VideoProcessing || state is VideoRecording);
+    final bool isActive = !_cameraState.shouldBlockCameraActions;
 
     if (!isActive) {
       return const SizedBox(width: 48, height: 48);
@@ -361,9 +359,15 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
   Widget _buildSettingsButton() {
     return IconButton(
       icon: const Icon(Icons.settings),
-      color: Colors.white,
+      color:
+          _cameraState.shouldBlockCameraActions
+              ? Colors.white.withValues(alpha: 0.3)
+              : Colors.white,
       iconSize: 32,
-      onPressed: () {
+      onPressed:
+          _cameraState.shouldBlockCameraActions
+              ? null
+              : () {
         HapticFeedback.mediumImpact();
         showModalBottomSheet(
           context: context,
@@ -420,6 +424,20 @@ class _CameraScreenState extends State<CameraScreen> with WidgetsBindingObserver
     BuildContext context,
     VideoRecorderState videoRecorderState,
   ) {
+    // Update CameraStateService based on recording state transitions
+    if (videoRecorderState is VideoRecording) {
+      _cameraState.setRecording(true);
+      _cameraState.setProcessing(false);
+    } else if (videoRecorderState is VideoProcessing) {
+      _cameraState.setRecording(false);
+      _cameraState.setProcessing(true);
+    } else if (videoRecorderState is VideoProcessed ||
+        videoRecorderState is VideoRecorderInitial ||
+        videoRecorderState is VideoJobSaved) {
+      _cameraState.setRecording(false);
+      _cameraState.setProcessing(false);
+    }
+
     if (videoRecorderState is VideoProcessed) {
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await Future.delayed(const Duration(milliseconds: 1500));

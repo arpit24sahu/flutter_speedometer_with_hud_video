@@ -1,8 +1,12 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
+import 'package:open_file/open_file.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:speedometer/features/labs/models/processing_task.dart';
 import 'package:speedometer/features/labs/services/labs_service.dart';
 import 'package:speedometer/features/labs/presentation/task_processing_page.dart';
+import 'package:speedometer/packages/gal.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
 class RecordedTab extends StatefulWidget {
@@ -27,6 +31,48 @@ class _RecordedTabState extends State<RecordedTab> {
     });
   }
 
+  void _openTaskForProcessing(ProcessingTask task) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => TaskProcessingPage(task: task)),
+    );
+    _loadTasks();
+  }
+
+  Future<void> _openFile(ProcessingTask task) async {
+    if (task.videoFilePath == null || !File(task.videoFilePath!).existsSync()) {
+      _showSnackBar('Video file not found', isError: true);
+      return;
+    }
+    final result = await OpenFile.open(task.videoFilePath!);
+    debugPrint('OpenFile result: ${result.type}, ${result.message}');
+  }
+
+  Future<void> _shareTask(ProcessingTask task) async {
+    if (task.videoFilePath == null || !File(task.videoFilePath!).existsSync()) {
+      _showSnackBar('Video file not found', isError: true);
+      return;
+    }
+    await Share.shareXFiles([XFile(task.videoFilePath!)]);
+  }
+
+  Future<void> _exportToGallery(ProcessingTask task) async {
+    if (task.videoFilePath == null || !File(task.videoFilePath!).existsSync()) {
+      _showSnackBar('Video file not found', isError: true);
+      return;
+    }
+    try {
+      final galService = GetIt.I<GalService>();
+      await galService.saveVideoToGallery(
+        task.videoFilePath!,
+        albumName: 'TurboGauge',
+      );
+      _showSnackBar('Video saved to gallery');
+    } catch (e) {
+      _showSnackBar('Failed to save to gallery: $e', isError: true);
+    }
+  }
+
   Future<void> _deleteTask(ProcessingTask task) async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -34,11 +80,11 @@ class _RecordedTabState extends State<RecordedTab> {
         backgroundColor: Colors.grey[900],
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text(
-          'Delete Task',
+              'Delete Recording',
           style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
         content: const Text(
-          'This will permanently delete this task. This action cannot be undone and the data will not be recoverable.',
+              'This will permanently delete this recording and its video file. This action cannot be undone.',
           style: TextStyle(color: Colors.white70),
         ),
         actions: [
@@ -49,24 +95,107 @@ class _RecordedTabState extends State<RecordedTab> {
           TextButton(
             onPressed: () => Navigator.pop(context, true),
             style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Delete', style: TextStyle(fontWeight: FontWeight.bold)),
+                child: const Text(
+                  'Delete',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
           ),
         ],
       ),
     );
 
     if (confirmed == true && task.id != null) {
+      if (task.videoFilePath != null) {
+        final file = File(task.videoFilePath!);
+        if (await file.exists()) {
+          await file.delete();
+        }
+      }
       await LabsService().deleteProcessingTask(task.id!);
       _loadTasks();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Task deleted'),
-            backgroundColor: Colors.redAccent,
-          ),
-        );
-      }
+      _showSnackBar('Recording deleted');
     }
+  }
+
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.redAccent : Colors.green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(12),
+      ),
+    );
+  }
+
+  void _showActionsSheet(ProcessingTask task) {
+    final videoExists =
+        task.videoFilePath != null && File(task.videoFilePath!).existsSync();
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => Container(
+            decoration: BoxDecoration(
+              color: Colors.grey[900],
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+            ),
+            child: SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    margin: const EdgeInsets.only(top: 10, bottom: 4),
+                    width: 36,
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[700],
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  _SheetAction(
+                    label: 'Open File',
+                    enabled: videoExists,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openFile(task);
+                    },
+                  ),
+                  _SheetAction(
+                    label: 'Share',
+                    enabled: videoExists,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _shareTask(task);
+                    },
+                  ),
+                  _SheetAction(
+                    label: 'Export to Gallery',
+                    enabled: videoExists,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _exportToGallery(task);
+                    },
+                  ),
+                  _SheetAction(
+                    label: 'Delete',
+                    isDestructive: true,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _deleteTask(task);
+                    },
+                  ),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ),
+    );
   }
 
   @override
@@ -104,16 +233,8 @@ class _RecordedTabState extends State<RecordedTab> {
         itemBuilder: (context, index) {
           return _RecordedTaskTile(
             task: _tasks[index],
-            onDelete: () => _deleteTask(_tasks[index]),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => TaskProcessingPage(task: _tasks[index]),
-                ),
-              );
-              _loadTasks();
-            },
+            onTap: () => _openTaskForProcessing(_tasks[index]),
+            onLongPress: () => _showActionsSheet(_tasks[index]),
           );
         },
       ),
@@ -121,21 +242,67 @@ class _RecordedTabState extends State<RecordedTab> {
   }
 }
 
-class _RecordedTaskTile extends StatelessWidget {
-  final ProcessingTask task;
-  final VoidCallback onDelete;
+// ─── Compact Bottom Sheet Action ───
+
+class _SheetAction extends StatelessWidget {
+  final String label;
+  final bool enabled;
+  final bool isDestructive;
   final VoidCallback onTap;
 
-  const _RecordedTaskTile({
-    required this.task,
-    required this.onDelete,
+  const _SheetAction({
+    required this.label,
+    this.enabled = true,
+    this.isDestructive = false,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final videoExists = task.videoFilePath != null && File(task.videoFilePath!).existsSync();
-    final hasPositionData = task.positionData != null && task.positionData!.isNotEmpty;
+    final color =
+        !enabled
+            ? Colors.grey[600]!
+            : isDestructive
+            ? Colors.redAccent
+            : Colors.white;
+
+    return InkWell(
+      onTap: enabled ? onTap : null,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: color,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ─── Recorded Task Tile ───
+
+class _RecordedTaskTile extends StatelessWidget {
+  final ProcessingTask task;
+  final VoidCallback onTap;
+  final VoidCallback onLongPress;
+
+  const _RecordedTaskTile({
+    required this.task,
+    required this.onTap,
+    required this.onLongPress,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final videoExists =
+        task.videoFilePath != null && File(task.videoFilePath!).existsSync();
+    final hasPositionData =
+        task.positionData != null && task.positionData!.isNotEmpty;
     final isProcessable = videoExists && hasPositionData;
 
     return Card(
@@ -145,27 +312,7 @@ class _RecordedTaskTile extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: isProcessable ? onTap : null,
-        onLongPress: (){
-          showDialog(
-              context: context,
-              builder: (BuildContext content) {
-                return Center(
-                  child: ListView(
-                    shrinkWrap: true,
-                  children:
-                      task.positionData?.entries
-                          .map(
-                            (e) => Text(
-                              '${e.key}ms: ${e.value.speed.toStringAsFixed(2)}',
-                            ),
-                          )
-                          .toList() ??
-                      [],
-                  ),
-                );
-              }
-          );
-        },
+        onLongPress: onLongPress,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -186,11 +333,18 @@ class _RecordedTaskTile extends StatelessWidget {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.broken_image, color: Colors.redAccent, size: 48),
+                              const Icon(
+                                Icons.broken_image,
+                                color: Colors.redAccent,
+                                size: 48,
+                              ),
                             const SizedBox(height: 8),
                             Text(
                               'Video file missing',
-                              style: TextStyle(color: Colors.red[300], fontWeight: FontWeight.w500),
+                                style: TextStyle(
+                                  color: Colors.red[300],
+                                  fontWeight: FontWeight.w500,
+                                ),
                             ),
                           ],
                         ),
@@ -223,7 +377,11 @@ class _RecordedTaskTile extends StatelessWidget {
                           const SizedBox(height: 8),
                           Row(
                             children: [
-                              Icon(Icons.touch_app, size: 14, color: Colors.blueAccent[100]),
+                              Icon(
+                                Icons.touch_app,
+                                size: 14,
+                                color: Colors.blueAccent[100],
+                              ),
                               const SizedBox(width: 4),
                               Text(
                                 'Tap to process',
@@ -239,12 +397,11 @@ class _RecordedTaskTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  if (!isProcessable)
-                    IconButton(
-                      icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                      onPressed: onDelete,
-                      tooltip: 'Delete task',
-                    ),
+                  IconButton(
+                    icon: const Icon(Icons.more_vert, color: Colors.white54),
+                    onPressed: onLongPress,
+                    tooltip: 'More options',
+                  ),
                 ],
               ),
             ),
@@ -315,7 +472,11 @@ class _StatusChip extends StatelessWidget {
           const SizedBox(width: 4),
           Text(
             label,
-            style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w500),
+            style: TextStyle(
+              color: color,
+              fontSize: 11,
+              fontWeight: FontWeight.w500,
+            ),
           ),
         ],
       ),
@@ -387,24 +548,24 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Thumbnail image
         if (_loading)
           Container(
             color: Colors.grey[850],
-            child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+            child: const Center(
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           )
         else if (_thumbnailPath != null)
-          Image.file(
-            File(_thumbnailPath!),
-            fit: BoxFit.cover,
-          )
+          Image.file(File(_thumbnailPath!), fit: BoxFit.cover)
         else
           Container(
             color: Colors.grey[850],
-            child: const Center(child: Icon(Icons.video_file, size: 48, color: Colors.grey)),
+            child: const Center(
+              child: Icon(Icons.video_file, size: 48, color: Colors.grey),
+            ),
           ),
 
-        // Gradient overlay at bottom
+        // Gradient overlay
         Positioned(
           bottom: 0,
           left: 0,
@@ -429,7 +590,8 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
             children: [
               if (widget.sizeInKb != null && widget.sizeInKb! > 0)
                 _OverlayBadge(text: _formatSize(widget.sizeInKb!)),
-              if (widget.lengthInSeconds != null && widget.lengthInSeconds! > 0) ...[
+              if (widget.lengthInSeconds != null &&
+                  widget.lengthInSeconds! > 0) ...[
                 const SizedBox(width: 6),
                 _OverlayBadge(text: _formatDuration(widget.lengthInSeconds!)),
               ],
@@ -455,7 +617,11 @@ class _VideoThumbnailState extends State<_VideoThumbnail> {
                   SizedBox(width: 4),
                   Text(
                     'GPS',
-                    style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ],
               ),
@@ -481,7 +647,11 @@ class _OverlayBadge extends StatelessWidget {
       ),
       child: Text(
         text,
-        style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w500),
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 11,
+          fontWeight: FontWeight.w500,
+        ),
       ),
     );
   }

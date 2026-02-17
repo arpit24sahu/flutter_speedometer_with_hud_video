@@ -202,13 +202,19 @@ class AnalyticsService {
       AnalyticsParams.lifecycleState: state.name,
     };
 
-    trackEvent(AnalyticsEvents.lifecycleState, properties: eventProperties);
+    // Commented out: lifecycle_state is too noisy and fires on every
+    // activity transition (including ffmpeg-kit internal intents).
+    // trackEvent(AnalyticsEvents.lifecycleState, properties: eventProperties);
 
+    // Fire app_resumed ONLY on resumed state
     if(state == AppLifecycleState.resumed) {
       trackEvent(AnalyticsEvents.appResumed, properties: eventProperties);
-    } else if(state == AppLifecycleState.paused) {
+    }
+    // Fire app_backgrounded ONLY on paused state
+    else if (state == AppLifecycleState.paused) {
       trackEvent(AnalyticsEvents.appBackgrounded, properties: eventProperties);
     }
+    // Other states (inactive, detached, hidden) are intentionally not tracked
   }
 
 

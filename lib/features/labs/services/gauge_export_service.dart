@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:ffmpeg_kit_flutter_new_video/ffprobe_kit.dart';
 import 'package:speedometer/features/labs/models/gauge_customization.dart';
 import 'package:speedometer/features/speedometer/models/position_data.dart';
+import 'package:speedometer/services/remote_asset_service.dart';
 
 /// A single speed sample at a point in time.
 class _SpeedSample {
@@ -94,8 +95,8 @@ class GaugeExportService {
   }
 
   /// Copies a bundled asset to a temporary file and returns the path.
-  /// For network URLs, downloads the image to a temp file first
-  /// (FFmpeg is not compiled with SSL support).
+  /// For network URLs, uses RemoteAssetService's persistent cache
+  /// to get a local file path (no redundant downloads).
   static Future<String> resolveAssetPath(
       AssetType? assetType, String? path) async {
     if (path == null || path.isEmpty) return '';
@@ -112,35 +113,15 @@ class GaugeExportService {
     }
 
     if (assetType == AssetType.network) {
-      // Download network image to temp file since FFmpeg lacks HTTPS support
-      try {
-        debugPrint('[GaugeExport] Downloading network image: $path');
-        final uri = Uri.parse(path);
-        final httpClient = HttpClient();
-        final request = await httpClient.getUrl(uri);
-        final response = await request.close();
-
-        if (response.statusCode == 200) {
-          final dir = await getTemporaryDirectory();
-          // Use a hash-like name to avoid collisions
-          final fileName = uri.pathSegments.isNotEmpty
-              ? uri.pathSegments.last
-              : 'network_image_${path.hashCode}.png';
-          final tempFile = File('${dir.path}/gauge_net_$fileName');
-          final bytes = await consolidateHttpClientResponseBytes(response);
-          await tempFile.writeAsBytes(bytes);
-          debugPrint('[GaugeExport] Downloaded to: ${tempFile.path}');
-          httpClient.close();
-          return tempFile.path;
-        } else {
-          debugPrint('[GaugeExport] Download failed: HTTP ${response.statusCode}');
-          httpClient.close();
-          return path; // fallback to original URL
-        }
-      } catch (e) {
-        debugPrint('[GaugeExport] Failed to download network image: $e');
-        return path; // fallback to original URL
+      // Use the persistent RemoteAssetService cache
+      final cachedPath = await RemoteAssetService().getFilePath(path);
+      if (cachedPath != null) {
+        debugPrint('[GaugeExport] Using cached asset: $cachedPath');
+        return cachedPath;
       }
+      // Fallback: return the URL itself (FFmpeg may not support HTTPS)
+      debugPrint('[GaugeExport] Cache miss, falling back to URL: $path');
+      return path;
     }
 
     // For memory, widget — return as-is

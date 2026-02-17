@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/presentation/bloc/settings/settings_state.dart';
 import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
@@ -18,31 +17,17 @@ class SpeedometerScreen extends StatefulWidget {
   State<SpeedometerScreen> createState() => _SpeedometerScreenState();
 }
 
-class _SpeedometerScreenState extends State<SpeedometerScreen>
-    with WidgetsBindingObserver {
+class _SpeedometerScreenState extends State<SpeedometerScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     if(context.mounted) context.read<SpeedometerBloc>().add(StartSpeedTracking());
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     if(context.mounted) context.read<SpeedometerBloc>().add(StopSpeedTracking());
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Also logs App Backgrounded or Foregrounded Events
-    AnalyticsService().trackAppLifeCycle(state);
-    if (state == AppLifecycleState.resumed) {
-      if(context.mounted) context.read<SpeedometerBloc>().add(StartSpeedTracking());
-    } else if (state == AppLifecycleState.paused) {
-      if(context.mounted) context.read<SpeedometerBloc>().add(StopSpeedTracking());
-    }
   }
 
   @override

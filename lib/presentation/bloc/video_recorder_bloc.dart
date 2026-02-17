@@ -1,6 +1,4 @@
 import 'dart:async';
-import 'dart:isolate';
-import 'dart:math';
 import 'package:bloc/bloc.dart';
 import 'package:equatable/equatable.dart';
 import 'package:flutter/foundation.dart';
@@ -9,26 +7,17 @@ import 'package:meta/meta.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:speedometer/core/services/location_service.dart';
 import 'package:speedometer/features/speedometer/models/position_data.dart';
-import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
 import 'package:speedometer/presentation/widgets/video_recorder_service.dart';
 
-import 'package:uuid/uuid.dart';
 import '../../features/labs/models/gauge_customization.dart';
-import '../../features/processing/models/processing_job.dart';
-import '../../features/processing/bloc/jobs_bloc.dart';
-import '../../features/processing/bloc/processor_bloc.dart';
 import '../../utils.dart';
 import 'package:speedometer/features/labs/services/labs_service.dart';
 
 class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
   final WidgetRecorderService recorderService;
-  final JobsBloc jobsBloc;
-  final ProcessorBloc processorBloc;
   
   VideoRecorderBloc({
     required this.recorderService,
-    required this.jobsBloc,
-    required this.processorBloc,
   }) : super(VideoRecorderInitial()) {
     on<StartRecording>(_onStartRecording);
     on<StopRecording>(_onStopRecording);
@@ -88,60 +77,12 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
       print('DEBUG: Camera video path: $cameraVideoPath');
 
 
-      // Construct the command string for reference
-      final filterComplex = buildFilterComplex(
-        event.gaugePlacement,
-        event.relativeSize,
-      );
-
-      // Step 2: Get the output directory
-      final directory = await getApplicationDocumentsDirectory();
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final outputPath = '${directory.path}/TurboGauge_$timestamp.mp4';
-
-      // Build the full command as a **single string**
-      final commandDescription =
-          '-y '
-          '-i "$cameraVideoPath" '
-          // '-i "$widgetVideoPath" '
-          '-filter_complex "$filterComplex" '
-          '-map "[out]" '
-          '-map 0:a? '
-          '-c:v mpeg4 '
-          '-q:v 5 '
-          '-c:a aac '
-          '-b:a 192k '
-          '"$outputPath"';
-
-      // final commandDescription =
-      //     '-y -i "$cameraVideoPath" -i "$widgetVideoPath" -filter_complex "$filterComplex" ...'
-
-      final job = ProcessingJob(
-        id: const Uuid().v4(),
-        createdAt: DateTime.now(),
-        videoFilePath: cameraVideoPath,
-        overlayFilePath: "",
-        gaugePlacement: event.gaugePlacement.name,
-        relativeSize: event.relativeSize,
-        ffmpegCommand: commandDescription,
-        positionData: positionData
-      );
-
-      jobsBloc.add(AddJob(job));
-
-      // Also save as a ProcessingTask for the Labs feature
+      // Save as a ProcessingTask for the Labs feature
       try {
-        final List<PositionData> positionDataList = positionData.values.toList();
-        // final List<PositionData> positionDataList = positionData.values.map((PositionData data) {
-        //   return data.copyWith(
-        //     speed: 10 + Random().nextDouble() * 190, // 10 → 200
-        //   );
-        // }).toList();
-        print("Final Position Data");
-        print(positionDataList.map((e) => e.speed));
+        print("Final Position Data: ${positionData.length} points");
         await LabsService().createFromRecording(
           videoFilePath: cameraVideoPath,
-          positionData: positionData //positionDataList,
+          positionData: positionData,
         );
         print('DEBUG: ProcessingTask saved for Labs');
       } catch (e) {
@@ -196,50 +137,6 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
 
   void _onResetRecorder(ResetRecorder event, Emitter<VideoRecorderState> emit) {
     emit(VideoRecorderInitial());
-  }
-}
-
-// Parameters to pass to the isolate
-class _VideoProcessingParams {
-  final String cameraVideoPath;
-  final String widgetVideoPath;
-  final GaugePlacement gaugePlacement;
-  final double relativeSize;
-
-  _VideoProcessingParams({
-    required this.cameraVideoPath,
-    required this.widgetVideoPath,
-    required this.gaugePlacement,
-    required this.relativeSize,
-  });
-}
-
-Future<String> _processVideo(_VideoProcessingParams params) async {
-
-  String? finalPath;
-
-  void onSuccess(String path, double size){
-    finalPath = path;
-  }
-
-  try {
-
-    final finalVideoPath = await processChromaKeyVideo(
-      backgroundPath: params.cameraVideoPath,
-      foregroundPath: params.widgetVideoPath,
-      placement: params.gaugePlacement,
-      relativeSize: params.relativeSize,
-      onProcessSuccess: onSuccess,
-      onProcessFailure: (String error){
-        throw error;
-      }
-    );
-    if(finalVideoPath == null){
-      throw Exception("Failed to process video");
-    }
-    return finalPath??"";
-  } catch (e) {
-    rethrow;
   }
 }
 

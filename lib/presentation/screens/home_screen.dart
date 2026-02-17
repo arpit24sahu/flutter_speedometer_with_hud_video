@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:speedometer/core/services/location_service.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/features/files/bloc/files_bloc.dart';
@@ -303,6 +304,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     if (shouldClose == true) {
       if (!context.mounted) return;
+      LocationService().disposeTracking();
 
       // Show loader
       showDialog(

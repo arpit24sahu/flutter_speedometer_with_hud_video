@@ -23,8 +23,7 @@ class NotificationIds {
 /// [NotificationService].
 class ScheduledNotificationService {
   ScheduledNotificationService._internal();
-  static final ScheduledNotificationService _instance =
-      ScheduledNotificationService._internal();
+  static final ScheduledNotificationService _instance = ScheduledNotificationService._internal();
   factory ScheduledNotificationService() => _instance;
 
   final NotificationService _notificationService = NotificationService();
@@ -40,7 +39,7 @@ class ScheduledNotificationService {
 
     await _notificationService.scheduleNotification(
       id: NotificationIds.premiumUpgradeReminder,
-      title: 'Changed your mind about upgrading to premium? 🚀',
+      title: 'Psst!! Upgrade to premium? 🚀',
       body: "It's cheaper than your morning coffee for a limited time only ☕",
       scheduledAt: scheduledAt,
       payload: 'turbogauge://premium_upgrade_page',
@@ -49,8 +48,7 @@ class ScheduledNotificationService {
     AnalyticsService().trackEvent(
       AnalyticsEvents.notificationScheduled,
       properties: {
-        AnalyticsParams.notificationId:
-            NotificationIds.premiumUpgradeReminder.toString(),
+        AnalyticsParams.notificationId: NotificationIds.premiumUpgradeReminder.toString(),
         AnalyticsParams.notificationType: 'premium_upgrade_reminder',
         'scheduled_at': scheduledAt.toIso8601String(),
         'delay_minutes': 5,
@@ -63,10 +61,8 @@ class ScheduledNotificationService {
 
   /// Cancel the premium upgrade reminder (e.g., if the user purchases).
   Future<void> cancelPremiumUpgradeReminder() async {
-    await _notificationService
-        .cancelNotification(NotificationIds.premiumUpgradeReminder);
-    debugPrint(
-        'ScheduledNotificationService: Premium upgrade reminder cancelled');
+    await _notificationService.cancelNotification(NotificationIds.premiumUpgradeReminder);
+    debugPrint('ScheduledNotificationService: Premium upgrade reminder cancelled');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -86,14 +82,12 @@ class ScheduledNotificationService {
     AnalyticsService().trackEvent(
       AnalyticsEvents.notificationScheduled,
       properties: {
-        AnalyticsParams.notificationId:
-            NotificationIds.dailyEngagement.toString(),
+        AnalyticsParams.notificationId: NotificationIds.dailyEngagement.toString(),
         AnalyticsParams.notificationType: 'daily_engagement',
       },
     );
 
-    debugPrint(
-        'ScheduledNotificationService: Daily engagement notification scheduled');
+    debugPrint('ScheduledNotificationService: Daily engagement notification scheduled');
   }
 
   /// Schedule weekly recap notification.
@@ -134,8 +128,7 @@ class ScheduledNotificationService {
       payload: 'turbogauge://home',
     );
 
-    debugPrint(
-        'ScheduledNotificationService: Recording reminder scheduled for $scheduledAt');
+    debugPrint('ScheduledNotificationService: Recording reminder scheduled for $scheduledAt');
   }
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -146,8 +139,7 @@ class ScheduledNotificationService {
   Future<void> setupRecurringNotifications() async {
     await scheduleDailyEngagementNotification();
     await scheduleWeeklyRecapNotification();
-    debugPrint(
-        'ScheduledNotificationService: All recurring notifications set up');
+    debugPrint('ScheduledNotificationService: All recurring notifications set up');
   }
 
   // ─────────────────────────────────────────────────────────────────────────

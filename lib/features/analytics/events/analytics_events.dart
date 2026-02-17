@@ -76,12 +76,9 @@ class AnalyticsEvents {
   static const String notificationDismissed = 'notification_dismissed';
   static const String notificationScheduled = 'notification_scheduled';
   static const String notificationCancelled = 'notification_cancelled';
-  static const String notificationPermissionRequested =
-      'notification_permission_requested';
-  static const String notificationPermissionGranted =
-      'notification_permission_granted';
-  static const String notificationPermissionDenied =
-      'notification_permission_denied';
+  static const String notificationPermissionRequested = 'notification_permission_requested';
+  static const String notificationPermissionGranted = 'notification_permission_granted';
+  static const String notificationPermissionDenied = 'notification_permission_denied';
   static const String fcmTokenRefreshed = 'fcm_token_refreshed';
 
   // ─────────────────────────────────────────────────────────────────────────

@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:speedometer/core/services/location_service.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
@@ -19,6 +20,8 @@ import 'dart:ui' as ui;
 
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+
+import '../../features/badges/badge_service.dart';
 
 class AppTabState {
   AppTabState._();
@@ -157,16 +160,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   DateTime? _lastLifecycleEventTime;
   AppLifecycleState? _lastLifecycleState;
   static const _lifecycleDebounceMs = 2000;
+  final badgeService = BadgeService();
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+
+    badgeService.initialize();
     // Run checks after first frame when navigator is ready
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppUpdateService().checkForUpdate();
       DeeplinkService().processPendingDeeplinks();
     });
+
   }
 
   @override
@@ -229,6 +236,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (didPop) return;
         _showExitConfirmation(context);
       },
+      child: ChangeNotifierProvider(
+        create: (_) => BadgeService()..initialize(),
       child: Scaffold(
         body: Stack(
           children: [
@@ -246,6 +255,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             BottomNavigationBarItem(icon: Icon(Icons.science), label: 'Labs'),
           ],
         ),
+      ),
       ),
     );
   }

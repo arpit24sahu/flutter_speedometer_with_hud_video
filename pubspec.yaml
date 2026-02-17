@@ -71,6 +71,7 @@ dependencies:
   firebase_remote_config: any
   timezone: any
   crypto: ^3.0.7
+  provider: ^6.1.5+1
 
 
 dev_dependencies:

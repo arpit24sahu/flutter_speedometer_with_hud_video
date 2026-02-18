@@ -39,7 +39,7 @@ class ExportProgressDialog extends StatelessWidget {
     return showDialog<void>(
       context: context,
       barrierDismissible: false,
-      barrierColor: Colors.black87,
+      barrierColor: Colors.black38,
       builder: (_) => ExportProgressDialog(
         progressStream: progressStream,
         thumbnailPath: thumbnailPath,
@@ -49,154 +49,146 @@ class ExportProgressDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Use PopScope (Flutter 3.12+) to intercept the back button.
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
         if (!didPop) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Row(
-                children: [
-                  Icon(Icons.warning_amber_rounded,
-                      color: Colors.orangeAccent, size: 20),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Please wait for the export to finish. '
-                      'Do not close this page.',
-                      style: TextStyle(color: Colors.white, fontSize: 13),
-                    ),
-                  ),
-                ],
+              content: const Text(
+                'Please wait for the export to finish.',
+                style: TextStyle(color: Colors.white),
               ),
-              backgroundColor: Colors.grey[850],
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-              duration: const Duration(seconds: 3),
+              backgroundColor: Colors.black87,
             ),
           );
         }
       },
       child: Scaffold(
         backgroundColor: Colors.transparent,
-        body: StreamBuilder<double>(
-          stream: progressStream,
-          initialData: 0.0,
-          builder: (context, snapshot) {
-            final progress = (snapshot.data ?? 0.0).clamp(0.0, 1.0);
+        body: Stack(
+          children: [
+            // ── Background blur ──
+            BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 2, sigmaY: 2),
+              child: Container(color: Colors.black.withOpacity(0.3)),
+            ),
 
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: CustomPaint(
-                    painter: _BorderProgressPainter(
-                      progress: progress,
-                      activeColor: accentColor,
-                      inactiveColor: Colors.grey[700]!,
-                      borderWidth: 5.0,
-                      borderRadius: 24.0,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
-                      child: Stack(
-                        // fit: StackFit.expand,
-                        children: [
-                          // ── Layer 1: Thumbnail ──
-                          if (thumbnailPath != null)
-                            Image.file(
-                              File(thumbnailPath!),
-                              fit: BoxFit.cover,
-                            )
-                          else
-                            Container(color: Colors.grey[500]),
+            Center(
+              child: StreamBuilder<double>(
+                stream: progressStream,
+                initialData: 0.0,
+                builder: (context, snapshot) {
+                  final progress = (snapshot.data ?? 0.0).clamp(0.01, 0.99);
 
-                          // ── Layer 2: Dark overlay ──
-                          // Container(
-                          //   color: Colors.black.withValues(alpha: 0.22),
-                          // ),
-
-                          // ── Layer 3: Text content ──
-                          Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                // Percentage
-                                TweenAnimationBuilder<double>(
-                                  tween: Tween<double>(
-                                    begin: 0,
-                                    end: progress,
-                                  ),
-                                  duration: const Duration(milliseconds: 400),
-                                  curve: Curves.easeOut,
-                                  builder: (_, value, __) {
-                                    return Text(
-                                      '${(value * 100).toInt()}%',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 42,
-                                        fontWeight: FontWeight.w800,
-                                        letterSpacing: 2,
-                                        height: 1,
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 12),
-
-                                // Title
-                                const Text(
-                                  'Exporting your video',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
-                                    letterSpacing: 0.4,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-
-                                // Subtitle / warning
-                                Text(
-                                  'Do not close this page or your app',
-                                  style: TextStyle(
-                                    color: Colors.grey[400],
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                  ),
-                                ),
-
-                                const SizedBox(height: 16),
-
-                                // Mini linear bar for additional clarity
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(6),
-                                  child: LinearProgressIndicator(
-                                    value: progress,
-                                    minHeight: 4,
-                                    backgroundColor:
-                                        Colors.white.withValues(alpha: 0.1),
-                                    valueColor: AlwaysStoppedAnimation<Color>(
-                                      accentColor,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 48),
+                    child: AspectRatio(
+                      aspectRatio: 9/16,
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return CustomPaint(
+                            size: constraints.biggest,
+                            painter: _BorderProgressPainter(
+                              progress: progress,
+                              activeColor: Colors.amber,
+                              inactiveColor: Colors.grey.shade800,
+                              borderWidth: 6,
+                              borderRadius: 24,
                             ),
-                          ),
-                        ],
+                            child: Padding(
+                              padding: const EdgeInsets.all(6),
+                              child: ClipRRect(
+                                borderRadius:
+                                BorderRadius.circular(24),
+                                child: Stack(
+                                  fit: StackFit.expand,
+                                  children: [
+                                    // ── Thumbnail ──
+                                    if (thumbnailPath != null)
+                                      Image.file(
+                                        File(thumbnailPath!),
+                                        fit: BoxFit.cover,
+                                      )
+                                    else
+                                      Container(
+                                          color: Colors.grey.shade700),
+
+                                    // ── Dark overlay ──
+                                    Container(
+                                      color: Colors.black
+                                          .withOpacity(0.35),
+                                    ),
+
+                                    // ── Content ──
+                                    Center(
+                                      child: Column(
+                                        mainAxisSize:
+                                        MainAxisSize.min,
+                                        children: [
+                                          TweenAnimationBuilder<double>(
+                                            tween: Tween(
+                                              begin: 0,
+                                              end: progress,
+                                            ),
+                                            duration: const Duration(
+                                                milliseconds: 300),
+                                            builder:
+                                                (_, value, __) {
+                                              return Text(
+                                                '${(value * 100).toInt()}%',
+                                                style:
+                                                const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 48,
+                                                  fontWeight:
+                                                  FontWeight.w800,
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                          const SizedBox(height: 12),
+                                          const Text(
+                                            "Exporting Video",
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
+                                              fontWeight:
+                                              FontWeight.w600,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          SizedBox(
+                                            width: 160,
+                                            child:
+                                            LinearProgressIndicator(
+                                              value: progress,
+                                              minHeight: 5,
+                                              backgroundColor:
+                                              Colors.white
+                                                  .withOpacity(
+                                                  0.1),
+                                              valueColor:
+                                              AlwaysStoppedAnimation(
+                                                  accentColor),
+                                            ),
+                                          )
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
                       ),
                     ),
-                  ),
-                ),
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ],
         ),
       ),
     );

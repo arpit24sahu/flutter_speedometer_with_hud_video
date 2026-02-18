@@ -17,6 +17,7 @@ import 'package:speedometer/features/labs/models/processing_task.dart';
 import 'package:speedometer/features/labs/models/processed_task.dart';
 import 'package:speedometer/features/labs/models/gauge_customization.dart';
 import 'package:speedometer/features/labs/data/gauge_options.dart';
+import 'package:speedometer/features/labs/services/gauge_export_service_2.dart';
 import 'package:speedometer/features/labs/services/labs_service.dart';
 import 'package:speedometer/features/labs/services/gauge_export_service.dart';
 import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
@@ -616,7 +617,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
       final processId = timestamp.toString();
 
       // Build the FFmpeg command using GaugeExportService
-      final command = await GaugeExportService.buildCommand(
+      final GaugeExportResult command = await GaugeExportService2.buildCommand(
         config: _config,
         inputVideoPath: widget.task.videoFilePath!,
         positionData: widget.task.positionData ?? {},
@@ -646,7 +647,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
       final completer = Completer<void>();
 
       await FFmpegKit.executeAsync(
-        command,
+        command.command,
         // ── Completion callback ──
         (Session session) async {
           final rc = await session.getReturnCode();

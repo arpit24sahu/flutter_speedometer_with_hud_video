@@ -115,6 +115,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> _toggleRecording(BuildContext contextWithBloc) async {
+    print("_cameraController check: ${_cameraController == null || !_cameraController!.value.isInitialized}");
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -125,11 +126,13 @@ class _CameraScreenState extends State<CameraScreen>
       return;
     }
 
+    print("mounted check: ${!mounted}");
     if (!mounted) return;
 
     try {
       final currentState = contextWithBloc.read<VideoRecorderBloc>().state;
 
+      print("currentState check: ${currentState.runtimeType}");
       if (currentState is VideoRecording || currentState is VideoProcessing) {
         final gaugeConfigState = context.read<OverlayGaugeConfigurationBloc>().state;
         contextWithBloc.read<VideoRecorderBloc>().add(StopRecording(
@@ -137,6 +140,7 @@ class _CameraScreenState extends State<CameraScreen>
               relativeSize: gaugeConfigState.gaugeRelativeSize,
         ));
       } else {
+        print("Yesss");
         contextWithBloc.read<VideoRecorderBloc>().add(StartRecording());
       }
     } catch (e) {
@@ -293,9 +297,10 @@ class _CameraScreenState extends State<CameraScreen>
 
     return IconButton(
       icon: const Icon(Icons.flip_camera_android),
-      color: Colors.white,
+      color: Colors.transparent, // Colors.white,
       iconSize: 32,
       onPressed: () {
+        return;
         HapticFeedback.mediumImpact();
         AnalyticsService().trackEvent(
           AnalyticsEvents.flipCamera,
@@ -337,11 +342,9 @@ class _CameraScreenState extends State<CameraScreen>
               "cameraOrientation":
                   _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
               "cameraOrientationIndex": _currentCameraIndex,
+              "isRecording": isRecording,
               "gaugeState":
-                  contextWithBloc
-                      .read<OverlayGaugeConfigurationBloc>()
-                      .state
-                      .toJson(),
+                  contextWithBloc.read<OverlayGaugeConfigurationBloc>().state.toJson(),
             },
           );
           _toggleRecording(contextWithBloc);
@@ -520,13 +523,13 @@ class _CameraScreenState extends State<CameraScreen>
               ),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
-              action: SnackBarAction(
-                label: 'Jobs',
-                textColor: Colors.white,
-                onPressed: () {
-                  AppTabState.updateCurrentTab(1);
-                },
-              ),
+              // action: SnackBarAction(
+              //   label: 'Jobs',
+              //   textColor: Colors.white,
+              //   onPressed: () {
+              //     AppTabState.updateCurrentTab(1);
+              //   },
+              // ),
             ),
           );
           context.read<VideoRecorderBloc>().add(ResetRecorder());

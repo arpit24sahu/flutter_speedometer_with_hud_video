@@ -62,6 +62,14 @@ class RecordedTab extends StatelessWidget {
                             fontSize: 14,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'PULL TO REFRESH',
+                          style: TextStyle(
+                            color: Colors.grey[800],
+                            fontSize: 14,
+                          ),
+                        ),
                       ],
                     ),
                   ),

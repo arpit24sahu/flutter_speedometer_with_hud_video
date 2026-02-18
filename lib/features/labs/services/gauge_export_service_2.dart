@@ -18,6 +18,30 @@ class SpeedSample {
   const SpeedSample(this.timeSec, this.speedInUnit);
 }
 
+/// Configuration for the text overlay drawn on each gauge frame.
+class _TextOverlayConfig {
+  final bool showSpeed;
+  final bool showBranding;
+  final ui.Color textColor;
+  final String unitLabel;
+
+  /// Font sizes & padding are relative to the render canvas size,
+  /// matching the ratios from the original FFmpeg drawtext approach.
+  final double fontSizeSpeed; // 14% of canvas
+  final double fontSizeBrand; // 10% of canvas
+  final double verticalPadding; // 5% padding from bottom
+
+  const _TextOverlayConfig({
+    required this.showSpeed,
+    required this.showBranding,
+    required this.textColor,
+    required this.unitLabel,
+    required this.fontSizeSpeed,
+    required this.fontSizeBrand,
+    required this.verticalPadding,
+  });
+}
+
 /// Service that generates transparent gauge PNG frames and then builds
 /// an FFmpeg overlay command.
 ///
@@ -44,13 +68,18 @@ class GaugeExportService2 {
   /// quality vs render speed.
   static const int _renderSize = 512;
 
+  /// Font family name used after loading the custom font via
+  /// [ui.loadFontFromList].
+  static const String _fontFamily = 'RacingSansOneExport';
+
   // ─── Public API ───
 
   /// Orchestrates the full export preparation:
   ///   1. Processes speed data
   ///   2. Probes the video
-  ///   3. Renders all gauge PNG frames to a temp directory
-  ///   4. Returns the FFmpeg command string + the temp directory path
+  ///   3. Loads the custom font
+  ///   4. Renders all gauge PNG frames to a temp directory
+  ///   5. Returns the FFmpeg command string + the temp directory path
   ///
   /// The caller is responsible for:
   ///   - Executing the FFmpeg command
@@ -117,7 +146,32 @@ class GaugeExportService2 {
     debugPrint('[GaugeExport2] Needle image: '
         '${needleImage.width}×${needleImage.height}');
 
-    // ── 7. Create temp directory for frames ──
+    // ── 7. Load custom font for text overlays ──
+    final showSpeed = config.showSpeed ?? true;
+    final showBranding = config.showBranding ?? true;
+
+    if (showSpeed || showBranding) {
+      await _loadFont();
+      debugPrint('[GaugeExport2] Custom font loaded: $_fontFamily');
+    }
+
+    // Build text config matching the original GaugeExportService ratios:
+    //   fontSizeSpeed = gaugeSize * 0.14
+    //   fontSizeBrand = gaugeSize * 0.10
+    //   verticalPadding = gaugeSize * 0.05
+    // Since we render at _renderSize and FFmpeg later scales to gs,
+    // we use _renderSize as the base for these proportions.
+    final textConfig = _TextOverlayConfig(
+      showSpeed: showSpeed,
+      showBranding: showBranding,
+      textColor: config.textColor ?? const ui.Color(0xFFFFFFFF),
+      unitLabel: imperial ? 'mph' : 'km/h',
+      fontSizeSpeed: _renderSize * 0.14,
+      fontSizeBrand: _renderSize * 0.10,
+      verticalPadding: _renderSize * 0.03,
+    );
+
+    // ── 8. Create temp directory for frames ──
     final systemTempDir = await getTemporaryDirectory();
     final framesDir = Directory(
         '${systemTempDir.path}/gauge_frames_${DateTime.now().millisecondsSinceEpoch}');
@@ -125,7 +179,7 @@ class GaugeExportService2 {
 
     debugPrint('[GaugeExport2] Frames directory: ${framesDir.path}');
 
-    // ── 8. Render frames ──
+    // ── 9. Render frames ──
     final renderStopwatch = Stopwatch()..start();
     final halfSweepRad = dial.halfSweep * pi / 180;
     final totalSweepRad = dial.totalSweep * pi / 180;
@@ -140,9 +194,14 @@ class GaugeExportService2 {
       final fraction = (speed / dialMax).clamp(0.0, 1.0);
       final angleRad = -halfSweepRad + fraction * totalSweepRad;
 
-      // Render the frame
-      final pngBytes =
-          await _renderGaugeFrame(dialImage, needleImage, angleRad);
+      // Render the frame (with text overlays)
+      final pngBytes = await _renderGaugeFrame(
+        dialImage,
+        needleImage,
+        angleRad,
+        speedValue: speed,
+        textConfig: textConfig,
+      );
 
       // Write to disk
       final frameIndex = i.toString().padLeft(6, '0');
@@ -167,11 +226,11 @@ class GaugeExportService2 {
     dialImage.dispose();
     needleImage.dispose();
 
-    // ── 9. Determine placement ──
+    // ── 10. Determine placement ──
     final placement = config.labsPlacement;
     final overlayPos = placement.overlayPosition(margin: 20);
 
-    // ── 10. Build FFmpeg command ──
+    // ── 11. Build FFmpeg command ──
     //
     // Inputs:
     //   [0] = source video
@@ -266,6 +325,29 @@ class GaugeExportService2 {
     return prev.speedInUnit + (next.speedInUnit - prev.speedInUnit) * fraction;
   }
 
+  // ─── Font Loading ───
+
+  /// Loads the RacingSansOne font from assets and registers it with
+  /// the engine so [ui.ParagraphBuilder] can reference it by family name.
+  /// Safe to call multiple times — subsequent calls are no-ops.
+  static bool _fontLoaded = false;
+
+  static Future<void> _loadFont() async {
+    if (_fontLoaded) return;
+    try {
+      final fontData = await rootBundle.load(
+        'assets/fonts/RacingSansOne-Regular.ttf',
+      );
+      await ui.loadFontFromList(
+        fontData.buffer.asUint8List(),
+        fontFamily: _fontFamily,
+      );
+      _fontLoaded = true;
+    } catch (e) {
+      debugPrint('[GaugeExport2] Failed to load font: $e');
+    }
+  }
+
   // ─── Image Loading ───
 
   /// Loads an image from the given asset type and path into a [ui.Image].
@@ -301,43 +383,114 @@ class GaugeExportService2 {
 
   // ─── Frame Rendering ───
 
-  /// Renders a single transparent gauge frame with the dial and
-  /// rotated needle, returning the PNG bytes.
+  /// Renders a single transparent gauge frame with:
+  ///   1. The dial image (static background)
+  ///   2. The needle image (rotated by [needleAngleRad])
+  ///   3. Speed text (e.g. "85 km/h") — if [textConfig.showSpeed]
+  ///   4. Branding text ("TURBOGAUGE") — if [textConfig.showBranding]
+  ///
+  /// Text positioning matches the original FFmpeg drawtext approach:
+  ///   - Speed text: centered horizontally,
+  ///       y = canvasHeight - 2 × speedTextHeight - verticalPadding
+  ///   - Brand text: centered horizontally,
+  ///       y = canvasHeight - brandTextHeight
   static Future<Uint8List> _renderGaugeFrame(
     ui.Image dialImage,
     ui.Image needleImage,
-    double needleAngleRad,
-  ) async {
+    double needleAngleRad, {
+    required double speedValue,
+    required _TextOverlayConfig textConfig,
+  }) async {
+    final size = _renderSize.toDouble();
     final recorder = ui.PictureRecorder();
-    final canvas = ui.Canvas(recorder,
-        Rect.fromLTWH(0, 0, _renderSize.toDouble(), _renderSize.toDouble()));
+    final canvas = ui.Canvas(recorder, Rect.fromLTWH(0, 0, size, size));
 
-    final center = _renderSize / 2.0;
+    final center = size / 2.0;
+    final dstRect = Rect.fromLTWH(0, 0, size, size);
 
-    // Draw dial (scaled to fill the canvas)
+    // ── Layer 1: Dial ──
     final dialSrcRect = Rect.fromLTWH(
-      0, 0, dialImage.width.toDouble(), dialImage.height.toDouble());
-    final dstRect = Rect.fromLTWH(
-      0, 0, _renderSize.toDouble(), _renderSize.toDouble());
-
+      0,
+      0,
+      dialImage.width.toDouble(),
+      dialImage.height.toDouble(),
+    );
     canvas.drawImageRect(dialImage, dialSrcRect, dstRect, ui.Paint());
 
-    // Draw needle (rotated around center)
+    // ── Layer 2: Rotated needle ──
     canvas.save();
     canvas.translate(center, center);
     canvas.rotate(needleAngleRad);
     canvas.translate(-center, -center);
 
     final needleSrcRect = Rect.fromLTWH(
-      0, 0, needleImage.width.toDouble(), needleImage.height.toDouble());
-
+      0,
+      0,
+      needleImage.width.toDouble(),
+      needleImage.height.toDouble(),
+    );
     canvas.drawImageRect(needleImage, needleSrcRect, dstRect, ui.Paint());
     canvas.restore();
 
-    // Encode to PNG
+    // ── Text layout (bottom-up stacking) ──
+    //
+    // Vertical stacking from the bottom of the canvas:
+    //   ┌─────────────────────────┐
+    //   │                         │
+    //   │      (dial + needle)    │
+    //   │                         │
+    //   │    ┌─ speed text ─┐     │  ← above branding + padding
+    //   │    │  85 km/h     │     │
+    //   │    └──────────────┘     │
+    //   │      (padding gap)      │
+    //   │    ┌─ brand text ──┐    │  ← touches bottom baseline
+    //   │    │  TURBOGAUGE   │    │
+    //   └────┴───────────────┴────┘
+    //
+    // Horizontal: both paragraphs are laid out at full canvas width
+    // with TextAlign.center, so we draw at x = 0.
+
+    // Calculate branding height first (needed for speed text y)
+    double brandingHeight = 0;
+
+    // ── Layer 4: Branding text (bottom baseline) ──
+    if (textConfig.showBranding) {
+      final brandParagraph = _buildParagraph(
+        text: 'TURBOGAUGE',
+        fontSize: textConfig.fontSizeBrand,
+        color: textConfig.textColor,
+        maxWidth: size,
+      );
+
+      brandingHeight = brandParagraph.height;
+
+      // Branding sits at the very bottom of the canvas
+      final brandY = size - brandingHeight;
+      canvas.drawParagraph(brandParagraph, Offset(0, brandY));
+    }
+
+    // ── Layer 3: Speed text (above branding) ──
+    if (textConfig.showSpeed) {
+      final speedText = '${speedValue.toInt()} ${textConfig.unitLabel}';
+      final speedParagraph = _buildParagraph(
+        text: speedText,
+        fontSize: textConfig.fontSizeSpeed,
+        color: textConfig.textColor,
+        maxWidth: size,
+      );
+
+      // Speed text sits above: branding height + padding gap
+      final speedY =
+          size -
+          brandingHeight -
+          // textConfig.verticalPadding -
+          speedParagraph.height;
+      canvas.drawParagraph(speedParagraph, Offset(0, speedY));
+    }
+
+    // ── Encode to PNG ──
     final picture = recorder.endRecording();
-    final image =
-        await picture.toImage(_renderSize, _renderSize);
+    final image = await picture.toImage(_renderSize, _renderSize);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
 
     picture.dispose();
@@ -348,6 +501,38 @@ class GaugeExportService2 {
     }
 
     return byteData.buffer.asUint8List();
+  }
+
+  /// Builds a [ui.Paragraph] with the given text, font, size and color.
+  /// Uses the pre-loaded RacingSansOne font to match the original styling.
+  static ui.Paragraph _buildParagraph({
+    required String text,
+    required double fontSize,
+    required ui.Color color,
+    required double maxWidth,
+  }) {
+    final style = ui.ParagraphStyle(
+      textAlign: TextAlign.center,
+      fontFamily: _fontFamily,
+      maxLines: 1,
+    );
+
+    final builder =
+        ui.ParagraphBuilder(style)
+          ..pushStyle(
+            ui.TextStyle(
+              color: color,
+              fontSize: fontSize,
+              fontFamily: _fontFamily,
+              fontWeight: FontWeight.w400,
+            ),
+          )
+          ..addText(text);
+
+    final paragraph =
+        builder.build()..layout(ui.ParagraphConstraints(width: maxWidth));
+
+    return paragraph;
   }
 
   // ─── Cleanup ───

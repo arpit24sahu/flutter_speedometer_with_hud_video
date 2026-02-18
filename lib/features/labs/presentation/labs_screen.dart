@@ -1,7 +1,10 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:speedometer/features/labs/presentation/bloc/labs_service_bloc.dart';
 import 'package:speedometer/features/labs/presentation/recorded_tab.dart';
 import 'package:speedometer/features/labs/presentation/exported_tab.dart';
+import 'package:speedometer/features/labs/services/labs_service.dart';
 import 'package:speedometer/features/premium/widgets/premium_upgrade_banner.dart';
 import 'package:speedometer/features/badges/badge_manager.dart';
 import 'package:speedometer/di/injection_container.dart';
@@ -143,10 +146,12 @@ class _LabsScreenState extends State<LabsScreen> with SingleTickerProviderStateM
 
           // Tab content
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: const [RecordedTab(), ExportedTab(),
-              ],
+            child: BlocProvider(
+              create: (context) => LabsServiceBloc(labsService: LabsService()),
+              child: TabBarView(
+                controller: _tabController,
+                children: const [RecordedTab(), ExportedTab()],
+              ),
             ),
           ),
         ],

@@ -1,10 +1,11 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:speedometer/features/labs/models/processed_task.dart';
-import 'package:speedometer/features/labs/services/labs_service.dart';
+import 'package:speedometer/features/labs/presentation/bloc/labs_service_bloc.dart';
 import 'package:speedometer/packages/gal.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
@@ -13,32 +14,92 @@ import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import '../../../di/injection_container.dart';
 import '../../badges/badge_manager.dart';
 
-class ExportedTab extends StatefulWidget {
+class ExportedTab extends StatelessWidget {
   const ExportedTab({super.key});
 
   @override
-  State<ExportedTab> createState() => _ExportedTabState();
-}
+  Widget build(BuildContext context) {
+    return BlocBuilder<LabsServiceBloc, LabsServiceState>(
+      buildWhen:
+          (prev, curr) =>
+              prev.processedTasks != curr.processedTasks ||
+              prev.isLoading != curr.isLoading,
+      builder: (context, state) {
+        if (state.isLoading && state.processedTasks.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-class _ExportedTabState extends State<ExportedTab> {
-  List<ProcessedTask> _tasks = [];
+        if (state.processedTasks.isEmpty) {
+          return RefreshIndicator(
+            onRefresh:
+                () async =>
+                    context.read<LabsServiceBloc>().add(const LoadFiles()),
+            child: ListView(
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.movie_creation_outlined,
+                          size: 64,
+                          color: Colors.grey[700],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No exports yet',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Process a recorded video to see it here',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadTasks();
+        return RefreshIndicator(
+          onRefresh:
+              () async =>
+                  context.read<LabsServiceBloc>().add(const LoadFiles()),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: state.processedTasks.length,
+            itemBuilder: (context, index) {
+              final task = state.processedTasks[index];
+              return _ExportedTaskTile(
+                task: task,
+                onTap: () => _openFile(context, task),
+                onLongPress: () => _showActionsSheet(context, task),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
-  void _loadTasks() {
-    setState(() {
-      _tasks = LabsService().getAllProcessedTasks();
-    });
-  }
+  // ─── Actions ───
 
-  Future<void> _openFile(ProcessedTask task) async {
+  void _openFile(BuildContext context, ProcessedTask task) async {
     if (task.savedVideoFilePath == null ||
         !File(task.savedVideoFilePath!).existsSync()) {
-      _showSnackBar('Video file not found', isError: true);
+      _showSnackBar(context, 'Video file not found', isError: true);
       return;
     }
     final result = await OpenFile.open(task.savedVideoFilePath!);
@@ -54,10 +115,10 @@ class _ExportedTabState extends State<ExportedTab> {
     debugPrint('OpenFile result: ${result.type}, ${result.message}');
   }
 
-  Future<void> _shareTask(ProcessedTask task) async {
+  void _shareTask(BuildContext context, ProcessedTask task) async {
     if (task.savedVideoFilePath == null ||
         !File(task.savedVideoFilePath!).existsSync()) {
-      _showSnackBar('Video file not found', isError: true);
+      _showSnackBar(context, 'Video file not found', isError: true);
       return;
     }
     await Share.shareXFiles([XFile(task.savedVideoFilePath!)]);
@@ -73,10 +134,10 @@ class _ExportedTabState extends State<ExportedTab> {
     getIt<BadgeManager>().shareVideo();
   }
 
-  Future<void> _exportToGallery(ProcessedTask task) async {
+  void _exportToGallery(BuildContext context, ProcessedTask task) async {
     if (task.savedVideoFilePath == null ||
         !File(task.savedVideoFilePath!).existsSync()) {
-      _showSnackBar('Video file not found', isError: true);
+      _showSnackBar(context, 'Video file not found', isError: true);
       return;
     }
     try {
@@ -85,13 +146,13 @@ class _ExportedTabState extends State<ExportedTab> {
         task.savedVideoFilePath!,
         albumName: 'TurboGauge Exports',
       );
-      _showSnackBar('Video saved to gallery');
+      _showSnackBar(context, 'Video saved to gallery');
     } catch (e) {
-      _showSnackBar('Failed to save to gallery: $e', isError: true);
+      _showSnackBar(context, 'Failed to save to gallery: $e', isError: true);
     }
   }
 
-  Future<void> _deleteTask(ProcessedTask task) async {
+  void _deleteTask(BuildContext context, ProcessedTask task) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -126,20 +187,21 @@ class _ExportedTabState extends State<ExportedTab> {
     );
 
     if (confirmed == true && task.id != null) {
-      if (task.savedVideoFilePath != null) {
-        final file = File(task.savedVideoFilePath!);
-        if (await file.exists()) {
-          await file.delete();
-        }
-      }
-      await LabsService().deleteProcessedTask(task.id!);
-      _loadTasks();
-      _showSnackBar('Export deleted');
+      context.read<LabsServiceBloc>().add(
+        DeleteProcessedTask(
+          id: task.id!,
+          videoFilePath: task.savedVideoFilePath,
+        ),
+      );
+      _showSnackBar(context, 'Export deleted');
     }
   }
 
-  void _showSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
+  void _showSnackBar(
+    BuildContext context,
+    String message, {
+    bool isError = false,
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -151,7 +213,7 @@ class _ExportedTabState extends State<ExportedTab> {
     );
   }
 
-  void _showActionsSheet(ProcessedTask task) {
+  void _showActionsSheet(BuildContext context, ProcessedTask task) {
     final fileExists =
         task.savedVideoFilePath != null &&
         File(task.savedVideoFilePath!).existsSync();
@@ -160,7 +222,7 @@ class _ExportedTabState extends State<ExportedTab> {
       context: context,
       backgroundColor: Colors.transparent,
       builder:
-          (context) => Container(
+          (sheetContext) => Container(
             decoration: BoxDecoration(
               color: Colors.grey[900],
               borderRadius: const BorderRadius.vertical(
@@ -184,85 +246,38 @@ class _ExportedTabState extends State<ExportedTab> {
                     label: 'Open File',
                     enabled: fileExists,
                     onTap: () {
-                      Navigator.pop(context);
-                      _openFile(task);
+                      Navigator.pop(sheetContext);
+                      _openFile(context, task);
                     },
                   ),
                   _SheetAction(
                     label: 'Share',
                     enabled: fileExists,
                     onTap: () {
-                      Navigator.pop(context);
-                      _shareTask(task);
+                      Navigator.pop(sheetContext);
+                      _shareTask(context, task);
                     },
                   ),
                   _SheetAction(
                     label: 'Export to Gallery',
                     enabled: fileExists,
                     onTap: () {
-                      Navigator.pop(context);
-                      _exportToGallery(task);
+                      Navigator.pop(sheetContext);
+                      _exportToGallery(context, task);
                     },
                   ),
                   _SheetAction(
                     label: 'Delete',
                     isDestructive: true,
                     onTap: () {
-                      Navigator.pop(context);
-                      _deleteTask(task);
+                      Navigator.pop(sheetContext);
+                      _deleteTask(context, task);
                     },
                   ),
                   const SizedBox(height: 8),
                 ],
               ),
             ),
-      ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_tasks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.movie_creation_outlined,
-              size: 64,
-              color: Colors.grey[700],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'No exports yet',
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Process a recorded video to see it here',
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async => _loadTasks(),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: _tasks.length,
-        itemBuilder: (context, index) {
-          return _ExportedTaskTile(
-            task: _tasks[index],
-            onTap: () => _openFile(_tasks[index]),
-            onLongPress: () => _showActionsSheet(_tasks[index]),
-          );
-        },
       ),
     );
   }

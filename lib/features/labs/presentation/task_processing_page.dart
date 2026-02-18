@@ -1,9 +1,13 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
+import 'package:ffmpeg_kit_flutter_new_video/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
+import 'package:ffmpeg_kit_flutter_new_video/session.dart';
+import 'package:speedometer/features/labs/presentation/widgets/export_progress_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
@@ -575,8 +579,34 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
       );
       return;
     }
+    if (_isExporting) return; // guard re-entry
 
     setState(() => _isExporting = true);
+
+    // ── Progress stream ──
+    final progressController = StreamController<double>.broadcast();
+
+    // ── Probe total duration for progress calculation ──
+    int? totalDurationMs;
+    try {
+      final probeSession = await FFprobeKit.getMediaInformation(
+        widget.task.videoFilePath!,
+      );
+      final info = probeSession.getMediaInformation();
+      final durationStr = info?.getDuration();
+      if (durationStr != null) {
+        totalDurationMs = (double.parse(durationStr) * 1000).toInt();
+      }
+    } catch (_) {}
+
+    // ── Show the progress dialog ──
+    if (mounted) {
+      ExportProgressDialog.show(
+        context,
+        progressStream: progressController.stream,
+        thumbnailPath: _thumbnailPath,
+      );
+    }
 
     try {
       final directory = await getApplicationDocumentsDirectory();
@@ -612,138 +642,168 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
       debugPrint('[Labs Export] Running FFmpeg command...');
       debugPrint('[Labs Export] Command: $command', wrapWidth: 1024);
 
-      final session = await FFmpegKit.execute(command);
-      final rc = await session.getReturnCode();
+      // ── Use executeAsync with a statistics callback for progress ──
+      final completer = Completer<void>();
 
-      if (ReturnCode.isSuccess(rc)) {
-        debugPrint('[Labs Export] Success: $outputPath');
+      await FFmpegKit.executeAsync(
+        command,
+        // ── Completion callback ──
+        (Session session) async {
+          final rc = await session.getReturnCode();
+
+          if (ReturnCode.isSuccess(rc)) {
+            debugPrint('[Labs Export] Success: $outputPath');
+            progressController.add(1.0); // ensure we show 100%
         final processRunTime = DateTime.now().difference(time).inMilliseconds;
-        AnalyticsService().trackEvent(
-            AnalyticsEvents.ffmpegCommandResult,
-            properties: {
-              "process_id": processId,
-              "ffmpeg_command": command,
-              "config": _config.toString(),
-              "input_video_length": widget.task.lengthInSeconds,
-              "input_video_size": widget.task.sizeInKb,
-              "position_data_length": widget.task.positionData?.length,
-              "dial_id": _config.dial?.id,
-              "needle_id": _config.needle?.id,
-              "command_build_time": commandBuildTime,
-              "process_run_time": processRunTime,
-              "return_code": rc?.getValue(),
-              AnalyticsParams.success: true,
-              "get_duration": await session.getDuration(),
-            }
-        );
-
-        // Get file stats
-        final file = File(outputPath);
-        final stat = await file.stat();
-        final sizeInKb = stat.size / 1024.0;
-
-        String? gallerySaveError, rawExportError;
-        // Save to gallery
-        try {
-          final galService = GetIt.I<GalService>();
-          await galService.saveVideoToGallery(outputPath, albumName: 'TurboGauge Exports');
-          debugPrint('[Labs Export] Saved to gallery');
-        } catch (e) {
-          gallerySaveError = e.toString();
-          debugPrint('[Labs Export] Gallery save error: $e');
-        }
-
-        // Also export raw video if requested
-        if (_exportRawVideo && widget.task.videoFilePath != null) {
-          try {
-            final galService = GetIt.I<GalService>();
-            await galService.saveVideoToGallery(
-              widget.task.videoFilePath!,
-              albumName: 'TurboGauge Exports',
+            AnalyticsService().trackEvent(
+              AnalyticsEvents.ffmpegCommandResult,
+              properties: {
+                "process_id": processId,
+                "ffmpeg_command": command,
+                "config": _config.toString(),
+                "input_video_length": widget.task.lengthInSeconds,
+                "input_video_size": widget.task.sizeInKb,
+                "position_data_length": widget.task.positionData?.length,
+                "dial_id": _config.dial?.id,
+                "needle_id": _config.needle?.id,
+                "command_build_time": commandBuildTime,
+                "process_run_time": processRunTime,
+                "return_code": rc?.getValue(),
+                AnalyticsParams.success: true,
+                "get_duration": await session.getDuration(),
+              },
             );
-            debugPrint('[Labs Export] Raw video saved to gallery');
-          } catch (e) {
-            rawExportError = e.toString();
-            debugPrint('[Labs Export] Raw video gallery save error: $e');
+
+            // Get file stats
+            final file = File(outputPath);
+            final stat = await file.stat();
+            final sizeInKb = stat.size / 1024.0;
+
+            String? gallerySaveError, rawExportError;
+            // Save to gallery
+            try {
+              final galService = GetIt.I<GalService>();
+          await galService.saveVideoToGallery(outputPath, albumName: 'TurboGauge Exports');
+              debugPrint('[Labs Export] Saved to gallery');
+            } catch (e) {
+              gallerySaveError = e.toString();
+              debugPrint('[Labs Export] Gallery save error: $e');
+            }
+
+            // Also export raw video if requested
+            if (_exportRawVideo && widget.task.videoFilePath != null) {
+              try {
+                final galService = GetIt.I<GalService>();
+                await galService.saveVideoToGallery(
+                  widget.task.videoFilePath!,
+                  albumName: 'TurboGauge Exports',
+                );
+                debugPrint('[Labs Export] Raw video saved to gallery');
+              } catch (e) {
+                rawExportError = e.toString();
+                debugPrint('[Labs Export] Raw video gallery save error: $e');
+              }
+            }
+
+            // Create ProcessedTask entry
+            final processedId = LabsService().generateId();
+            final processedTask = ProcessedTask(
+              id: processedId,
+              name: 'Export_$processedId',
+              savedVideoFilePath: outputPath,
+              processingTask: widget.task,
+              createdAt: DateTime.now(),
+              updatedAt: DateTime.now(),
+              sizeInKb: sizeInKb,
+              lengthInSeconds: widget.task.lengthInSeconds,
+            );
+            await LabsService().saveProcessedTask(processedTask);
+
+            getIt<BadgeManager>().exportVideo();
+
+            AnalyticsService().trackEvent(
+              AnalyticsEvents.ffmpegProcessingFinished,
+              properties: {
+                "process_id": processId,
+                "ffmpeg_command": command,
+                "config": _config.toString(),
+                "input_video_length": widget.task.lengthInSeconds,
+                "input_video_size": widget.task.sizeInKb,
+                "output_video_size": sizeInKb,
+                "position_data_length": widget.task.positionData?.length,
+                "dial_id": _config.dial?.id,
+                "needle_id": _config.needle?.id,
+                "command_build_time": commandBuildTime,
+                "process_run_time": processRunTime,
+                "return_code": rc?.getValue(),
+                AnalyticsParams.success: true,
+                "gallery_save_error": gallerySaveError,
+                "raw_export_error": rawExportError,
+                "get_duration": await session.getDuration(),
+              },
+            );
+
+            // Dismiss progress dialog & show success
+            if (mounted) {
+              Navigator.of(context, rootNavigator: true).pop(); // close dialog
+              await Future.delayed(const Duration(milliseconds: 200));
+              setState(() => _isExporting = false);
+              _showSuccessDialog(outputPath, sizeInKb);
+            }
+          } else {
+            final logs = await session.getLogsAsString();
+            AnalyticsService().trackEvent(
+              AnalyticsEvents.ffmpegCommandResult,
+              properties: {
+                "process_id": processId,
+                "ffmpeg_command": command,
+                "config": _config.toString(),
+                "input_video_length": widget.task.lengthInSeconds,
+                "input_video_size": widget.task.sizeInKb,
+                "position_data_length": widget.task.positionData?.length,
+                "dial_id": _config.dial?.id,
+                "needle_id": _config.needle?.id,
+                "command_build_time": commandBuildTime,
+                "return_code": rc?.getValue(),
+                AnalyticsParams.success: false,
+                "logs": logs,
+                "is_crash": false,
+                "get_duration": await session.getDuration(),
+              },
+            );
+            debugPrint('[Labs Export] FFmpeg failed. RC: $rc');
+            debugPrint('[Labs Export] Logs: $logs', wrapWidth: 1024);
+            if (mounted) {
+              Navigator.of(context, rootNavigator: true).pop();
+              setState(() => _isExporting = false);
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Export failed. Please try again.'),
+                  backgroundColor: Colors.redAccent,
+                ),
+              );
+            }
           }
-        }
 
-        // Create ProcessedTask entry
-        final processedId = LabsService().generateId();
-        final processedTask = ProcessedTask(
-          id: processedId,
-          name: 'Export_$processedId',
-          savedVideoFilePath: outputPath,
-          processingTask: widget.task,
-          createdAt: DateTime.now(),
-          updatedAt: DateTime.now(),
-          sizeInKb: sizeInKb,
-          lengthInSeconds: widget.task.lengthInSeconds,
-        );
-        await LabsService().saveProcessedTask(processedTask);
-
-        if (mounted) {
-          setState(() => _isExporting = false);
-          _showSuccessDialog(outputPath, sizeInKb);
-        }
-
-        getIt<BadgeManager>().exportVideo();
-
-        AnalyticsService().trackEvent(
-            AnalyticsEvents.ffmpegProcessingFinished,
-            properties: {
-              "process_id": processId,
-              "ffmpeg_command": command,
-              "config": _config.toString(),
-              "input_video_length": widget.task.lengthInSeconds,
-              "input_video_size": widget.task.sizeInKb,
-              // "output_video_length": widget.task.lengthInSeconds,
-              "output_video_size": sizeInKb,
-              "position_data_length": widget.task.positionData?.length,
-              "dial_id": _config.dial?.id,
-              "needle_id": _config.needle?.id,
-              "command_build_time": commandBuildTime,
-              "process_run_time": processRunTime,
-              "return_code": rc?.getValue(),
-              AnalyticsParams.success: true,
-              "gallery_save_error": gallerySaveError,
-              "raw_export_error": rawExportError,
-              "get_duration": await session.getDuration(),
+          await progressController.close();
+          if (!completer.isCompleted) completer.complete();
+        },
+        // ── Log callback (optional debug) ──
+        null,
+        // ── Statistics callback — drives the progress bar ──
+        (statistics) {
+          if (totalDurationMs != null && totalDurationMs > 0) {
+            final processedMs = statistics.getTime();
+            final progress = (processedMs / totalDurationMs).clamp(0.0, 1.0);
+            if (!progressController.isClosed) {
+              progressController.add(progress);
             }
-        );
-      } else {
-        final logs = await session.getLogsAsString();
-        AnalyticsService().trackEvent(
-            AnalyticsEvents.ffmpegCommandResult,
-            properties: {
-              "process_id": processId,
-              "ffmpeg_command": command,
-              "config": _config.toString(),
-              "input_video_length": widget.task.lengthInSeconds,
-              "input_video_size": widget.task.sizeInKb,
-              "position_data_length": widget.task.positionData?.length,
-              "dial_id": _config.dial?.id,
-              "needle_id": _config.needle?.id,
-              "command_build_time": commandBuildTime,
-              "return_code": rc?.getValue(),
-              AnalyticsParams.success: false,
-              "logs": logs,
-              "is_crash": false,
-              "get_duration": await session.getDuration(),
-            }
-        );
-        debugPrint('[Labs Export] FFmpeg failed. RC: $rc');
-        debugPrint('[Labs Export] Logs: $logs', wrapWidth: 1024);
-        if (mounted) {
-          setState(() => _isExporting = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Export failed. Please try again.'),
-              backgroundColor: Colors.redAccent,
-            ),
-          );
-        }
-      }
+          }
+        },
+      );
+
+      // Wait for the async execution to finish
+      await completer.future;
     } catch (e, stackTrace) {
       debugPrint('[Labs Export] Exception: $e');
       debugPrint('[Labs Export] Stack: $stackTrace');
@@ -762,7 +822,14 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
             "stack_trace": stackTrace.toString()
           }
       );
+      if (!progressController.isClosed) {
+        await progressController.close();
+      }
       if (mounted) {
+        // Pop progress dialog if it's still showing
+        try {
+          Navigator.of(context, rootNavigator: true).pop();
+        } catch (_) {}
         setState(() => _isExporting = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -879,36 +946,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
               const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
         ),
       ),
-      body: _isExporting
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const SizedBox(
-                    width: 60,
-                    height: 60,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 4,
-                      color: Colors.blueAccent,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Exporting your video...',
-                    style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'This may take a moment',
-                    style: TextStyle(color: Colors.grey[500], fontSize: 14),
-                  ),
-                ],
-              ),
-            )
-          : ListView(
+      body: ListView(
               padding: const EdgeInsets.all(16),
               children: [
                 // ─── Video Preview ───

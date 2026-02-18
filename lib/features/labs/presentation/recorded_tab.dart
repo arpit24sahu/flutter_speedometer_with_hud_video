@@ -11,6 +11,9 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
 
+import '../../../di/injection_container.dart';
+import '../../badges/badge_manager.dart';
+
 class RecordedTab extends StatefulWidget {
   const RecordedTab({super.key});
 
@@ -65,6 +68,7 @@ class _RecordedTabState extends State<RecordedTab> {
       return;
     }
     await Share.shareXFiles([XFile(task.videoFilePath!)]);
+    getIt<BadgeManager>().shareVideo();
     AnalyticsService().trackEvent(
       AnalyticsEvents.shareRecordedVideo,
       properties: {
@@ -179,7 +183,15 @@ class _RecordedTabState extends State<RecordedTab> {
                     ),
                   ),
                   _SheetAction(
-                    label: 'Open File',
+                    label: 'Customize Video',
+                    enabled: videoExists,
+                    onTap: () {
+                      Navigator.pop(context);
+                      _openTaskForProcessing(task);
+                    },
+                  ),
+                  _SheetAction(
+                    label: 'Open Raw File',
                     enabled: videoExists,
                     onTap: () {
                       Navigator.pop(context);
@@ -187,7 +199,7 @@ class _RecordedTabState extends State<RecordedTab> {
                     },
                   ),
                   _SheetAction(
-                    label: 'Share',
+                    label: 'Share Raw File',
                     enabled: videoExists,
                     onTap: () {
                       Navigator.pop(context);
@@ -195,7 +207,7 @@ class _RecordedTabState extends State<RecordedTab> {
                     },
                   ),
                   _SheetAction(
-                    label: 'Export to Gallery',
+                    label: 'Export Raw File to Gallery',
                     enabled: videoExists,
                     onTap: () {
                       Navigator.pop(context);
@@ -203,7 +215,7 @@ class _RecordedTabState extends State<RecordedTab> {
                     },
                   ),
                   _SheetAction(
-                    label: 'Delete',
+                    label: 'Delete Raw Video',
                     isDestructive: true,
                     onTap: () {
                       Navigator.pop(context);

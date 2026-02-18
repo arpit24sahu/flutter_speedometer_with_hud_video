@@ -56,8 +56,7 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
           .stopRecording(event.gaugePlacement, event.relativeSize);
       print('DEBUG: stopRecording result: $initialResult');
 
-      Map<int, PositionData> positionData =
-          LocationService().stopSpeedTracking();
+      Map<int, PositionData> positionData = LocationService().stopSpeedTracking();
       print("SpeedTracking stopped: ${positionData.length}");
       for (int key in positionData.keys) {
         print("$key ${positionData[key]?.speed}");
@@ -103,6 +102,7 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
           videoPath: cameraVideoPath,
           positionDataPoints: positionData.length,
           durationSeconds: durationSeconds,
+          maxSpeed: LocationService.getMaxSpeedFromPositionData(positionData.values.toList()),
         ),
       );
     } catch (e, stackTrace) {
@@ -261,13 +261,15 @@ class VideoJobSaved extends VideoRecorderState {
   final String videoPath;
   final int positionDataPoints;
   final double durationSeconds;
+  final double maxSpeed;
 
   VideoJobSaved({
     required this.videoPath,
     required this.positionDataPoints,
     required this.durationSeconds,
+    required this.maxSpeed
   });
 
   @override
-  List<Object?> get props => [videoPath, positionDataPoints, durationSeconds];
+  List<Object?> get props => [videoPath, positionDataPoints, durationSeconds, maxSpeed];
 }

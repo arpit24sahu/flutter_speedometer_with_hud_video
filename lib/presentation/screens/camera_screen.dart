@@ -14,6 +14,7 @@ import 'package:speedometer/core/services/camera_state_service.dart';
 import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
+import 'package:speedometer/features/badges/badge_manager.dart';
 import 'package:speedometer/features/files/bloc/files_bloc.dart';
 import 'package:speedometer/features/labs/presentation/bloc/gauge_customization_bloc.dart';
 import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
@@ -499,12 +500,16 @@ class _CameraScreenState extends State<CameraScreen>
         properties: {
           "duration_seconds": videoRecorderState.durationSeconds,
           "position_data_points": videoRecorderState.positionDataPoints,
+          "max_speed": videoRecorderState.maxSpeed,
           "video_path": videoRecorderState.videoPath,
           "cameraOrientation": _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
           "cameraOrientationIndex": _currentCameraIndex,
           "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson(),
         },
       );
+
+      getIt<BadgeManager>().recordVideo();
+      getIt<BadgeManager>().updateSpeed(videoRecorderState.maxSpeed);
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) {
@@ -786,6 +791,7 @@ void showVideoSuccessDialog(BuildContext context, String finalVideoPath) {
                                 [XFile(finalVideoPath)],
                                   text: 'Check out my driving data captured with Speedometer app!'
                               );
+                              getIt<BadgeManager>().shareVideo();
                             } catch (e) {
                               debugPrint('Error sharing: $e');
                               if (context.mounted) {

@@ -10,6 +10,9 @@ import 'package:video_thumbnail/video_thumbnail.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
 
+import '../../../di/injection_container.dart';
+import '../../badges/badge_manager.dart';
+
 class ExportedTab extends StatefulWidget {
   const ExportedTab({super.key});
 
@@ -67,6 +70,7 @@ class _ExportedTabState extends State<ExportedTab> {
         'source': 'ExportedTab',
       },
     );
+    getIt<BadgeManager>().shareVideo();
   }
 
   Future<void> _exportToGallery(ProcessedTask task) async {

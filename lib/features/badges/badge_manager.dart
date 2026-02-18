@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/features/badges/stats_page.dart';
+import 'package:speedometer/services/notification_service.dart';
 import 'badge_bottom_sheet.dart';
 import 'badge_service.dart';
 import 'badge_id.dart';
@@ -7,6 +10,7 @@ import 'badge_definitions.dart';
 import 'badge_model.dart';
 import 'badge_unlock_dialog.dart';
 import 'badges_page.dart';
+import 'badge_status_page.dart';
 
 /// Comprehensive manager for badge system
 /// Handles initialization, navigation, notifications, and UI presentation
@@ -14,10 +18,6 @@ class BadgeManager {
   final BadgeService badgeService;
   final GlobalKey<NavigatorState> navigatorKey;
   
-  static const String _notificationChannelKey = 'badge_notifications';
-  static const String _notificationChannelName = 'Badge Achievements';
-  static const String _notificationChannelDescription = 'Notifications when you unlock new badges';
-
   BadgeManager({
     required this.badgeService,
     required this.navigatorKey,
@@ -31,9 +31,6 @@ class BadgeManager {
   static Future<BadgeManager> initialize({
     required GlobalKey<NavigatorState> navigatorKey,
   }) async {
-    // Initialize notifications
-    await _initializeNotifications();
-
     // Initialize badge service
     final badgeService = BadgeService();
     await badgeService.initialize();
@@ -42,50 +39,6 @@ class BadgeManager {
       badgeService: badgeService,
       navigatorKey: navigatorKey,
     );
-  }
-
-  /// Initialize awesome notifications
-  static Future<void> _initializeNotifications() async {
-    // await AwesomeNotifications().initialize(
-    //   null, // Use default app icon
-    //   [
-    //     NotificationChannel(
-    //       channelKey: _notificationChannelKey,
-    //       channelName: _notificationChannelName,
-    //       channelDescription: _notificationChannelDescription,
-    //       defaultColor: const Color(0xFFFFB300),
-    //       ledColor: Colors.white,
-    //       importance: NotificationImportance.High,
-    //       playSound: true,
-    //       enableVibration: true,
-    //       channelShowBadge: true,
-    //     ),
-    //   ],
-    //   debug: false,
-    // );
-
-    // Request notification permissions
-    // await AwesomeNotifications().isNotificationAllowed().then((isAllowed) {
-    //   if (!isAllowed) {
-    //     AwesomeNotifications().requestPermissionToSendNotifications();
-    //   }
-    // });
-    //
-    // // Handle notification taps
-    // AwesomeNotifications().setListeners(
-    //   onActionReceivedMethod: _onNotificationActionReceived,
-    // );
-  }
-
-  /// Handle notification tap
-  @pragma('vm:entry-point')
-  static Future<void> _onNotificationActionReceived(
-    // ReceivedAction receivedAction,
-  ) async {
-    // // Navigate to badges page when notification is tapped
-    // // You can customize this based on the notification payload
-    // final badgeId = receivedAction.payload?['badgeId'];
-    // debugPrint('Notification tapped for badge: $badgeId');
   }
 
   // ==================== LISTENER SETUP ====================
@@ -113,6 +66,18 @@ class BadgeManager {
     final badge = BadgeDefinitions.getBadgeById(badgeId);
     if (badge == null) return;
 
+    // Track analytics event
+    AnalyticsService().trackEvent(
+      AnalyticsEvents.badgeUnlocked,
+      properties: {
+        AnalyticsParams.badgeId: badgeId.name,
+        AnalyticsParams.badgeName: badge.name,
+        AnalyticsParams.badgeDescription: badge.description,
+        AnalyticsParams.badgeTier: badge.tier,
+        AnalyticsParams.badgeLevel: badge.level,
+      },
+    );
+
     // Show notification
     _showBadgeNotification(badge);
     
@@ -124,23 +89,11 @@ class BadgeManager {
 
   /// Show notification for unlocked badge
   Future<void> _showBadgeNotification(AppBadge badge) async {
-    // await AwesomeNotifications().createNotification(
-    //   content: NotificationContent(
-    //     id: badge.id.index,
-    //     channelKey: _notificationChannelKey,
-    //     title: '🏆 Badge Unlocked!',
-    //     body: '${badge.name}: ${badge.description}',
-    //     notificationLayout: NotificationLayout.BigText,
-    //     color: badge.color,
-    //     backgroundColor: badge.color,
-    //     payload: {
-    //       'badgeId': badge.id.name,
-    //       'badgeName': badge.name,
-    //     },
-    //     category: NotificationCategory.Status,
-    //     autoDismissible: true,
-    //   ),
-    // );
+    await NotificationService().showNotification(
+      id: badge.id.index,
+      title: '🏆 Badge Unlocked!',
+      body: '${badge.name}: ${badge.description}',
+    );
   }
 
   // ==================== IN-APP DIALOGS ====================
@@ -152,7 +105,17 @@ class BadgeManager {
 
     showDialog(
       context: context,
-      builder: (context) => BadgeUnlockDialog(badge: badge),
+      barrierDismissible: true,
+      builder:
+          (context) => BadgeUnlockDialog(
+            badge: badge,
+            onViewBadges: () {
+              // Small delay so the dialog dismiss finishes first
+              Future.delayed(const Duration(milliseconds: 50), () {
+                showBadgeStatusPage();
+              });
+            },
+          ),
     );
   }
 
@@ -225,6 +188,38 @@ class BadgeManager {
         badgeService: badgeService,
         category: category,
       ),
+    );
+  }
+
+  /// Show the new Badge Status Page in a bottom sheet
+  Future<void> showBadgeStatusPage() async {
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      isDismissible: true,
+      enableDrag: true,
+      backgroundColor: Colors.transparent,
+      builder:
+          (context) => DraggableScrollableSheet(
+            initialChildSize: 0.75,
+            minChildSize: 0.4,
+            maxChildSize: 0.92,
+            expand: false,
+            builder:
+                (context, scrollController) => Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(20),
+                    ),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: const BadgeStatusPage(),
+                ),
+          ),
     );
   }
 

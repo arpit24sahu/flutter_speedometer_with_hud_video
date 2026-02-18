@@ -131,4 +131,13 @@ class LocationService {
     _stopwatch = null;
     isTrackingSpeed = false;
   }
+
+  static double getMaxSpeedFromPositionData(List<PositionData> positionData) {
+    if(positionData.isEmpty) return 0;
+
+    return positionData.fold<double>(
+      0.0,
+          (max, position) => position.speed > max ? position.speed : max,
+    );
+  }
 }

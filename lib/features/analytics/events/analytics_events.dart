@@ -109,6 +109,15 @@ class AnalyticsEvents {
   static const String closeAppYesSelected = 'close_app_yes_selected';
   static const String closeAppNoSelected = 'close_app_no_selected';
   static const String closeAppDialogDismissed = 'close_app_dialog_dismissed';
+  // ─────────────────────────────────────────────────────────────────────────
+  // Badge Events
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String badgeUnlocked = 'badge_unlocked';
+  static const String badgeDetailsScreenView = 'badge_details_screen_view';
+  static const String badgeDetailsScreenDismissed =
+      'badge_details_screen_dismissed';
+  static const String badgeUnlockedDialogDismissed =
+      'badge_unlocked_dialog_dismissed';
 }
 
 /// Common parameter keys for analytics events.
@@ -167,5 +176,16 @@ class AnalyticsParams {
   // Misc Parameters
   // ─────────────────────────────────────────────────────────────────────────
   static const String source = 'source';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Badge Parameters
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String badgeId = 'badge_id';
+  static const String badgeName = 'badge_name';
+  static const String badgeDescription = 'badge_description';
+  static const String badgeTier = 'badge_tier';
+  static const String badgeLevel = 'badge_level';
+  static const String badgeIsUnlocked = 'badge_is_unlocked';
+  static const String durationSeconds = 'duration_seconds';
 }
 

@@ -5,8 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
+import 'package:speedometer/features/badges/badge_manager.dart';
 import 'package:speedometer/features/labs/models/processing_task.dart';
 import 'package:speedometer/features/labs/models/processed_task.dart';
 import 'package:speedometer/features/labs/models/gauge_customization.dart';
@@ -684,6 +686,8 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
           setState(() => _isExporting = false);
           _showSuccessDialog(outputPath, sizeInKb);
         }
+
+        getIt<BadgeManager>().exportVideo();
 
         AnalyticsService().trackEvent(
             AnalyticsEvents.ffmpegProcessingFinished,

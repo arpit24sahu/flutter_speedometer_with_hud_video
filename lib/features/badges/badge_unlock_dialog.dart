@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'dart:math' as math;
 import 'badge_model.dart';
 
-/// Dialog shown when a badge is unlocked
+/// Compact, animated dialog shown when a badge is unlocked.
 class BadgeUnlockDialog extends StatefulWidget {
   final AppBadge badge;
+  final VoidCallback? onViewBadges;
 
   const BadgeUnlockDialog({
     super.key,
     required this.badge,
+    this.onViewBadges,
   });
 
   @override
@@ -16,270 +20,402 @@ class BadgeUnlockDialog extends StatefulWidget {
 }
 
 class _BadgeUnlockDialogState extends State<BadgeUnlockDialog>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _scaleAnimation;
-  late Animation<double> _rotationAnimation;
-  late Animation<double> _fadeAnimation;
+    with TickerProviderStateMixin {
+  late AnimationController _entryController;
+  late AnimationController _confettiController;
+  late AnimationController _glowController;
+
+  late Animation<double> _scaleAnim;
+  late Animation<double> _fadeAnim;
+  late Animation<double> _iconBounceAnim;
+  late Animation<double> _glowAnim;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(
-      duration: const Duration(milliseconds: 800),
+
+    // --- Entry animation (scale + fade) ---
+    _entryController = AnimationController(
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
-    _scaleAnimation = CurvedAnimation(
-      parent: _controller,
+    _scaleAnim = CurvedAnimation(
+      parent: _entryController,
       curve: Curves.elasticOut,
     );
 
-    _rotationAnimation = Tween<double>(
-      begin: 0,
-      end: 2 * math.pi,
-    ).animate(CurvedAnimation(
-      parent: _controller,
+    _fadeAnim = CurvedAnimation(
+      parent: _entryController,
       curve: const Interval(0.0, 0.5, curve: Curves.easeOut),
-    ));
-
-    _fadeAnimation = CurvedAnimation(
-      parent: _controller,
-      curve: const Interval(0.3, 1.0, curve: Curves.easeIn),
     );
 
-    _controller.forward();
+    // Icon has a separate bounce on top of the scale
+    _iconBounceAnim = TweenSequence<double>([
+      TweenSequenceItem(tween: Tween(begin: 0.0, end: 1.15), weight: 50),
+      TweenSequenceItem(tween: Tween(begin: 1.15, end: 0.9), weight: 20),
+      TweenSequenceItem(tween: Tween(begin: 0.9, end: 1.0), weight: 30),
+    ]).animate(
+      CurvedAnimation(
+        parent: _entryController,
+        curve: const Interval(0.15, 0.75, curve: Curves.easeOut),
+    ));
+
+    // --- Confetti burst ---
+    _confettiController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    // --- Glow pulse ---
+    _glowController = AnimationController(
+      duration: const Duration(milliseconds: 1800),
+      vsync: this,
+    );
+
+    _glowAnim = Tween<double>(begin: 0.15, end: 0.4).animate(
+      CurvedAnimation(parent: _glowController, curve: Curves.easeInOut),
+    );
+
+    // Fire animations
+    _entryController.forward();
+    _confettiController.forward();
+    _glowController.repeat(reverse: true);
   }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _entryController.dispose();
+    _confettiController.dispose();
+    _glowController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: widget.badge.color.withOpacity(0.3),
-              blurRadius: 20,
-              spreadRadius: 5,
+    final badgeColor = widget.badge.color;
+
+    return FadeTransition(
+      opacity: _fadeAnim,
+      child: ScaleTransition(
+        scale: _scaleAnim,
+        child: Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.symmetric(horizontal: 44),
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(20, 24, 20, 16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: [
+                BoxShadow(
+                  color: badgeColor.withOpacity(0.25),
+                  blurRadius: 30,
+                  spreadRadius: 2,
+                ),
+              ],
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Confetti effect
-            Stack(
-              alignment: Alignment.center,
+            child: Stack(
               children: [
-                _buildConfetti(),
-                
-                // Animated badge icon
-                ScaleTransition(
-                  scale: _scaleAnimation,
-                  child: RotationTransition(
-                    turns: _rotationAnimation,
-                    child: Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          colors: [
-                            widget.badge.color.withOpacity(0.3),
-                            widget.badge.color.withOpacity(0.1),
-                            Colors.transparent,
-                          ],
+                // Main content column
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(height: 8),
+                    // === Badge icon with confetti & glow ===
+                    SizedBox(
+                      width: 140,
+                      height: 140,
+                      child: Stack(
+                        alignment: Alignment.center,
+                        children: [
+                          // Glow ring
+                          AnimatedBuilder(
+                            animation: _glowAnim,
+                            builder:
+                                (_, __) => Container(
+                                  width: 100,
+                                  height: 100,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: badgeColor.withOpacity(
+                                          _glowAnim.value,
+                                        ),
+                                        blurRadius: 24,
+                                        spreadRadius: 4,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                          ),
+                          // Confetti particles
+                          _ConfettiBurst(
+                            controller: _confettiController,
+                            color: badgeColor,
+                          ),
+                          // Icon with bounce
+                          AnimatedBuilder(
+                            animation: _iconBounceAnim,
+                            builder:
+                                (_, child) => Transform.scale(
+                                  scale: _iconBounceAnim.value,
+                                  child: child,
+                                ),
+                            child: Container(
+                              width: 80,
+                              height: 80,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    badgeColor.withOpacity(0.25),
+                                    badgeColor.withOpacity(0.08),
+                                  ],
+                                ),
+                                border: Border.all(
+                                  color: badgeColor.withOpacity(0.5),
+                                  width: 2.5,
+                                ),
+                              ),
+                              child: Icon(
+                                widget.badge.icon,
+                                size: 38,
+                                color: badgeColor,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 12),
+
+                    // === "Badge Unlocked!" ===
+                    const Text(
+                      '🎉 Badge Unlocked!',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black87,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+
+                    const SizedBox(height: 10),
+
+                    // === Badge name ===
+                    Text(
+                      widget.badge.name,
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.w800,
+                        color: badgeColor,
+                        height: 1.2,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+
+                    const SizedBox(height: 6),
+
+                    // === Description ===
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Text(
+                        widget.badge.description,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          height: 1.4,
                         ),
+                        textAlign: TextAlign.center,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+
+                    const SizedBox(height: 20),
+
+                    // === "View my badges" button ===
+                    SizedBox(
+                      width: double.infinity,
+                      height: 44,
+                      child: ElevatedButton.icon(
+                        onPressed: () {
+                          Navigator.of(context).pop();
+                          widget.onViewBadges?.call();
+                        },
+                        icon: const Icon(Icons.stars_rounded, size: 18),
+                        label: const Text(
+                          'View my badges',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.2,
+                          ),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: badgeColor,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+
+                // === Close (X) button at top-right ===
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    onTap: () {
+                      AnalyticsService().trackEvent(
+                        AnalyticsEvents.badgeUnlockedDialogDismissed,
+                        properties: {
+                          AnalyticsParams.badgeId: widget.badge.id.name,
+                          AnalyticsParams.badgeName: widget.badge.name,
+                        },
+                      );
+                      Navigator.of(context).pop();
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: Colors.grey[200],
                         shape: BoxShape.circle,
                       ),
-                      child: Container(
-                        margin: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: widget.badge.color.withOpacity(0.2),
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          widget.badge.icon,
-                          size: 60,
-                          color: widget.badge.color,
-                        ),
+                      child: Icon(
+                        Icons.close,
+                        size: 14,
+                        color: Colors.grey[600],
                       ),
                     ),
                   ),
                 ),
               ],
             ),
-            
-            const SizedBox(height: 24),
-            
-            // Badge unlocked text
-            FadeTransition(
-              opacity: _fadeAnimation,
-              child: Column(
-                children: [
-                  const Text(
-                    '🎉 Badge Unlocked! 🎉',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.black87,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    widget.badge.name,
-                    style: TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      color: widget.badge.color,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    widget.badge.description,
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // Tier and level info
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _buildInfoChip(
-                        'Tier ${widget.badge.tier}',
-                        Icons.stars,
-                        widget.badge.color,
-                      ),
-                      const SizedBox(width: 12),
-                      _buildInfoChip(
-                        'Level ${widget.badge.level}',
-                        Icons.trending_up,
-                        widget.badge.color,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 24),
-            
-            // Close button
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: widget.badge.color,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: const Text(
-                  'Awesome!',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );
   }
+}
 
-  Widget _buildConfetti() {
-    return SizedBox(
-      width: 200,
-      height: 200,
-      child: Stack(
-        children: List.generate(20, (index) {
-          final random = math.Random(index);
-          final angle = random.nextDouble() * 2 * math.pi;
-          final distance = 60 + random.nextDouble() * 40;
-          final x = math.cos(angle) * distance;
-          final y = math.sin(angle) * distance;
-          final size = 4 + random.nextDouble() * 4;
-          final colors = [
-            Colors.red,
-            Colors.blue,
-            Colors.green,
-            Colors.yellow,
-            Colors.purple,
-            Colors.orange,
-          ];
+// ─────────────────────────────────────────────
+// Confetti burst widget — subtle colored dots
+// ─────────────────────────────────────────────
+class _ConfettiBurst extends StatelessWidget {
+  final AnimationController controller;
+  final Color color;
 
-          return AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              final opacity = (1 - _controller.value).clamp(0.0, 1.0);
-              return Positioned(
-                left: 100 + x * _controller.value,
-                top: 100 + y * _controller.value,
-                child: Transform.rotate(
-                  angle: _controller.value * 4 * math.pi,
-                  child: Opacity(
-                    opacity: opacity,
-                    child: Container(
-                      width: size,
-                      height: size,
-                      decoration: BoxDecoration(
-                        color: colors[random.nextInt(colors.length)],
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            },
-          );
-        }),
-      ),
-    );
-  }
+  const _ConfettiBurst({required this.controller, required this.color});
 
-  Widget _buildInfoChip(String label, IconData icon, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: color,
-            ),
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: controller,
+      builder: (_, __) {
+        return CustomPaint(
+          size: const Size(140, 140),
+          painter: _ConfettiPainter(
+            progress: controller.value,
+            baseColor: color,
           ),
-        ],
-      ),
+        );
+      },
     );
   }
+}
+
+class _ConfettiPainter extends CustomPainter {
+  final double progress;
+  final Color baseColor;
+  static final _rng = math.Random(42);
+  static final List<_Particle> _particles = List.generate(16, (i) {
+    final r = _rng;
+    return _Particle(
+      angle: r.nextDouble() * 2 * math.pi,
+      speed: 28 + r.nextDouble() * 32,
+      size: 2.5 + r.nextDouble() * 3.0,
+      colorIndex: r.nextInt(5),
+      rotationSpeed: (r.nextDouble() - 0.5) * 6,
+    );
+  });
+
+  _ConfettiPainter({required this.progress, required this.baseColor});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (progress >= 1.0) return;
+
+    final cx = size.width / 2;
+    final cy = size.height / 2;
+
+    final colors = [
+      baseColor,
+      baseColor.withRed((baseColor.red + 40).clamp(0, 255)),
+      Colors.amber,
+      Colors.white,
+      baseColor.withBlue((baseColor.blue + 60).clamp(0, 255)),
+    ];
+
+    for (final p in _particles) {
+      final dist = p.speed * progress;
+      final opacity = (1.0 - progress).clamp(0.0, 1.0);
+      final x = cx + math.cos(p.angle) * dist;
+      final y = cy + math.sin(p.angle) * dist;
+
+      final paint =
+          Paint()
+            ..color = colors[p.colorIndex].withOpacity(opacity * 0.85)
+            ..style = PaintingStyle.fill;
+
+      canvas.save();
+      canvas.translate(x, y);
+      canvas.rotate(p.rotationSpeed * progress * math.pi);
+
+      // Mix of circles and small rectangles for confetti look
+      if (p.colorIndex.isEven) {
+        canvas.drawCircle(Offset.zero, p.size * (0.6 + 0.4 * progress), paint);
+      } else {
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(
+            Rect.fromCenter(
+              center: Offset.zero,
+              width: p.size * 1.6,
+              height: p.size * 0.9,
+            ),
+            const Radius.circular(1),
+          ),
+          paint,
+        );
+      }
+
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_ConfettiPainter old) => old.progress != progress;
+}
+
+class _Particle {
+  final double angle;
+  final double speed;
+  final double size;
+  final int colorIndex;
+  final double rotationSpeed;
+
+  const _Particle({
+    required this.angle,
+    required this.speed,
+    required this.size,
+    required this.colorIndex,
+    required this.rotationSpeed,
+  });
 }

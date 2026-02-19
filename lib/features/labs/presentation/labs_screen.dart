@@ -9,6 +9,7 @@ import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
 import 'package:speedometer/features/premium/widgets/premium_upgrade_banner.dart';
 import 'package:speedometer/features/badges/badge_manager.dart';
 import 'package:speedometer/di/injection_container.dart';
+import 'package:speedometer/presentation/screens/home_screen.dart';
 
 class LabsScreen extends StatefulWidget {
   const LabsScreen({super.key});
@@ -17,13 +18,28 @@ class LabsScreen extends StatefulWidget {
   State<LabsScreen> createState() => _LabsScreenState();
 }
 
-class _LabsScreenState extends State<LabsScreen> with SingleTickerProviderStateMixin {
+class _LabsScreenState extends State<LabsScreen>
+    with SingleTickerProviderStateMixin
+    implements TabVisibilityAware {
   late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void onTabVisible() {
+    // Reload tasks whenever the Labs tab becomes visible
+    if (mounted) {
+      context.read<LabsServiceBloc>().add(const LoadTasks());
+    }
+  }
+
+  @override
+  void onTabInvisible() {
+    // Nothing to clean up
   }
 
   @override

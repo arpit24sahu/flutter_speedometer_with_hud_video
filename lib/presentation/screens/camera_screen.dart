@@ -31,6 +31,9 @@ import '../widgets/video_recorder_service.dart';
 import 'gauge_settings_screen_2.dart';
 import 'home_screen.dart';
 
+import 'package:speedometer/services/tutorial_service.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
 
@@ -45,6 +48,11 @@ class _CameraScreenState extends State<CameraScreen>
   final CameraService _cameraService = getIt<CameraService>();
   final CameraStateService _cameraState = CameraStateService();
   final GlobalKey _speedometerKey = GlobalKey();
+  
+  // Tutorial Keys
+  final GlobalKey _recordButtonKey = GlobalKey();
+  final GlobalKey _flipButtonKey = GlobalKey();
+  final GlobalKey _settingsButtonKey = GlobalKey();
 
   int _currentCameraIndex = 0;
 
@@ -131,6 +139,191 @@ class _CameraScreenState extends State<CameraScreen>
         !(_cameraController?.value.isInitialized ?? false)) {
       _initializeCamera(_currentCameraIndex);
     }
+    // Check for tutorial
+    // Use a slight delay to ensure UI is ready and camera preview might be showing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkTutorial();
+    });
+  }
+
+  Future<void> _checkTutorial() async {
+    final tutorialService = TutorialService();
+    // Ensure initialized (should be by HomeScreen but safe to call again)
+    await tutorialService.init();
+
+    if (tutorialService.shouldShowCameraTutorial) {
+      if (!mounted) return;
+      // Also ensure we are not recording
+      if (_cameraState.isRecording) return;
+
+      _showCameraTutorial();
+    }
+  }
+
+  void _showCameraTutorial() {
+    AnalyticsService().trackEvent(AnalyticsEvents.recordedTutorialStarted);
+    TutorialCoachMark(
+      targets: _createCameraTargets(),
+      colorShadow: Colors.black,
+      textSkip: "SKIP",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.tutorialFinishPressed,
+          properties: {"tutorial": "camera"},
+        );
+        TutorialService().setCameraShown();
+      },
+      onSkip: () {
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.tutorialSkipPressed,
+          properties: {"tutorial": "camera"},
+        );
+        TutorialService().setCameraShown();
+        return true;
+      },
+    ).show(context: context);
+  }
+
+  List<TargetFocus> _createCameraTargets() {
+    return [
+      TargetFocus(
+        identify: "record_button",
+        keyTarget: _recordButtonKey,
+        alignSkip: Alignment.topRight,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Record Button",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "Use it to record your video. Remember to record for more than 5 seconds.",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => controller.next(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      "Next",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "flip_button",
+        keyTarget: _flipButtonKey,
+        alignSkip: Alignment.topRight,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Flip Camera",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "Tap to flip between front and back camera.",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => controller.next(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      "Next",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "settings_button",
+        keyTarget: _settingsButtonKey,
+        alignSkip: Alignment.topRight,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Customize Speedometer",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "Use this settings button to customize the speedometer look.",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () => controller.next(), // Finish
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      "Finish",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    ];
   }
 
   @override
@@ -165,6 +358,16 @@ class _CameraScreenState extends State<CameraScreen>
 
       print("currentState check: ${currentState.runtimeType}");
       if (currentState is VideoRecording || currentState is VideoProcessing) {
+        if (_recordingStopwatch.elapsed.inSeconds < 10) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please record at least 10 seconds of video.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
         final gaugeConfigState = context.read<OverlayGaugeConfigurationBloc>().state;
         contextWithBloc.read<VideoRecorderBloc>().add(StopRecording(
               gaugePlacement: gaugeConfigState.gaugePlacement,
@@ -362,6 +565,7 @@ class _CameraScreenState extends State<CameraScreen>
     }
 
     return IconButton(
+      key: _flipButtonKey,
       icon: const Icon(Icons.flip_camera_android),
       color: Colors.white,
       iconSize: 32,
@@ -391,6 +595,7 @@ class _CameraScreenState extends State<CameraScreen>
     final bool isProcessing = state is VideoProcessing;
 
     return FloatingActionButton(
+      key: _recordButtonKey,
       backgroundColor: isRecording ? Colors.red : Colors.white,
       onPressed: () {
         if (state is VideoProcessing) {
@@ -428,6 +633,7 @@ class _CameraScreenState extends State<CameraScreen>
 
   Widget _buildSettingsButton() {
     return IconButton(
+      key: _settingsButtonKey,
       icon: const Icon(Icons.settings),
       color:
           _cameraState.shouldBlockCameraActions

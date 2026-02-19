@@ -4,12 +4,16 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:speedometer/features/labs/presentation/bloc/labs_service_bloc.dart';
 import 'package:speedometer/features/labs/presentation/recorded_tab.dart';
 import 'package:speedometer/features/labs/presentation/exported_tab.dart';
-import 'package:speedometer/features/labs/services/labs_service.dart';
+
 import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
 import 'package:speedometer/features/premium/widgets/premium_upgrade_banner.dart';
 import 'package:speedometer/features/badges/badge_manager.dart';
 import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/presentation/screens/home_screen.dart';
+import 'package:speedometer/services/tutorial_service.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
 
 class LabsScreen extends StatefulWidget {
   const LabsScreen({super.key});
@@ -22,6 +26,8 @@ class _LabsScreenState extends State<LabsScreen>
     with SingleTickerProviderStateMixin
     implements TabVisibilityAware {
   late final TabController _tabController;
+  final GlobalKey _recordedTabKey = GlobalKey();
+  final GlobalKey _exportedTabKey = GlobalKey();
 
   @override
   void initState() {
@@ -34,7 +40,157 @@ class _LabsScreenState extends State<LabsScreen>
     // Reload tasks whenever the Labs tab becomes visible
     if (mounted) {
       context.read<LabsServiceBloc>().add(const LoadTasks());
+      _checkTutorial();
     }
+  }
+
+  Future<void> _checkTutorial() async {
+    final tutorialService = TutorialService();
+    await tutorialService.init();
+
+    if (tutorialService.shouldShowLabsTutorial) {
+      if (!mounted) return;
+      _showLabsTutorial();
+    }
+  }
+
+  void _showLabsTutorial() {
+    AnalyticsService().trackEvent(AnalyticsEvents.labsTutorialStarted);
+    TutorialCoachMark(
+      targets: _createLabsTargets(),
+      colorShadow: Colors.black,
+      textSkip: "SKIP",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () {
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.tutorialFinishPressed,
+          properties: {"tutorial": "labs"},
+        );
+        TutorialService().setLabsShown();
+      },
+      onSkip: () {
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.tutorialSkipPressed,
+          properties: {"tutorial": "labs"},
+        );
+        TutorialService().setLabsShown();
+        return true;
+      },
+    ).show(context: context);
+  }
+
+  List<TargetFocus> _createLabsTargets() {
+    return [
+      TargetFocus(
+        identify: "recorded_tab",
+        keyTarget: _recordedTabKey,
+        alignSkip: Alignment.topRight,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Recorded Videos",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "This tab contains your raw recorded videos. Tap on a video to process and export it with speedometer.",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      AnalyticsService().trackEvent(
+                        AnalyticsEvents.tutorialNextPressed,
+                        properties: {
+                          "tutorial": "labs",
+                          "step": "recorded_tab",
+                        },
+                      );
+                      controller.next();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      "Next",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "exported_tab",
+        keyTarget: _exportedTabKey,
+        alignSkip: Alignment.topRight,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.bottom,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Exported Videos",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "This tab contains your final exported videos with the speedometer overlay.",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      AnalyticsService().trackEvent(
+                        AnalyticsEvents.tutorialNextPressed,
+                        properties: {
+                          "tutorial": "labs",
+                          "step": "exported_tab",
+                        },
+                      );
+                      controller.next(); // Finish
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      "Finish",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    ];
   }
 
   @override
@@ -150,9 +306,21 @@ class _LabsScreenState extends State<LabsScreen>
             fontWeight: FontWeight.w600,
             fontSize: 15,
           ),
-          tabs: const [
-            Tab(text: 'Recorded', icon: Icon(Icons.videocam, size: 20)),
-            Tab(text: 'Exported', icon: Icon(Icons.movie_creation, size: 20)),
+          tabs: [
+            Tab(
+              text: 'Recorded',
+              icon: KeyedSubtree(
+                key: _recordedTabKey,
+                child: const Icon(Icons.videocam, size: 20),
+              ),
+            ),
+            Tab(
+              text: 'Exported',
+              icon: KeyedSubtree(
+                key: _exportedTabKey,
+                child: const Icon(Icons.movie_creation, size: 20),
+              ),
+            ),
           ],
         ),
       ),

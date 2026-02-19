@@ -118,6 +118,17 @@ class AnalyticsEvents {
       'badge_details_screen_dismissed';
   static const String badgeUnlockedDialogDismissed =
       'badge_unlocked_dialog_dismissed';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Tutorial Events
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String homeTutorialStarted = 'home_tutorial_started';
+  static const String recordedTutorialStarted =
+      'recorded_tutorial_started'; // Camera/Record tab
+  static const String labsTutorialStarted = 'labs_tutorial_started';
+  static const String tutorialNextPressed = 'tutorial_next_pressed';
+  static const String tutorialSkipPressed = 'tutorial_skip_pressed';
+  static const String tutorialFinishPressed = 'tutorial_finish_pressed';
 }
 
 /// Common parameter keys for analytics events.

@@ -23,6 +23,9 @@ import 'package:path_provider/path_provider.dart';
 
 import '../../features/badges/badge_service.dart';
 
+import 'package:speedometer/services/tutorial_service.dart';
+import 'package:tutorial_coach_mark/tutorial_coach_mark.dart';
+
 class AppTabState {
   AppTabState._();
 
@@ -70,6 +73,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // GlobalKey(),
     GlobalKey(),
   ];
+
+  final GlobalKey _recordTabKey = GlobalKey();
+  final GlobalKey _labsTabKey = GlobalKey();
+
 
   List<Widget> _screens() => [
     CameraScreen(key: _screenKeys[0]),
@@ -162,6 +169,235 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   static const _lifecycleDebounceMs = 2000;
   final badgeService = BadgeService();
 
+
+
+  Future<void> _checkTutorial() async {
+    final tutorialService = TutorialService();
+    await tutorialService.init();
+
+    if (tutorialService.shouldShowHomeTutorial) {
+      _showHomeTutorial();
+    } else {
+      // If home tutorial already shown, trigger tab specific checks
+      _triggerTabTutorial(_selectedIndex);
+    }
+  }
+
+  void _triggerTabTutorial(int index) {
+    if (index < 0 || index >= _screenKeys.length) return;
+    final state = _screenKeys[index].currentState;
+    // We need a way to trigger check on children.
+    // Since CameraScreen handles its own tutorial check in onTabVisible/initState,
+    // we might just need to ensure it gets called.
+    // For now, let's rely on onTabVisible being called when switching.
+    // For initial load, we might need to manually call it if it's the first tab.
+    if (state is TabVisibilityAware) {
+      // Determine if we need to show tutorial for this tab
+      // Actually, the children constraints are inside children widgets.
+      // We can just call a method if it exists, or let them handle it.
+      // For CameraScreen (index 0), it checks on Init/Visible.
+      // If we just finished Home tutorial, we should re-trigger visibility or a specific method.
+      (state as TabVisibilityAware).onTabVisible();
+    }
+  }
+
+  void _showHomeTutorial() {
+    AnalyticsService().trackEvent(AnalyticsEvents.homeTutorialStarted);
+    TutorialCoachMark(
+      targets: _createHomeTargets(),
+      colorShadow: Colors.black,
+      textSkip: "SKIP",
+      paddingFocus: 10,
+      opacityShadow: 0.8,
+      onFinish: () async {
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.tutorialFinishPressed,
+          properties: {"tutorial": "home"},
+        );
+        await TutorialService().setHomeShown();
+        _triggerTabTutorial(_selectedIndex);
+      },
+      onSkip: () {
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.tutorialSkipPressed,
+          properties: {"tutorial": "home"},
+        );
+        TutorialService().setHomeShown();
+        // optionally skip others? User said "all 3 of them are only shown once".
+        // If skipped, maybe mark current as shown?
+        // Using setHomeShown ensures we don't show it again.
+        _triggerTabTutorial(_selectedIndex);
+        return true;
+      },
+      onClickTarget: (target) {
+        // print(target);
+      },
+      onClickOverlay: (target) {
+        // print(target);
+      },
+    ).show(context: context);
+  }
+
+  List<TargetFocus> _createHomeTargets() {
+    return [
+      TargetFocus(
+        identify: "welcome",
+        keyTarget: _recordTabKey,
+        alignSkip: Alignment.topRight,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text(
+                    "Welcome to TurboGauge!",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 24,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "You can use this app to add speedometer to your Videos.\nUse it to shoot running videos, driving videos, flying videos, riding videos, etc.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white, fontSize: 18),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      AnalyticsService().trackEvent(
+                        AnalyticsEvents.tutorialNextPressed,
+                        properties: {"tutorial": "home", "step": "welcome"},
+                      );
+                      controller.next();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      "Next",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "record_tab",
+        keyTarget: _recordTabKey,
+        alignSkip: Alignment.topRight,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Record Video",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "Use this page to record your video. Remember you can customize your video later while exporting.",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      AnalyticsService().trackEvent(
+                        AnalyticsEvents.tutorialNextPressed,
+                        properties: {"tutorial": "home", "step": "record_tab"},
+                      );
+                      controller.next();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      "Next",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+      TargetFocus(
+        identify: "labs_tab",
+        keyTarget: _labsTabKey,
+        alignSkip: Alignment.topRight,
+        shape: ShapeLightFocus.Circle,
+        contents: [
+          TargetContent(
+            align: ContentAlign.top,
+            builder: (context, controller) {
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Labs & Export",
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                      fontSize: 20,
+                    ),
+                  ),
+                  const Padding(
+                    padding: EdgeInsets.only(top: 10.0),
+                    child: Text(
+                      "Use this to customize and export your video.",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  ElevatedButton(
+                    onPressed: () {
+                      AnalyticsService().trackEvent(
+                        AnalyticsEvents.tutorialNextPressed,
+                        properties: {"tutorial": "home", "step": "labs_tab"},
+                      );
+                      controller.next(); // Finish
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                    ),
+                    child: const Text(
+                      "Finish",
+                      style: TextStyle(color: Colors.black),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    ];
+  }
+
   @override
   void initState() {
     super.initState();
@@ -172,6 +408,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppUpdateService().checkForUpdate();
       DeeplinkService().processPendingDeeplinks();
+      _checkTutorial();
     });
 
   }
@@ -250,9 +487,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           onTap: _onItemTapped,
           selectedItemColor: Colors.white,
           unselectedItemColor: Colors.grey,
-          items: const [
-            BottomNavigationBarItem(icon: Icon(Icons.videocam), label: 'Record'),
-            BottomNavigationBarItem(icon: Icon(Icons.science), label: 'Labs'),
+            items: [
+              BottomNavigationBarItem(
+                icon: KeyedSubtree(
+                  key: _recordTabKey,
+                  child: const Icon(Icons.videocam),
+                ),
+                label: 'Record',
+              ),
+              BottomNavigationBarItem(
+                icon: KeyedSubtree(
+                  key: _labsTabKey,
+                  child: const Icon(Icons.science),
+                ),
+                label: 'Labs',
+              ),
           ],
         ),
       ),

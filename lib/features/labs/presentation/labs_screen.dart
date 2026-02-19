@@ -5,6 +5,7 @@ import 'package:speedometer/features/labs/presentation/bloc/labs_service_bloc.da
 import 'package:speedometer/features/labs/presentation/recorded_tab.dart';
 import 'package:speedometer/features/labs/presentation/exported_tab.dart';
 import 'package:speedometer/features/labs/services/labs_service.dart';
+import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
 import 'package:speedometer/features/premium/widgets/premium_upgrade_banner.dart';
 import 'package:speedometer/features/badges/badge_manager.dart';
 import 'package:speedometer/di/injection_container.dart';
@@ -142,16 +143,16 @@ class _LabsScreenState extends State<LabsScreen> with SingleTickerProviderStateM
       body: Column(
         children: [
           // Premium upgrade banner
-          PremiumUpgradeBanner(source: 'labs_screen'),
+          PremiumFeatureGate(
+            premiumContent: SizedBox.shrink(),
+            freeContent: PremiumUpgradeBanner(source: 'labs_screen'),
+          ),
 
           // Tab content
           Expanded(
-            child: BlocProvider(
-              create: (context) => LabsServiceBloc(labsService: LabsService()),
-              child: TabBarView(
-                controller: _tabController,
-                children: const [RecordedTab(), ExportedTab()],
-              ),
+            child: TabBarView(
+              controller: _tabController,
+              children: const [RecordedTab(), ExportedTab()],
             ),
           ),
         ],

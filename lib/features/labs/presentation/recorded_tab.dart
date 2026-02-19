@@ -31,7 +31,7 @@ class RecordedTab extends StatelessWidget {
 
         if (state.processingTasks.isEmpty) {
           return RefreshIndicator(
-            onRefresh: () async => context.read<LabsServiceBloc>().add(const LoadFiles()),
+            onRefresh: () async => context.read<LabsServiceBloc>().add(const LoadTasks()),
             child: ListView(
               children: [
                 SizedBox(
@@ -80,7 +80,7 @@ class RecordedTab extends StatelessWidget {
         }
 
         return RefreshIndicator(
-          onRefresh: () async => context.read<LabsServiceBloc>().add(const LoadFiles()),
+          onRefresh: () async => context.read<LabsServiceBloc>().add(const LoadTasks()),
           child: ListView.builder(
             padding: const EdgeInsets.all(12),
             itemCount: state.processingTasks.length,
@@ -107,7 +107,7 @@ class RecordedTab extends StatelessWidget {
     );
     // Reload after coming back — the user might have exported a new video
     if (context.mounted) {
-      context.read<LabsServiceBloc>().add(const LoadFiles());
+      context.read<LabsServiceBloc>().add(const LoadTasks());
     }
   }
 

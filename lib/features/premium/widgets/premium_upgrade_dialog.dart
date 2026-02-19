@@ -4,6 +4,7 @@ import 'dart:ui';
 
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
+import 'package:speedometer/features/premium/widgets/premium_upgrade_dialog_2.dart';
 import 'package:speedometer/services/scheduled_notification_service.dart';
 
 import '../bloc/premium_bloc.dart';
@@ -32,7 +33,7 @@ class PremiumUpgradeDialog extends StatefulWidget {
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       barrierColor: Colors.black.withOpacity(0.5),
-      builder: (BuildContext context) => PremiumUpgradeDialog(source: source),
+      builder: (BuildContext context) => PremiumUpgradeDialog2(source: source),
     );
 
     // If dismissed without purchasing, schedule a reminder

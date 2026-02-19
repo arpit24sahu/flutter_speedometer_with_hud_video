@@ -15,8 +15,8 @@ abstract class LabsServiceEvent extends Equatable {
 }
 
 /// Load (or reload) both processing & processed file lists.
-class LoadFiles extends LabsServiceEvent {
-  const LoadFiles();
+class LoadTasks extends LabsServiceEvent {
+  const LoadTasks();
 }
 
 /// Delete a processing task (recorded video) by id.
@@ -82,13 +82,13 @@ class LabsServiceBloc extends Bloc<LabsServiceEvent, LabsServiceState> {
   LabsServiceBloc({
     required this.labsService,
   }) : super(const LabsServiceState()) {
-    on<LoadFiles>(_onLoadFiles);
+    on<LoadTasks>(_onLoadTasks);
     on<DeleteProcessingTask>(_onDeleteProcessingTask);
     on<DeleteProcessedTask>(_onDeleteProcessedTask);
   }
 
-  Future<void> _onLoadFiles(
-    LoadFiles event,
+  Future<void> _onLoadTasks(
+    LoadTasks event,
     Emitter<LabsServiceState> emit,
   ) async {
     emit(state.copyWith(isLoading: true));

@@ -7,6 +7,8 @@ import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_video/ffprobe_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_video/return_code.dart';
 import 'package:ffmpeg_kit_flutter_new_video/session.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:speedometer/features/labs/presentation/bloc/labs_service_bloc.dart';
 import 'package:speedometer/features/labs/presentation/widgets/export_progress_dialog.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:speedometer/di/injection_container.dart';
@@ -786,6 +788,8 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
             }
           }
 
+          if(mounted) context.read<LabsServiceBloc>().add(LoadTasks());
+
           await progressController.close();
           if (!completer.isCompleted) completer.complete();
         },
@@ -1163,22 +1167,21 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                           value: _config.showBranding ?? true,
                           activeColor: Colors.blueAccent,
                           onChanged: (val) {
-                          PremiumUpgradeDialog.show(
-                            context,
-                            source: 'task_processing',
-                          );
+                          // PremiumUpgradeDialog.show(
+                          //   context,
+                          //   source: 'task_processing',
+                          // );
                             _updateConfig((c) => c.copyWith(showBranding: val));
                           }
 
                       ),
                       onTap: () {
-                        _updateConfig((c) =>
-                            c.copyWith(showBranding: !(_config.showBranding ?? true)));
+                        _updateConfig((c) => c.copyWith(showBranding: !(_config.showBranding ?? true)));
                       }
                   ),
                   freeContent: _buildOptionTile(
                       icon: Icons.branding_watermark,
-                      title: 'TurboGauge Watermark',
+                      title: 'TurboGauge Watermark 👑',
                       subtitle: (_config.showBranding ?? true)
                           ? 'Watermark will be shown'
                           : 'No watermark',

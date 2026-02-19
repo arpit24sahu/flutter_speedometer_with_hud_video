@@ -167,7 +167,7 @@ class _CameraScreenState extends State<CameraScreen>
       create: (context) => VideoRecorderBloc(
             recorderService: WidgetRecorderService(
               widgetKey: _speedometerKey,
-              cameraController: _cameraController!,
+              cameraControllerGetter: () => _cameraController,
             ),
           ),
       child: BlocConsumer<VideoRecorderBloc, VideoRecorderState>(
@@ -297,10 +297,9 @@ class _CameraScreenState extends State<CameraScreen>
 
     return IconButton(
       icon: const Icon(Icons.flip_camera_android),
-      color: Colors.transparent, // Colors.white,
+      color: Colors.white,
       iconSize: 32,
       onPressed: () {
-        return;
         HapticFeedback.mediumImpact();
         AnalyticsService().trackEvent(
           AnalyticsEvents.flipCamera,
@@ -437,7 +436,9 @@ class _CameraScreenState extends State<CameraScreen>
       _cameraState.setProcessing(true);
     } else if (videoRecorderState is VideoProcessed ||
         videoRecorderState is VideoRecorderInitial ||
-        videoRecorderState is VideoJobSaved) {
+        videoRecorderState is VideoJobSaved ||
+        videoRecorderState is VideoRecordingError ||
+        videoRecorderState is VideoProcessingError) {
       _cameraState.setRecording(false);
       _cameraState.setProcessing(false);
     }
@@ -496,6 +497,20 @@ class _CameraScreenState extends State<CameraScreen>
 
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showVideoErrorDialog(context, videoRecorderState.message);
+      });
+    } else if (videoRecorderState is VideoRecordingError) {
+      // Recording failed to start — show user feedback and reset
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(videoRecorderState.message),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          context.read<VideoRecorderBloc>().add(ResetRecorder());
+        }
       });
     } else if (videoRecorderState is VideoJobSaved) {
       AnalyticsService().trackEvent(

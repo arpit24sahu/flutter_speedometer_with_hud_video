@@ -30,11 +30,19 @@ class VideoRecorderBloc extends Bloc<VideoRecorderEvent, VideoRecorderState> {
   ) async {
     try {
       bool recordingStarted = await recorderService.startRecording();
-      if (recordingStarted) await LocationService().startSpeedTracking();
-
-      print("!!! Recording did not start");
-
-      emit(VideoRecording());
+      if (recordingStarted) {
+        await LocationService().startSpeedTracking();
+        emit(VideoRecording());
+      } else {
+        debugPrint(
+          'VideoRecorderBloc: Recording did not start – camera may not be ready',
+        );
+        emit(
+          VideoRecordingError(
+            'Recording could not start. Please wait for the camera to initialize and try again.',
+          ),
+        );
+      }
     } catch (e) {
       emit(VideoRecordingError('Failed to start recording: $e'));
     }

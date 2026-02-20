@@ -128,7 +128,8 @@ class AnalyticsEvents {
   static const String labsTutorialStarted = 'labs_tutorial_started';
   static const String tutorialNextPressed = 'tutorial_next_pressed';
   static const String tutorialSkipPressed = 'tutorial_skip_pressed';
-  static const String tutorialFinishPressed = 'tutorial_finish_pressed';
+  static const String welcomeTutorialShown = 'welcome_tutorial_shown';
+  static const String welcomeTutorialDismissed = 'welcome_tutorial_dismissed';
 }
 
 /// Common parameter keys for analytics events.

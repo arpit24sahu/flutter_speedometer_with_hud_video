@@ -11,17 +11,16 @@ import 'badge_model.dart';
 import 'badge_unlock_dialog.dart';
 import 'badges_page.dart';
 import 'badge_status_page.dart';
+import '../../core/dialogs/dialog_manager.dart';
+import '../../core/dialogs/app_dialog_item.dart';
 
 /// Comprehensive manager for badge system
 /// Handles initialization, navigation, notifications, and UI presentation
 class BadgeManager {
   final BadgeService badgeService;
   final GlobalKey<NavigatorState> navigatorKey;
-  
-  BadgeManager({
-    required this.badgeService,
-    required this.navigatorKey,
-  }) {
+
+  BadgeManager({required this.badgeService, required this.navigatorKey}) {
     _setupListener();
   }
 
@@ -35,10 +34,7 @@ class BadgeManager {
     final badgeService = BadgeService();
     await badgeService.initialize();
 
-    return BadgeManager(
-      badgeService: badgeService,
-      navigatorKey: navigatorKey,
-    );
+    return BadgeManager(badgeService: badgeService, navigatorKey: navigatorKey);
   }
 
   // ==================== LISTENER SETUP ====================
@@ -51,12 +47,21 @@ class BadgeManager {
   /// Handle badge service updates
   void _handleBadgeServiceUpdate() {
     final newlyUnlocked = badgeService.newlyUnlockedBadges;
-    
+
     if (newlyUnlocked.isNotEmpty) {
-      for (final badgeId in newlyUnlocked) {
-        _onBadgeUnlocked(badgeId);
+      // Map to actual badge objects and sort them by level (easy first) to ensure
+      // they are enqueued into the DialogManager in the desired order.
+      final badgesToUnlock =
+          newlyUnlocked
+              .map((id) => BadgeDefinitions.getBadgeById(id))
+              .whereType<AppBadge>()
+              .toList()
+            ..sort((a, b) => a.level.compareTo(b.level));
+
+      for (final badge in badgesToUnlock) {
+        _onBadgeUnlocked(badge.id);
       }
-      
+
       badgeService.clearNewlyUnlockedBadges();
     }
   }
@@ -80,7 +85,7 @@ class BadgeManager {
 
     // Show notification
     _showBadgeNotification(badge);
-    
+
     // Show in-app dialog if app is active
     _showBadgeUnlockDialog(badge);
   }
@@ -100,31 +105,28 @@ class BadgeManager {
 
   /// Show in-app dialog for unlocked badge
   void _showBadgeUnlockDialog(AppBadge badge) {
-    final context = navigatorKey.currentContext;
-    if (context == null) return;
-
-    showDialog(
-      context: context,
-      barrierDismissible: true,
-      builder:
-          (context) => BadgeUnlockDialog(
-            badge: badge,
-            onViewBadges: () {
-              // Small delay so the dialog dismiss finishes first
-              Future.delayed(const Duration(milliseconds: 50), () {
-                showBadgeStatusPage();
-              });
-            },
-          ),
+    DialogManager().showDialog(
+      AppDialogItem(
+        dialogWidget: BadgeUnlockDialog(
+          badge: badge,
+          onViewBadges: () {
+            // Small delay so the dialog dismiss finishes first
+            Future.delayed(const Duration(milliseconds: 50), () {
+              showBadgeStatusPage();
+            });
+          },
+        ),
+        soundPath: 'assets/sound/tip.mp3',
+        barrierDismissible: true,
+        priority: badge.level, // lower levels will be shown first
+      ),
     );
   }
 
   // ==================== NAVIGATION ====================
 
   /// Navigate to badges page
-  Future<void> navigateToBadgesPage({
-    bool fullScreen = true,
-  }) async {
+  Future<void> navigateToBadgesPage({bool fullScreen = true}) async {
     final context = navigatorKey.currentContext;
     if (context == null) return;
 
@@ -145,9 +147,7 @@ class BadgeManager {
   }
 
   /// Navigate to stats page
-  Future<void> navigateToStatsPage({
-    bool fullScreen = true,
-  }) async {
+  Future<void> navigateToStatsPage({bool fullScreen = true}) async {
     final context = navigatorKey.currentContext;
     if (context == null) return;
 
@@ -184,10 +184,7 @@ class BadgeManager {
       isDismissible: isDismissible,
       enableDrag: enableDrag,
       backgroundColor: Colors.transparent,
-      builder: (context) => BadgeBottomSheet(
-        badgeService: badgeService,
-        category: category,
-      ),
+      builder: (context) => BadgeBottomSheet(badgeService: badgeService, category: category),
     );
   }
 

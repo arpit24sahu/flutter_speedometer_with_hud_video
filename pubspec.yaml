@@ -73,6 +73,7 @@ dependencies:
   crypto: ^3.0.7
   provider: ^6.1.5+1
   tutorial_coach_mark: ^1.3.3
+  audioplayers: ^6.5.1
 
 
 dev_dependencies:
@@ -131,6 +132,7 @@ flutter:
   assets:
     - .env
     - assets/gifs/
+    - assets/sound/
   # fonts:
   #   - family: Schyler
   #     fonts:

@@ -643,7 +643,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
       AnalyticsService().flush();
 
       debugPrint('[Labs Export] Running FFmpeg command...');
-      debugPrint('[Labs Export] Command: $command', wrapWidth: 1024);
+      debugPrint('[Labs Export] Command: ${command.command}', wrapWidth: 1024);
 
       // ── Use executeAsync with a statistics callback for progress ──
       final completer = Completer<void>();
@@ -662,7 +662,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
               AnalyticsEvents.ffmpegCommandResult,
               properties: {
                 "process_id": processId,
-                "ffmpeg_command": command,
+                "ffmpeg_command": command.command,
                 "config": _config.toString(),
                 "input_video_length": widget.task.lengthInSeconds,
                 "input_video_size": widget.task.sizeInKb,
@@ -728,7 +728,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
               AnalyticsEvents.ffmpegProcessingFinished,
               properties: {
                 "process_id": processId,
-                "ffmpeg_command": command,
+                "ffmpeg_command": command.command,
                 "config": _config.toString(),
                 "input_video_length": widget.task.lengthInSeconds,
                 "input_video_size": widget.task.sizeInKb,
@@ -759,7 +759,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
               AnalyticsEvents.ffmpegCommandResult,
               properties: {
                 "process_id": processId,
-                "ffmpeg_command": command,
+                "ffmpeg_command": command.command,
                 "config": _config.toString(),
                 "input_video_length": widget.task.lengthInSeconds,
                 "input_video_size": widget.task.sizeInKb,

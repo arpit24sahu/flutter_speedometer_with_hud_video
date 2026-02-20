@@ -176,6 +176,8 @@ class _CameraScreenState extends State<CameraScreen>
       final currentState = contextWithBloc.read<VideoRecorderBloc>().state;
 
       print("currentState check: ${currentState.runtimeType}");
+      HapticFeedback.mediumImpact();
+
       if (currentState is VideoRecording || currentState is VideoProcessing) {
         if (_recordingStopwatch.elapsed.inSeconds < 10) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -187,13 +189,30 @@ class _CameraScreenState extends State<CameraScreen>
           );
           return;
         }
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.recordingStopped,
+          properties: {
+            "cameraOrientation": _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
+            "cameraOrientationIndex": _currentCameraIndex,
+            "isRecording": currentState is VideoRecording,
+            "gaugeState": contextWithBloc.read<OverlayGaugeConfigurationBloc>().state.toJson(),
+          },
+        );
         final gaugeConfigState = context.read<OverlayGaugeConfigurationBloc>().state;
         contextWithBloc.read<VideoRecorderBloc>().add(StopRecording(
               gaugePlacement: gaugeConfigState.gaugePlacement,
               relativeSize: gaugeConfigState.gaugeRelativeSize,
         ));
       } else {
-        print("Yesss");
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.recordingStarted,
+          properties: {
+            "cameraOrientation": _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
+            "cameraOrientationIndex": _currentCameraIndex,
+            "isRecording": currentState is VideoRecording,
+            "gaugeState": contextWithBloc.read<OverlayGaugeConfigurationBloc>().state.toJson(),
+          },
+        );
         contextWithBloc.read<VideoRecorderBloc>().add(StartRecording());
       }
     } catch (e) {
@@ -423,20 +442,6 @@ class _CameraScreenState extends State<CameraScreen>
             properties: {"progress": state.progress},
           );
         } else {
-          HapticFeedback.mediumImpact();
-          AnalyticsService().trackEvent(
-            isRecording
-                ? AnalyticsEvents.recordingStopped
-                : AnalyticsEvents.recordingStarted,
-            properties: {
-              "cameraOrientation":
-                  _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
-              "cameraOrientationIndex": _currentCameraIndex,
-              "isRecording": isRecording,
-              "gaugeState":
-                  contextWithBloc.read<OverlayGaugeConfigurationBloc>().state.toJson(),
-            },
-          );
           _toggleRecording(contextWithBloc);
         }
       },

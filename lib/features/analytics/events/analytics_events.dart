@@ -109,6 +109,7 @@ class AnalyticsEvents {
   static const String closeAppYesSelected = 'close_app_yes_selected';
   static const String closeAppNoSelected = 'close_app_no_selected';
   static const String closeAppDialogDismissed = 'close_app_dialog_dismissed';
+  static const String feedbackReceived = 'feedback_received';
   // ─────────────────────────────────────────────────────────────────────────
   // Badge Events
   // ─────────────────────────────────────────────────────────────────────────

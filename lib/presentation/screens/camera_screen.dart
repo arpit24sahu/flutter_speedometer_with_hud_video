@@ -127,6 +127,9 @@ class _CameraScreenState extends State<CameraScreen>
     _cameraController?.dispose();
     _cameraController = null;
     _cameraState.setControllerReady(false);
+    // Trigger rebuild so the guard in build() replaces CameraPreview
+    // with a black placeholder before the next frame.
+    if (mounted) setState(() {});
   }
 
   @override
@@ -260,14 +263,22 @@ class _CameraScreenState extends State<CameraScreen>
                     flex: 4,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
+                        // Guard: controller may have been disposed between
+                        // the top-level null check and this LayoutBuilder
+                        // callback (e.g., tab switch during BlocBuilder rebuild).
+                        final ctrl = _cameraController;
+                        final isReady = ctrl != null && ctrl.value.isInitialized;
+
                         return Stack(
                           children: [
                             // Camera preview
                             Positioned.fill(
-                              child: AspectRatio(
-                                aspectRatio: _cameraController!.value.aspectRatio,
-                                child: CameraPreview(_cameraController!),
-                              ),
+                              child: isReady
+                                  ? AspectRatio(
+                                      aspectRatio: ctrl.value.aspectRatio,
+                                      child: CameraPreview(ctrl),
+                                    )
+                                  : const ColoredBox(color: Colors.black, child: CircularProgressIndicator(color: Colors.red),),
                             ),
 
                             // Speedometer gauge overlay

@@ -318,56 +318,190 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final shouldClose = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
-      builder:
-          (context) => AlertDialog(
-            backgroundColor: Colors.grey[900],
-            title: const Text(
-              'Exit Application',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: const Text(
-              'Are you sure you want to close the app?',
-              style: TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  AnalyticsService().trackEvent(
-                    AnalyticsEvents.closeAppNoSelected,
-                  );
-                  AnalyticsService().flush(); // Flush on interaction
-                  AnalyticsService().trackEvent(
-                    AnalyticsEvents.closeAppDialogDismissed,
-                  );
-                  Navigator.of(context).pop(false);
-                },
-                child: const Text(
-                  'Cancel',
-                  style: TextStyle(color: Colors.grey),
+      builder: (dialogContext) {
+        final controller = TextEditingController();
+        bool submitted = false;
+
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            final hasText = controller.text.trim().isNotEmpty;
+
+            return AlertDialog(
+              backgroundColor: Colors.grey[900],
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                'Are you sure you want to close the app?',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              TextButton(
-                onPressed: () {
-                  AnalyticsService().trackEvent(
-                    AnalyticsEvents.closeAppYesSelected,
-                  );
-                  // We will flush in the main flow before closing
-                  Navigator.of(context).pop(true);
-                },
-                child: const Text(
-                  'Exit',
-                  style: TextStyle(color: Colors.redAccent),
-                ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Any feedback or feature request?',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: controller,
+                    maxLines: 2,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Type your feedback here...',
+                      hintStyle: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 14,
+                      ),
+                      filled: true,
+                      fillColor: Colors.grey[850],
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: BorderSide.none,
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        borderSide: const BorderSide(
+                          color: Colors.blueAccent,
+                          width: 1.5,
+                        ),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                    ),
+                    onChanged:
+                        (_) => setDialogState(() {
+                          // Reset submitted state if user types again
+                          if (submitted) submitted = false;
+                        }),
+                  ),
+                  const SizedBox(height: 12),
+                  // Submit button (centered)
+                  Center(
+                    child:
+                        submitted
+                            ? const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.check_circle,
+                                  color: Colors.greenAccent,
+                                  size: 18,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'Feedback sent',
+                                  style: TextStyle(
+                                    color: Colors.greenAccent,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            )
+                            : TextButton(
+                              onPressed:
+                                  hasText
+                                      ? () {
+                                        final text = controller.text.trim();
+                                        AnalyticsService().trackEvent(
+                                          AnalyticsEvents.feedbackReceived,
+                                          properties: {'feedback_text': text},
+                                        );
+                                        AnalyticsService().flush();
+                                        controller.clear();
+                                        setDialogState(() => submitted = true);
+                                      }
+                                      : null,
+                              style: TextButton.styleFrom(
+                                backgroundColor:
+                                    hasText
+                                        ? Colors.blueAccent
+                                        : Colors.grey[800],
+                                foregroundColor: Colors.white,
+                                disabledForegroundColor: Colors.grey[600],
+                                disabledBackgroundColor: Colors.grey[800],
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 20,
+                                  vertical: 8,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              child: const Text(
+                                'Submit Feedback',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                  ),
+                ],
               ),
-            ],
-          ),
+              actionsPadding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    final props = <String, dynamic>{};
+                    if (text.isNotEmpty) props['feedback_text'] = text;
+                    AnalyticsService().trackEvent(
+                      AnalyticsEvents.closeAppNoSelected,
+                      properties: props,
+                    );
+                    AnalyticsService().flush();
+                    AnalyticsService().trackEvent(
+                      AnalyticsEvents.closeAppDialogDismissed,
+                      properties: props,
+                    );
+                    Navigator.of(dialogContext).pop(false);
+                  },
+                  child: const Text(
+                    'Cancel',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {
+                    final text = controller.text.trim();
+                    final props = <String, dynamic>{};
+                    if (text.isNotEmpty) props['feedback_text'] = text;
+                    AnalyticsService().trackEvent(
+                      AnalyticsEvents.closeAppYesSelected,
+                      properties: props,
+                    );
+                    Navigator.of(dialogContext).pop(true);
+                  },
+                  child: const Text(
+                    'Exit',
+                    style: TextStyle(color: Colors.redAccent),
+                  ),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
 
     if (shouldClose == true) {
       if (!context.mounted) return;
       LocationService().disposeTracking();
 
-      // Show loader
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -377,18 +511,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
       );
 
-      // Clean up resources if needed
-      // Most BLoCs close automatically or can be closed here if needed.
-      // For example:
-      // context.read<SpeedometerBloc>().add(StopSpeedTracking()); // handled in CameraScreen/SpeedometerScreen dispose usually
-
-      // Flush analytics
       AnalyticsService().flush();
-
-      // Wait for 200ms
       await Future.delayed(const Duration(milliseconds: 200));
-
-      // Close app
       SystemNavigator.pop();
     }
   }

@@ -10,22 +10,32 @@ const Dial defaultDial = Dial(
   needleMaxAngle: 240,
 );
 
-const Needle defaultNeedle = Needle(
-  id: 'classic_needle_black_1',
-  name: "Classic 1",
+const Needle defaultNeedle =   Needle(
+  id: 'bullet_simple_needle_black',
+  name: "Bullet",
   assetType: AssetType.network,
-  path: 'https://i.ibb.co/kgpT3qxx/classic-needle-1.png',
+  path: 'https://i.ibb.co/219r9BWP/black-simple-thick.png',
   color: 'black',
+  colorEditable: true
 );
 
 
 final List<Needle> _needles = [
+  Needle(
+    id: 'bullet_simple_needle_black',
+    name: "Bullet",
+    assetType: AssetType.network,
+    path: 'https://i.ibb.co/219r9BWP/black-simple-thick.png',
+    color: 'black',
+    colorEditable: true
+  ),
   Needle(
     id: 'classic_needle_black_1',
     name: "Classic 1",
     assetType: AssetType.network,
     path: 'https://i.ibb.co/kgpT3qxx/classic-needle-1.png',
     color: 'black',
+    colorEditable: true
   ),
   Needle(
     id: 'classic_needle_black',
@@ -33,6 +43,7 @@ final List<Needle> _needles = [
     assetType: AssetType.network,
     path: 'https://i.ibb.co/bMD3KpK0/needle.png',
     color: 'black',
+    colorEditable: true
   ),
   Needle(
     id: 'compass_needle_red_white',
@@ -47,6 +58,7 @@ final List<Needle> _needles = [
     assetType: AssetType.network,
     path: 'https://i.ibb.co/hTbLQnK/pen-needle.png',
     color: 'black',
+    colorEditable: true
   ),
 ];
 
@@ -61,8 +73,18 @@ final List<Dial> _dials = [
   //   needleMaxAngle: 270,
   // ),
   const Dial(
+      id: 'black-dial-classic-with-markings',
+      name: 'Classic1',
+      style: DialStyle.analog,
+      assetType: AssetType.network,
+      path: 'https://i.ibb.co/d47qGD8Z/black-dial-classic-with-markings.png',
+      needleMinAngle: 0,
+      needleMaxAngle: 230,
+      colorEditable: true
+  ),
+  const Dial(
     id: 'classic_colored_dial',
-    name: 'Classic',
+    name: 'Colored',
     style: DialStyle.analog,
     assetType: AssetType.network,
     path: 'https://i.ibb.co/QFtc3pnm/SHARMA-2.png',
@@ -87,11 +109,18 @@ final List<GaugeCustomizationOption> kGaugeOptions = [
   //   needles: _needles
   // ),
   GaugeCustomizationOption(
-    id: 'classic_colored',
+    id: 'classic1',
     name: "Classic 1",
     dial: _dials[0],
     needles: _needles
   ),
+  GaugeCustomizationOption(
+    id: 'colored1',
+    name: "Colored 1",
+    dial: _dials[1],
+    needles: _needles
+  ),
+
 
   // ─── Sport ───
   // GaugeCustomizationOption(

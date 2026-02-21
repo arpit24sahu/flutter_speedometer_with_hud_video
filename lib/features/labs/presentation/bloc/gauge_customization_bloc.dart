@@ -110,6 +110,26 @@ class ChangeTextColor extends GaugeCustomizationEvent {
 /// Change text color
 class ToggleGaugeUnits extends GaugeCustomizationEvent {}
 
+/// Change dial tint color (for colorEditable dials)
+class ChangeDialColor extends GaugeCustomizationEvent {
+  final Color dialColor;
+
+  const ChangeDialColor(this.dialColor);
+
+  @override
+  List<Object?> get props => [dialColor];
+}
+
+/// Change needle tint color (for colorEditable needles)
+class ChangeNeedleColor extends GaugeCustomizationEvent {
+  final Color needleColor;
+
+  const ChangeNeedleColor(this.needleColor);
+
+  @override
+  List<Object?> get props => [needleColor];
+}
+
 
 
 /// ─────────────────────────────────────────────
@@ -240,6 +260,26 @@ class GaugeCustomizationBloc
         state.copyWith(
           customization: state.customization.copyWith(
             textColor: event.textColor,
+          ),
+        ),
+      );
+    });
+
+    on<ChangeDialColor>((event, emit) {
+      emit(
+        state.copyWith(
+          customization: state.customization.copyWith(
+            dialColor: event.dialColor,
+          ),
+        ),
+      );
+    });
+
+    on<ChangeNeedleColor>((event, emit) {
+      emit(
+        state.copyWith(
+          customization: state.customization.copyWith(
+            needleColor: event.needleColor,
           ),
         ),
       );

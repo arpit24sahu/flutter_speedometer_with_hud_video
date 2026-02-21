@@ -1,7 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'dart:math';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:ffmpeg_kit_flutter_new_video/ffmpeg_kit.dart';
 import 'package:ffmpeg_kit_flutter_new_video/ffprobe_kit.dart';
@@ -18,14 +16,15 @@ import 'package:speedometer/features/badges/badge_manager.dart';
 import 'package:speedometer/features/labs/models/processing_task.dart';
 import 'package:speedometer/features/labs/models/processed_task.dart';
 import 'package:speedometer/features/labs/models/gauge_customization.dart';
-import 'package:speedometer/features/labs/data/gauge_options.dart';
+import 'package:speedometer/features/labs/presentation/bloc/gauge_customization_bloc.dart';
+import 'package:speedometer/features/labs/presentation/speedometer_overlay_3.dart';
 import 'package:speedometer/features/labs/services/gauge_export_service_2.dart';
 import 'package:speedometer/features/labs/services/labs_service.dart';
-import 'package:speedometer/features/labs/services/gauge_export_service.dart';
 import 'package:speedometer/features/premium/widgets/premium_feature_gate.dart';
 import 'package:speedometer/features/premium/widgets/premium_upgrade_dialog.dart';
 import 'package:speedometer/packages/gal.dart';
-import 'package:speedometer/services/remote_asset_service.dart';
+import 'package:speedometer/presentation/widgets/color_picker_bottom_sheet.dart';
+import 'package:speedometer/presentation/widgets/gauge_needle_selector_widget.dart';
 import 'package:get_it/get_it.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
 
@@ -40,9 +39,6 @@ class TaskProcessingPage extends StatefulWidget {
 
 class _TaskProcessingPageState extends State<TaskProcessingPage> {
   // ─── State ───
-  late GaugeCustomization _config;
-  late GaugeCustomizationOption _selectedOption;
-  Needle? _selectedNeedle;
 
   bool _exportRawVideo = false;
   bool _isExporting = false;
@@ -51,25 +47,17 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
   @override
   void initState() {
     super.initState();
-
-    // Auto-select first gauge and first needle
-    _selectedOption = kGaugeOptions.first;
-    _selectedNeedle =
-        _selectedOption.hasNeedles ? _selectedOption.needles!.first : null;
-
-    _config = GaugeCustomization(
-      dial: _selectedOption.dial,
-      needle: _selectedNeedle,
-      dialStyle: DialStyle.analog,
-      showSpeed: true,
-      showBranding: true,
-      isMetric: false,
-      gaugeAspectRatio: 1.4, // 7:5
-      sizeFactor: 0.25,
-      placement: GaugePlacement.topRight,
-    );
-
     _generateThumbnail();
+  }
+
+  GaugeCustomization get _config =>
+      context.read<GaugeCustomizationBloc>().state.customization;
+
+  void _updateConfig(GaugeCustomization Function(GaugeCustomization) updater) {
+    final newConfig = updater(_config);
+    context.read<GaugeCustomizationBloc>().add(
+      ChangeGaugeCustomization(newConfig),
+    );
   }
 
   Future<void> _generateThumbnail() async {
@@ -85,152 +73,6 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
     } catch (_) {}
   }
 
-  void _updateConfig(GaugeCustomization Function(GaugeCustomization) updater) {
-    setState(() {
-      _config = updater(_config);
-    });
-  }
-
-  // ─── Gauge + Needle Bottom Sheet ───
-
-  void _showGaugeAndNeedleSheet() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.grey[900],
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            final hasNeedles = _selectedOption.hasNeedles;
-
-            return Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // ─ Section: Gauge ─
-                  const Text(
-                    'Select Gauge',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 3,
-                      crossAxisSpacing: 10,
-                      mainAxisSpacing: 10,
-                      childAspectRatio: 0.85,
-                    ),
-                    itemCount: kGaugeOptions.length,
-                    itemBuilder: (context, index) {
-                      final option = kGaugeOptions[index];
-                      final isSelected = option.id == _selectedOption.id;
-                      return _GaugeTile(
-                        option: option,
-                        isSelected: isSelected,
-                        onTap: () {
-                          setSheetState(() {
-                            _selectedOption = option;
-                            _selectedNeedle = option.hasNeedles
-                                ? option.needles!.first
-                                : null;
-                          });
-                          setState(() {
-                            _updateConfig((c) => c.copyWith(
-                                  dial: option.dial,
-                                  needle: _selectedNeedle,
-                                ));
-                          });
-                        },
-                      );
-                    },
-                  ),
-
-                  // ─ Section: Needle (only if gauge has needles) ─
-                  if (hasNeedles) ...[
-                    const SizedBox(height: 20),
-                    const Divider(color: Colors.white24),
-                    const SizedBox(height: 12),
-                    const Text(
-                      'Select Needle',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      height: 90,
-                      child: ListView.separated(
-                        scrollDirection: Axis.horizontal,
-                        itemCount: _selectedOption.needles!.length,
-                        separatorBuilder: (_, __) => const SizedBox(width: 10),
-                        itemBuilder: (context, index) {
-                          final needle = _selectedOption.needles![index];
-                          final isNeedleSelected =
-                              needle.id == _selectedNeedle?.id;
-                          return _NeedleTile(
-                            needle: needle,
-                            isSelected: isNeedleSelected,
-                            onTap: () {
-                              setSheetState(() {
-                                _selectedNeedle = needle;
-                              });
-                              setState(() {
-                                _updateConfig(
-                                    (c) => c.copyWith(needle: needle));
-                              });
-                            },
-                          );
-                        },
-                      ),
-                    ),
-                  ],
-
-                  const SizedBox(height: 20),
-
-                  // ─ Done Button ─
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      style: TextButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Done',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 16),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
   // ─── Placement Bottom Sheet ───
 
   void _showPlacementSheet() {
@@ -240,7 +82,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      builder: (context) {
+      builder: (sheetContext) {
         return Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -267,13 +109,13 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                     mainAxisSpacing: 8,
                   ),
                   itemCount: GaugePlacement.values.length,
-                  itemBuilder: (context, index) {
+                  itemBuilder: (ctx, index) {
                     final placement = GaugePlacement.values[index];
                     final isSelected = placement == _config.labsPlacement;
                     return GestureDetector(
                       onTap: () {
                         _updateConfig((c) => c.copyWith(placement: placement));
-                        Navigator.pop(context);
+                        Navigator.pop(sheetContext);
                       },
                       child: Container(
                         decoration: BoxDecoration(
@@ -330,243 +172,14 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
   // ─── Text Color Bottom Sheet ───
 
   void _showTextColorSheet() {
-    const presetColors = <Color>[
-      Colors.white,
-      Color(0xFFE0E0E0),
-      Color(0xFF9E9E9E),
-      Colors.black,
-      Color(0xFFFF1744),
-      Color(0xFFFF9100),
-      Color(0xFFFFEA00),
-      Color(0xFF00E676),
-      Color(0xFF00B0FF),
-      Color(0xFFD500F9),
-      Color(0xFFFF4081),
-      Color(0xFF00BFA5),
-    ];
-
-    final currentColor = _config.textColor ?? Colors.white;
-
-    showModalBottomSheet(
+    showColorPickerBottomSheet(
       context: context,
-      backgroundColor: Colors.grey[900],
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (sheetContext) {
-        Color previewColor = currentColor;
-        final hexController = TextEditingController(
-          text: _colorToHex(currentColor),
-        );
-
-        return StatefulBuilder(
-          builder: (context, setSheetState) {
-            return Padding(
-              padding: EdgeInsets.only(
-                left: 20,
-                right: 20,
-                top: 20,
-                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Select Text Color',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 6,
-                          crossAxisSpacing: 10,
-                          mainAxisSpacing: 10,
-                        ),
-                    itemCount: presetColors.length,
-                    itemBuilder: (ctx, index) {
-                      final color = presetColors[index];
-                      final isSelected = color.value == previewColor.value;
-                      return GestureDetector(
-                        onTap: () {
-                          setSheetState(() {
-                            previewColor = color;
-                            hexController.text = _colorToHex(color);
-                          });
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: color,
-                            shape: BoxShape.circle,
-                            border: Border.all(
-                              color:
-                                  isSelected
-                                      ? Colors.blueAccent
-                                      : Colors.grey[600]!,
-                              width: isSelected ? 3 : 1.5,
-                            ),
-                            boxShadow:
-                                isSelected
-                                    ? [
-                                      BoxShadow(
-                                        color: Colors.blueAccent.withValues(
-                                          alpha: 0.5,
-                                        ),
-                                        blurRadius: 8,
-                                      ),
-                                    ]
-                                    : null,
-                          ),
-                          child:
-                              isSelected
-                                  ? Icon(
-                                    Icons.check,
-                                    color:
-                                        color.computeLuminance() > 0.5
-                                            ? Colors.black
-                                            : Colors.white,
-                                    size: 20,
-                                  )
-                                  : null,
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(height: 20),
-                  const Divider(color: Colors.white24),
-                  const SizedBox(height: 12),
-                  const Text(
-                    'Custom Hex Color',
-                    style: TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: previewColor,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(
-                            color: Colors.grey[600]!,
-                            width: 1.5,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: TextField(
-                          controller: hexController,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'monospace',
-                            fontSize: 16,
-                          ),
-                          decoration: InputDecoration(
-                            prefixText: '#',
-                            prefixStyle: const TextStyle(
-                              color: Colors.white54,
-                              fontFamily: 'monospace',
-                              fontSize: 16,
-                            ),
-                            hintText: 'FFFFFF',
-                            hintStyle: TextStyle(color: Colors.grey[600]),
-                            filled: true,
-                            fillColor: Colors.grey[800],
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            focusedBorder: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: const BorderSide(
-                                color: Colors.blueAccent,
-                                width: 2,
-                              ),
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 14,
-                            ),
-                          ),
-                          maxLength: 6,
-                          onChanged: (text) {
-                            final color = _hexToColor(text);
-                            if (color != null) {
-                              setSheetState(() {
-                                previewColor = color;
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: () {
-                        _updateConfig(
-                          (c) => c.copyWith(textColor: previewColor),
-                        );
-                        Navigator.pop(sheetContext);
-                      },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blueAccent,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                      child: const Text(
-                        'Apply Color',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-              ),
-            );
-          },
-        );
+      currentColor: _config.textColor ?? Colors.white,
+      title: 'Select Text Color',
+      onColorSelected: (color) {
+        _updateConfig((c) => c.copyWith(textColor: color));
       },
     );
-  }
-
-  String _colorToHex(Color c) {
-    return '${c.red.toRadixString(16).padLeft(2, '0')}'
-        '${c.green.toRadixString(16).padLeft(2, '0')}'
-        '${c.blue.toRadixString(16).padLeft(2, '0')}';
-  }
-
-  Color? _hexToColor(String hex) {
-    hex = hex.replaceAll('#', '').trim();
-    if (hex.length == 6) {
-      final intVal = int.tryParse(hex, radix: 16);
-      if (intVal != null) {
-        return Color(0xFF000000 | intVal);
-      }
-    }
-    return null;
   }
 
   // ─── Export ───
@@ -608,6 +221,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
         context,
         progressStream: progressController.stream,
         thumbnailPath: _thumbnailPath,
+        gaugeCustomization: _config,
       );
     }
 
@@ -934,8 +548,11 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
 
   @override
   Widget build(BuildContext context) {
-    final imperial = _config.isMetric ?? false;
-    final placement = _config.labsPlacement;
+    return BlocBuilder<GaugeCustomizationBloc, GaugeCustomizationState>(
+      builder: (context, gaugeState) {
+        final config = gaugeState.customization;
+        final imperial = config.isMetric ?? false;
+        final placement = config.labsPlacement;
 
     return Scaffold(
       backgroundColor: Colors.black,
@@ -954,23 +571,54 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
       body: ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                // ─── Video Preview ───
+              // ─── Video Preview (vertical with speedometer overlay) ───
                 _buildSectionHeader('Video Preview'),
                 const SizedBox(height: 8),
-                Container(
-                  height: 180,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    color: Colors.grey[900],
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: _thumbnailPath != null
-                      ? Image.file(File(_thumbnailPath!), fit: BoxFit.cover)
-                      : const Center(
-                    child: Icon(Icons.video_file,
-                        size: 48, color: Colors.grey),
-                  ),
+              Builder(
+                builder: (context) {
+                  final previewWidth = MediaQuery.of(context).size.width / 2;
+                  final previewHeight = previewWidth * (16 / 9);
+                  final gaugeSize = previewWidth * (config.sizeFactor ?? 0.25);
+
+                  return Center(
+                    child: Container(
+                      width: previewWidth,
+                      height: previewHeight,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        color: Colors.grey[900],
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: Stack(
+                        fit: StackFit.expand,
+                        children: [
+                          // Thumbnail
+                          if (_thumbnailPath != null)
+                            Image.file(File(_thumbnailPath!), fit: BoxFit.cover)
+                          else
+                            const Center(
+                              child: Icon(
+                                Icons.video_file,
+                                size: 48,
+                                color: Colors.grey,
+                              ),
+                            ),
+                          // Speedometer overlay
+                          placement.buildPositioned(
+                            gaugeSize: gaugeSize,
+                            screenSize: Size(previewWidth, previewHeight),
+                            margin: 8,
+                            child: SpeedometerOverlay3(
+                              speed: 60,
+                              maxSpeed: 240,
+                              size: gaugeSize,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
                 ),
 
 
@@ -1003,34 +651,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                 // ─── Gauge Style ───
                 _buildSectionHeader('Gauge Style'),
                 const SizedBox(height: 8),
-                _buildOptionTile(
-                  icon: Icons.speed,
-                  title: _selectedOption.id ?? 'Select Gauge',
-                  subtitle: _selectedNeedle != null
-                      ? 'Needle: ${_selectedNeedle!.color ?? _selectedNeedle!.id ?? "default"}'
-                      : 'No needle',
-                  trailing:
-                  _selectedOption.dial?.assetType == AssetType.network
-                      ? Stack(
-                        children: [
-                                _buildCachedThumbnail(
-                                  _selectedOption.dial?.path ?? "",
-                                  30,
-                                  30,
-                                ),
-                          Transform.rotate(
-                            angle: -pi/4,
-                                  child: _buildCachedThumbnail(
-                                    _selectedNeedle?.path ?? "",
-                                    30,
-                                    30,
-                                  )
-                          ),
-                        ],
-                      )
-                      : const Icon(Icons.chevron_right, color: Colors.white54, size: 24),
-                  onTap: _showGaugeAndNeedleSheet,
-                ),
+              const GaugeNeedleSelectorWidget(),
 
                 const SizedBox(height: 20),
 
@@ -1093,7 +714,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    '${((_config.sizeFactor ?? 0.25) * 100).toStringAsFixed(0)}% of video',
+                                '${((config.sizeFactor ?? 0.25) * 100).toStringAsFixed(0)}% of video',
                                     style: TextStyle(
                                       color: Colors.grey[500],
                                       fontSize: 12,
@@ -1103,7 +724,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                               ),
                             ),
                             Text(
-                              (_config.sizeFactor ?? 0.25).toStringAsFixed(2),
+                          (config.sizeFactor ?? 0.25).toStringAsFixed(2),
                               style: const TextStyle(
                                 color: Colors.blueAccent,
                                 fontWeight: FontWeight.bold,
@@ -1113,13 +734,13 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                           ],
                         ),
                         Slider(
-                          value: (_config.sizeFactor ?? 0.25).toDouble(),
+                      value: (config.sizeFactor ?? 0.25).toDouble(),
                           min: 0.10,
                           max: 0.50,
                           divisions: 8,
                           activeColor: Colors.blueAccent,
-                          label:
-                              '${((_config.sizeFactor ?? 0.25) * 100).toStringAsFixed(0)}%',
+                      label:
+                          '${((config.sizeFactor ?? 0.25) * 100).toStringAsFixed(0)}%',
                           onChanged:
                               (val) => _updateConfig(
                                 (c) => c.copyWith(sizeFactor: val),
@@ -1138,12 +759,12 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                     icon: Icons.format_color_text,
                     title: 'Text Color',
                     subtitle:
-                        '#${(_config.textColor ?? Colors.white).value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
+                    '#${(config.textColor ?? Colors.white).value.toRadixString(16).padLeft(8, '0').substring(2).toUpperCase()}',
                     trailing: Container(
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
-                        color: _config.textColor ?? Colors.white,
+                    color: config.textColor ?? Colors.white,
                         shape: BoxShape.circle,
                         border: Border.all(color: Colors.grey, width: 1.5),
                       ),
@@ -1160,40 +781,40 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                   premiumContent: _buildOptionTile(
                       icon: Icons.branding_watermark,
                       title: 'Show Watermark',
-                      subtitle: (_config.showBranding ?? true)
+                  subtitle: (config.showBranding ?? true)
                           ? 'TurboGauge Watermark will be shown'
                           : 'No watermark',
                       trailing: Switch(
-                          value: _config.showBranding ?? true,
+                    value: config.showBranding ?? true,
                           activeColor: Colors.blueAccent,
-                          onChanged: (val) {
-                          // PremiumUpgradeDialog.show(
-                          //   context,
-                          //   source: 'task_processing',
-                          // );
+                    onChanged: (val) {
                             _updateConfig((c) => c.copyWith(showBranding: val));
                           }
 
                       ),
                       onTap: () {
-                        _updateConfig((c) => c.copyWith(showBranding: !(_config.showBranding ?? true)));
+                    _updateConfig(
+                      (c) => c.copyWith(
+                        showBranding: !(config.showBranding ?? true),
+                      ),
+                    );
                       }
                   ),
                   freeContent: _buildOptionTile(
                       icon: Icons.branding_watermark,
                       title: 'TurboGauge Watermark 👑',
-                      subtitle: (_config.showBranding ?? true)
+                  subtitle:
+                      (config.showBranding ?? true)
                           ? 'Watermark will be shown'
                           : 'No watermark',
                       trailing: Switch(
-                          value: _config.showBranding ?? true,
+                    value: config.showBranding ?? true,
                           activeColor: Colors.blueAccent,
                           onChanged: (val) {
                           PremiumUpgradeDialog.show(
                             context,
                             source: 'task_processing',
-                          );
-                            // _updateConfig((c) => c.copyWith(showBranding: val));
+                      );
                           }
 
                       ),
@@ -1201,9 +822,7 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                         PremiumUpgradeDialog.show(
                           context,
                           source: 'task_processing',
-                        );
-                        // _updateConfig((c) =>
-                        //     c.copyWith(showBranding: !(_config.showBranding ?? true)));
+                    );
                       }
                   ),
                 ),
@@ -1259,6 +878,8 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
                 const SizedBox(height: 32),
               ],
             ),
+    );
+      },
     );
   }
 
@@ -1325,213 +946,6 @@ class _TaskProcessingPageState extends State<TaskProcessingPage> {
           ),
         ),
       ),
-    );
-  }
-
-  /// Builds a cached thumbnail from a remote URL.
-  Widget _buildCachedThumbnail(String url, double width, double height) {
-    return FutureBuilder<Uint8List?>(
-      future: RemoteAssetService().getBytes(url),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done &&
-            snapshot.hasData &&
-            snapshot.data != null) {
-          return Image.memory(
-            snapshot.data!,
-            height: height,
-            width: width,
-            fit: BoxFit.contain,
-            gaplessPlayback: true,
-          );
-        }
-        return SizedBox(width: width, height: height);
-      },
-    );
-  }
-}
-
-// ─── Gauge Tile Widget ───
-
-class _GaugeTile extends StatelessWidget {
-  final GaugeCustomizationOption option;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _GaugeTile({
-    required this.option,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final dialPath = option.dial?.path;
-    final isNetwork = option.dial?.assetType == AssetType.network;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? Colors.blueAccent : Colors.grey[700]!,
-            width: isSelected ? 2 : 1,
-          ),
-          color: isSelected
-              ? Colors.blueAccent.withOpacity(0.15)
-              : Colors.grey[850],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (dialPath != null && isNetwork)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: _CachedNetworkImage(
-                  url: dialPath,
-                  width: 50,
-                  height: 50,
-                  fit: BoxFit.cover,
-                  errorWidget: const Icon(
-                    Icons.speed,
-                    color: Colors.white54,
-                    size: 40,
-                  ),
-                ),
-              )
-            else
-              const Icon(Icons.speed, color: Colors.white54, size: 40),
-            const SizedBox(height: 6),
-            Text(
-              option.name ?? '',
-              style: TextStyle(
-                color: isSelected ? Colors.blueAccent : Colors.white70,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-            if (isSelected)
-              const Padding(
-                padding: EdgeInsets.only(top: 2),
-                child:
-                    Icon(Icons.check_circle, color: Colors.blueAccent, size: 16),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Needle Tile Widget ───
-
-class _NeedleTile extends StatelessWidget {
-  final Needle needle;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _NeedleTile({
-    required this.needle,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isNetwork = needle.assetType == AssetType.network;
-    final path = needle.path;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 80,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: isSelected ? Colors.blueAccent : Colors.grey[700]!,
-            width: isSelected ? 2 : 1,
-          ),
-          color: isSelected
-              ? Colors.blueAccent.withOpacity(0.15)
-              : Colors.grey[850],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            if (path != null && isNetwork)
-              _CachedNetworkImage(
-                url: path,
-                width: 35,
-                height: 35,
-                fit: BoxFit.contain,
-                errorWidget: const Icon(
-                    Icons.navigation, color: Colors.white54, size: 30),
-              )
-            else
-              Icon(Icons.navigation,
-                  color: isSelected ? Colors.blueAccent : Colors.white54,
-                  size: 30),
-            const SizedBox(height: 4),
-            Text(
-              needle.name ?? needle.color ?? needle.id ?? '',
-              style: TextStyle(
-                color: isSelected ? Colors.blueAccent : Colors.white70,
-                fontSize: 10,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-              ),
-              textAlign: TextAlign.center,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-// ─── Cached Network Image ───
-
-/// A reusable widget that loads images through RemoteAssetService cache.
-class _CachedNetworkImage extends StatelessWidget {
-  final String url;
-  final double width;
-  final double height;
-  final BoxFit fit;
-  final Widget? errorWidget;
-
-  const _CachedNetworkImage({
-    required this.url,
-    required this.width,
-    required this.height,
-    this.fit = BoxFit.contain,
-    this.errorWidget,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return FutureBuilder<Uint8List?>(
-      future: RemoteAssetService().getBytes(url),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.done) {
-          if (snapshot.hasData && snapshot.data != null) {
-            return Image.memory(
-              snapshot.data!,
-              width: width,
-              height: height,
-              fit: fit,
-              gaplessPlayback: true,
-            );
-          }
-          // Error or null data
-          return errorWidget ?? SizedBox(width: width, height: height);
-        }
-        // Loading
-        return SizedBox(width: width, height: height);
-      },
     );
   }
 }

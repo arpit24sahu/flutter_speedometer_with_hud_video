@@ -133,8 +133,16 @@ class GaugeExportService2 {
     final dial = config.dial ?? const Dial();
     final needle = config.needle ?? const Needle();
 
-    final dialImage = await _loadImage(dial.assetType, dial.path);
-    final needleImage = await _loadImage(needle.assetType, needle.path);
+    final ui.Image? dialImage = await _loadImage(
+      dial.assetType,
+      dial.path,
+      tintColor: (dial.colorEditable == true) ? config.dialColor : null,
+    );
+    final ui.Image? needleImage = await _loadImage(
+      needle.assetType,
+      needle.path,
+      tintColor: (needle.colorEditable == true) ? config.needleColor : null,
+    );
 
     if (dialImage == null || needleImage == null) {
       throw Exception('Failed to load dial or needle image. '
@@ -351,8 +359,13 @@ class GaugeExportService2 {
   // ─── Image Loading ───
 
   /// Loads an image from the given asset type and path into a [ui.Image].
+  /// If [tintColor] is non-null, the image is redrawn with a
+  /// `ColorFilter.mode(tintColor, BlendMode.srcIn)` applied.
   static Future<ui.Image?> _loadImage(
-      AssetType? assetType, String? path) async {
+    AssetType? assetType,
+    String? path, {
+    ui.Color? tintColor,
+  }) async {
     if (path == null || path.isEmpty) return null;
 
     try {
@@ -374,7 +387,31 @@ class GaugeExportService2 {
 
       final codec = await ui.instantiateImageCodec(bytes);
       final frameInfo = await codec.getNextFrame();
-      return frameInfo.image;
+      final originalImage = frameInfo.image;
+
+      // If no tint, return original
+      if (tintColor == null) return originalImage;
+
+      // Create a tinted copy using ColorFilter
+      final recorder = ui.PictureRecorder();
+      final canvas = ui.Canvas(recorder);
+      final paint =
+          ui.Paint()
+            ..colorFilter = ui.ColorFilter.mode(tintColor, ui.BlendMode.srcIn);
+
+      canvas.drawImage(originalImage, Offset.zero, paint);
+
+      final picture = recorder.endRecording();
+      final tintedImage = await picture.toImage(
+        originalImage.width,
+        originalImage.height,
+      );
+
+      // Dispose original since we have the tinted copy
+      originalImage.dispose();
+      picture.dispose();
+
+      return tintedImage;
     } catch (e) {
       debugPrint('[GaugeExport2] Failed to load image ($path): $e');
       return null;

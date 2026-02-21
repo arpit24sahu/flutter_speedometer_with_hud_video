@@ -103,14 +103,14 @@ class SpeedometerOverlay3 extends StatelessWidget {
           alignment: Alignment.center,
           children: [
             /// ───── Dial ─────
-            BuildDial(dial: dial, size: gaugeWidth),
+            BuildDial(dial: dial, size: gaugeWidth, color: (config.dial?.colorEditable == true) ? config.dialColor : null),
 
             /// ───── Needle ─────
             if (needle != null)
               Transform.rotate(
                 angle: rotationAngle,
                 alignment: Alignment.center,
-                child: _buildNeedle(needle, gaugeWidth),
+                child: _buildNeedle(needle: needle, size: gaugeWidth, color: (config.needle?.colorEditable == true) ? config.needleColor : null),
               ),
 
             /// ───── Speed Text ─────
@@ -154,7 +154,7 @@ class SpeedometerOverlay3 extends StatelessWidget {
   // Needle Builder
   // ─────────────────────────────────────────────
 
-  Widget _buildNeedle(Needle needle, double size) {
+  Widget _buildNeedle({required Needle needle, required double size, required Color? color}) {
     switch (needle.assetType) {
       case AssetType.asset:
         return Image.asset(
@@ -162,6 +162,7 @@ class SpeedometerOverlay3 extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.contain,
+          color: color,
         );
 
       case AssetType.network:
@@ -169,6 +170,7 @@ class SpeedometerOverlay3 extends StatelessWidget {
           url: needle.path ?? "",
           width: size,
           height: size,
+          color: color,
         );
 
       case AssetType.memory:
@@ -177,6 +179,7 @@ class SpeedometerOverlay3 extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.contain,
+          color: color,
         );
 
       default:
@@ -195,6 +198,7 @@ class SpeedometerOverlay3 extends StatelessWidget {
     required String url,
     required double width,
     required double height,
+    required Color? color,
   }) {
     return FutureBuilder<Uint8List?>(
       future: RemoteAssetService().getBytes(url),
@@ -208,6 +212,7 @@ class SpeedometerOverlay3 extends StatelessWidget {
             height: height,
             fit: BoxFit.contain,
             gaplessPlayback: true,
+            color: color,
           );
         }
         // Transparent placeholder while loading
@@ -237,10 +242,11 @@ class SpeedometerOverlay3 extends StatelessWidget {
 }
 
 class BuildDial extends StatelessWidget {
-  const BuildDial({super.key, required this.dial, required this.size});
+  const BuildDial({super.key, required this.dial, required this.size, required this.color});
 
   final Dial dial;
   final double size;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -251,6 +257,7 @@ class BuildDial extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.contain,
+          color: color,
         );
 
       case AssetType.network:
@@ -266,6 +273,7 @@ class BuildDial extends StatelessWidget {
                 height: size,
                 fit: BoxFit.contain,
                 gaplessPlayback: true,
+                color: color,
               );
             }
             // Transparent placeholder while loading
@@ -278,6 +286,7 @@ class BuildDial extends StatelessWidget {
           width: size,
           height: size,
           fit: BoxFit.contain,
+          color: color,
         );
 
       default:

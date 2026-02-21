@@ -274,9 +274,9 @@ class _CameraScreenState extends State<CameraScreen>
                             BlocBuilder<GaugeCustomizationBloc, GaugeCustomizationState>(
                               builder: (context, gaugeCustomizationState) {
                                 final config = gaugeCustomizationState.customization;
-                                final sizeFactor = config.sizeFactor ?? 1;
-                                // sizeFactor=1 → 80px base. User can scale up (e.g. sizeFactor=3 → 120px).
-                                final double gaugeWidth = 80.0 * sizeFactor;
+                                final sizeFactor = config.sizeFactor ?? 0.3;
+                                // sizeFactor=0.3 -> 30% of screen/recording size
+                                final double gaugeWidth = (MediaQuery.of(context).size.width) * sizeFactor;
                                 final placement = config.placement ?? GaugePlacement.topRight;
                                 // Use the Stack's constraints (camera viewport), not MediaQuery
                                 final viewportSize = Size(

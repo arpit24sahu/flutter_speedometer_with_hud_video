@@ -2,6 +2,8 @@ import 'dart:io';
 import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:speedometer/features/labs/models/gauge_customization.dart';
+import 'package:speedometer/features/labs/presentation/speedometer_overlay_3.dart';
 
 /// A premium export-progress dialog shaped like a video frame.
 ///
@@ -18,6 +20,9 @@ class ExportProgressDialog extends StatelessWidget {
   /// Optional path to a thumbnail image file.
   final String? thumbnailPath;
 
+  /// Optional gauge customization to overlay on the thumbnail.
+  final GaugeCustomization? gaugeCustomization;
+
   /// Accent color used for the "completed" portion of the border.
   final Color accentColor;
 
@@ -25,6 +30,7 @@ class ExportProgressDialog extends StatelessWidget {
     super.key,
     required this.progressStream,
     this.thumbnailPath,
+    this.gaugeCustomization,
     this.accentColor = Colors.blueAccent,
   });
 
@@ -35,6 +41,7 @@ class ExportProgressDialog extends StatelessWidget {
     BuildContext context, {
     required Stream<double> progressStream,
     String? thumbnailPath,
+    GaugeCustomization? gaugeCustomization,
   }) {
     return showDialog<void>(
       context: context,
@@ -43,6 +50,7 @@ class ExportProgressDialog extends StatelessWidget {
       builder: (_) => ExportProgressDialog(
         progressStream: progressStream,
         thumbnailPath: thumbnailPath,
+            gaugeCustomization: gaugeCustomization,
       ),
     );
   }
@@ -113,6 +121,38 @@ class ExportProgressDialog extends StatelessWidget {
                                     else
                                       Container(
                                           color: Colors.grey.shade700),
+
+                                    // ── Speedometer Overlay ──
+                                    if (gaugeCustomization != null)
+                                      LayoutBuilder(
+                                        builder: (ctx, innerConstraints) {
+                                          final previewW = innerConstraints.maxWidth;
+                                          final previewH = innerConstraints.maxHeight;
+                                          final gaugeSize = previewW *
+                                              (gaugeCustomization!.sizeFactor ??
+                                                  0.25);
+                                          final placement =
+                                              gaugeCustomization!.placement ??
+                                              GaugePlacement.topRight;
+                                          return Stack(
+                                            children: [
+                                              placement.buildPositioned(
+                                                gaugeSize: gaugeSize,
+                                                screenSize: Size(
+                                                  previewW,
+                                                  previewH,
+                                                ),
+                                                margin: 4,
+                                                child: SpeedometerOverlay3(
+                                                  speed: 60,
+                                                  maxSpeed: 240,
+                                                  size: gaugeSize,
+                                                ),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      ),
 
                                     // ── Dark overlay ──
                                     Container(

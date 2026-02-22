@@ -56,6 +56,15 @@ class PremiumRestoreSuccess extends PremiumState {
   List<Object?> get props => [wasRestored];
 }
 
+class PremiumRestoreError extends PremiumState {
+  final String? message;
+
+  const PremiumRestoreError(this.message);
+
+  @override
+  List<Object?> get props => [message];
+}
+
 
 class PremiumBloc extends Bloc<PremiumEvent, PremiumState> {
   final PurchaseRepository _purchaseRepository;

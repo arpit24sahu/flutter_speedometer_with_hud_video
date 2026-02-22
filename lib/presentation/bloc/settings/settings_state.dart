@@ -1,12 +1,13 @@
+import 'package:equatable/equatable.dart';
 import 'package:flutter/material.dart';
 
-class SettingsState {
+class SettingsState extends Equatable {
   final bool isMetric;
   final Color speedometerColor;
   final Color backgroundColor;
   final bool isDarkMode;
 
-  SettingsState({
+  const SettingsState({
     required this.isMetric,
     required this.speedometerColor,
     required this.backgroundColor,
@@ -14,7 +15,7 @@ class SettingsState {
   });
 
   factory SettingsState.initial() {
-    return SettingsState(
+    return const SettingsState(
       isMetric: true,
       speedometerColor: Colors.red,
       backgroundColor: Colors.black,
@@ -35,4 +36,12 @@ class SettingsState {
       isDarkMode: isDarkMode ?? this.isDarkMode,
     );
   }
+
+  @override
+  List<Object?> get props => [
+    isMetric,
+    speedometerColor,
+    backgroundColor,
+    isDarkMode,
+  ];
 }

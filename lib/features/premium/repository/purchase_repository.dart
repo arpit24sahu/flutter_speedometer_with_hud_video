@@ -1,3 +1,6 @@
+import 'package:speedometer/features/badges/badge_manager.dart';
+
+import '../../../di/injection_container.dart';
 import '../service/purchase_service.dart';
 
 class PurchaseRepository {
@@ -13,10 +16,14 @@ class PurchaseRepository {
   }
 
   Future<bool> purchasePremium() async {
-    return await _purchaseService.purchasePremium();
+    bool isPremium = await _purchaseService.purchasePremium();
+    if(isPremium) getIt<BadgeManager>().purchasePremium();
+    return isPremium;
   }
 
   Future<bool> restorePurchases() async {
-    return await _purchaseService.restorePurchases();
+    bool isPremium = await _purchaseService.restorePurchases();
+    if(isPremium) getIt<BadgeManager>().purchasePremium();
+    return isPremium;
   }
 }

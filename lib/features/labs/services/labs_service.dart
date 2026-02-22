@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 import 'package:hive_ce/hive.dart';
 import 'package:speedometer/features/labs/models/processing_task.dart';
 import 'package:speedometer/features/labs/models/processed_task.dart';
@@ -13,8 +15,8 @@ class LabsService {
   static const String _processingTaskBoxName = 'processing_task';
   static const String _processedTaskBoxName = 'processed_task';
 
-  late final Box<ProcessingTask> processingTaskBox;
-  late final Box<ProcessedTask> processedTaskBox;
+  late Box<ProcessingTask> processingTaskBox;
+  late Box<ProcessedTask> processedTaskBox;
 
   bool _initialized = false;
 
@@ -23,6 +25,17 @@ class LabsService {
     processingTaskBox = await Hive.openBox<ProcessingTask>(_processingTaskBoxName);
     processedTaskBox = await Hive.openBox<ProcessedTask>(_processedTaskBoxName);
     _initialized = true;
+  }
+
+  @visibleForTesting
+  Future<void> reset() async {
+    _initialized = false;
+    if (Hive.isBoxOpen(_processingTaskBoxName)) {
+      await processingTaskBox.close();
+    }
+    if (Hive.isBoxOpen(_processedTaskBoxName)) {
+      await processedTaskBox.close();
+    }
   }
 
   // ─── ID Generation (millisecond-based, sortable by time) ───
@@ -80,11 +93,12 @@ class LabsService {
   Future<ProcessingTask> createFromRecording({
     required String videoFilePath,
     required Map<int, PositionData> positionData,
+    double lengthInSeconds = 0,
   }) async {
     final id = generateId();
     final file = File(videoFilePath);
     double sizeInKb = 0;
-    double lengthInSeconds = 0;
+
 
     if (await file.exists()) {
       final stat = await file.stat();

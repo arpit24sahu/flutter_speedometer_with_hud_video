@@ -254,40 +254,56 @@ class GaugeExportService {
     final halfSweepRad = dial.halfSweep * pi / 180;
     final totalSweepRad = dial.totalSweep * pi / 180;
 
-    // Convert each sample to a target rotation angle in radians
+    // 1. Pre-calculate all target angles
     List<double> angles = samples.map((s) {
       final fraction = (s.speedInUnit / dialMax).clamp(0.0, 1.0);
       return -halfSweepRad + fraction * totalSweepRad;
     }).toList();
 
-    if (samples.length <= 1) {
-      return angles.isNotEmpty
-          ? angles.first.toStringAsFixed(6)
-          : '0';
-    }
+    if (samples.length <= 1) return '0';
 
-    // Build nested if(lt(t, t_next), lerp(a_i, a_next, (t-t_i)/(t_next-t_i)), ...)
-    // Start from the last interval and wrap backwards
-    String expr = angles.last.toStringAsFixed(6);
+    StringBuffer expr = StringBuffer();
 
-    for (int i = samples.length - 2; i >= 0; i--) {
-      final tI = samples[i].timeSec;
+    // 2. Build a FLAT summation string
+    // Logic: "between(t, Start, End) * (InterpolatedAngle)"
+    // This has O(1) nesting depth, solving the recursion crash.
+
+    for (int i = 0; i < samples.length - 1; i++) {
+      final tCurrent = samples[i].timeSec;
       final tNext = samples[i + 1].timeSec;
-      final aI = angles[i];
-      final aNext = angles[i + 1];
-      final dt = tNext - tI;
 
-      if (dt <= 0) continue;
+      // Skip tiny intervals to save space
+      if (tNext - tCurrent <= 0.001) continue;
 
-      final slope = (aNext - aI) / dt;
+      final angleCurrent = angles[i];
+      final angleNext = angles[i + 1];
+      final slope = (angleNext - angleCurrent) / (tNext - tCurrent);
 
-      // Linear interpolation: a_i + slope * (t - t_i)
-      expr = 'if(lt(t\\,${tNext.toStringAsFixed(3)})\\,'
-          '${aI.toStringAsFixed(6)}+${slope.toStringAsFixed(6)}*(t-${tI.toStringAsFixed(3)})'
-          '\\,$expr)';
+      // Format to 3 decimal places to keep string small
+      final s_tCur = tCurrent.toStringAsFixed(3);
+      final s_tNext = tNext.toStringAsFixed(3);
+      final s_aCur = angleCurrent.toStringAsFixed(4);
+      final s_slope = slope.toStringAsFixed(4);
+
+      // Add '+' separator if not the first item
+      if (expr.length > 0) expr.write('+');
+
+      // Optimization: If slope is 0 (steady speed), use a simpler formula
+      if (slope.abs() < 0.001) {
+        expr.write('between(t,$s_tCur,$s_tNext)*$s_aCur');
+      } else {
+        // Formula: TimeWindow * (StartAngle + Slope * (t - StartTime))
+        expr.write('between(t,$s_tCur,$s_tNext)*($s_aCur+$s_slope*(t-$s_tCur))');
+      }
     }
 
-    return expr;
+    // 3. Handle the final static position (after the last sample)
+    final lastTime = samples.last.timeSec.toStringAsFixed(3);
+    final lastAngle = angles.last.toStringAsFixed(4);
+    if (expr.length > 0) expr.write('+');
+    expr.write('gte(t,$lastTime)*$lastAngle');
+
+    return expr.toString();
   }
 
   /// Builds the complete FFmpeg command string for exporting a video

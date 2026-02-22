@@ -8,6 +8,7 @@ import 'package:speedometer/presentation/bloc/settings/settings_bloc.dart';
 import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speedometer/services/hive_service.dart';
+import 'package:speedometer/services/deeplink_service.dart';
 
 import '../features/analytics/di/analytics_injection.dart';
 import '../features/labs/presentation/bloc/gauge_customization_bloc.dart';
@@ -16,6 +17,9 @@ import '../features/premium/repository/purchase_repository.dart';
 import '../features/premium/service/purchase_service.dart';
 import '../packages/gal.dart';
 import '../presentation/bloc/overlay_gauge_configuration_bloc.dart';
+import '../features/badges/badge_service.dart';
+import '../features/badges/badge_manager.dart';
+import 'package:flutter/material.dart';
 
 final getIt = GetIt.instance;
 
@@ -48,6 +52,18 @@ Future<void> initializeDependencies() async {
 
   getIt.registerFactory<FilesBloc>(() => FilesBloc());
   getIt.registerFactory<GaugeCustomizationBloc>(() => GaugeCustomizationBloc());
+
+  
+  final badgeService = BadgeService();
+  await badgeService.initialize();
+  getIt.registerSingleton<BadgeService>(badgeService);
+
+  getIt.registerLazySingleton<BadgeManager>(
+    () => BadgeManager(
+      badgeService: getIt<BadgeService>(),
+      navigatorKey: DeeplinkService.navigatorKey,
+    ),
+  );
 
   getIt.registerSingleton<HiveService>(HiveService()..init());
 }

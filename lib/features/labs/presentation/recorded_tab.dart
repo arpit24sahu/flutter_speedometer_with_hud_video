@@ -1,64 +1,155 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:get_it/get_it.dart';
 import 'package:open_file/open_file.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:speedometer/features/labs/models/processing_task.dart';
-import 'package:speedometer/features/labs/services/labs_service.dart';
+import 'package:speedometer/features/labs/presentation/bloc/labs_service_bloc.dart';
 import 'package:speedometer/features/labs/presentation/task_processing_page.dart';
 import 'package:speedometer/packages/gal.dart';
 import 'package:video_thumbnail/video_thumbnail.dart';
+import 'package:speedometer/features/analytics/events/analytics_events.dart';
+import 'package:speedometer/features/analytics/services/analytics_service.dart';
 
-class RecordedTab extends StatefulWidget {
+import '../../../di/injection_container.dart';
+import '../../badges/badge_manager.dart';
+
+class RecordedTab extends StatelessWidget {
   const RecordedTab({super.key});
 
   @override
-  State<RecordedTab> createState() => _RecordedTabState();
-}
+  Widget build(BuildContext context) {
+    return BlocBuilder<LabsServiceBloc, LabsServiceState>(
+      buildWhen: (prev, curr) =>
+              prev.processingTasks != curr.processingTasks ||
+              prev.isLoading != curr.isLoading,
+      builder: (context, state) {
+        if (state.isLoading && state.processingTasks.isEmpty) {
+          return const Center(child: CircularProgressIndicator());
+        }
 
-class _RecordedTabState extends State<RecordedTab> {
-  List<ProcessingTask> _tasks = [];
+        if (state.processingTasks.isEmpty) {
+          return RefreshIndicator(
+            onRefresh: () async => context.read<LabsServiceBloc>().add(const LoadTasks()),
+            child: ListView(
+              children: [
+                SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.6,
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.videocam_off,
+                          size: 64,
+                          color: Colors.grey[700],
+                        ),
+                        const SizedBox(height: 16),
+                        Text(
+                          'No recordings yet',
+                          style: TextStyle(
+                            color: Colors.grey[500],
+                            fontSize: 18,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Record a video to get started',
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 14,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          'PULL TO REFRESH',
+                          style: TextStyle(
+                            color: Colors.grey[800],
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
 
-  @override
-  void initState() {
-    super.initState();
-    _loadTasks();
+        return RefreshIndicator(
+          onRefresh: () async => context.read<LabsServiceBloc>().add(const LoadTasks()),
+          child: ListView.builder(
+            padding: const EdgeInsets.all(12),
+            itemCount: state.processingTasks.length,
+            itemBuilder: (context, index) {
+              final task = state.processingTasks[index];
+              return _RecordedTaskTile(
+                task: task,
+                onTap: () => _openTaskForProcessing(context, task),
+                onLongPress: () => _showActionsSheet(context, task),
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
-  void _loadTasks() {
-    setState(() {
-      _tasks = LabsService().getAllProcessingTasks();
-    });
-  }
+  // ─── Actions ───
 
-  void _openTaskForProcessing(ProcessingTask task) async {
+  void _openTaskForProcessing(BuildContext context, ProcessingTask task) async {
     await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => TaskProcessingPage(task: task)),
     );
-    _loadTasks();
+    // Reload after coming back — the user might have exported a new video
+    if (context.mounted) {
+      context.read<LabsServiceBloc>().add(const LoadTasks());
+    }
   }
 
-  Future<void> _openFile(ProcessingTask task) async {
+  void _openFile(BuildContext context, ProcessingTask task) async {
     if (task.videoFilePath == null || !File(task.videoFilePath!).existsSync()) {
-      _showSnackBar('Video file not found', isError: true);
+      _showSnackBar(context, 'Video file not found', isError: true);
       return;
     }
     final result = await OpenFile.open(task.videoFilePath!);
+    AnalyticsService().trackEvent(
+      AnalyticsEvents.playRecordedVideo,
+      properties: {
+        'file_path': task.videoFilePath,
+        'size_kb': task.sizeInKb,
+        'duration_seconds': task.lengthInSeconds,
+        'source': 'RecordedTab',
+      },
+    );
     debugPrint('OpenFile result: ${result.type}, ${result.message}');
   }
 
-  Future<void> _shareTask(ProcessingTask task) async {
+  void _shareTask(BuildContext context, ProcessingTask task) async {
     if (task.videoFilePath == null || !File(task.videoFilePath!).existsSync()) {
-      _showSnackBar('Video file not found', isError: true);
+      _showSnackBar(context, 'Video file not found', isError: true);
       return;
     }
     await Share.shareXFiles([XFile(task.videoFilePath!)]);
+    getIt<BadgeManager>().shareVideo();
+    AnalyticsService().trackEvent(
+      AnalyticsEvents.shareRecordedVideo,
+      properties: {
+        'file_path': task.videoFilePath,
+        'size_kb': task.sizeInKb,
+        'duration_seconds': task.lengthInSeconds,
+        'source': 'RecordedTab',
+      },
+    );
   }
 
-  Future<void> _exportToGallery(ProcessingTask task) async {
+  void _exportToGallery(BuildContext context, ProcessingTask task) async {
     if (task.videoFilePath == null || !File(task.videoFilePath!).existsSync()) {
-      _showSnackBar('Video file not found', isError: true);
+      _showSnackBar(context, 'Video file not found', isError: true);
       return;
     }
     try {
@@ -67,13 +158,13 @@ class _RecordedTabState extends State<RecordedTab> {
         task.videoFilePath!,
         albumName: 'TurboGauge',
       );
-      _showSnackBar('Video saved to gallery');
+      _showSnackBar(context, 'Video saved to gallery');
     } catch (e) {
-      _showSnackBar('Failed to save to gallery: $e', isError: true);
+      _showSnackBar(context, 'Failed to save to gallery: $e', isError: true);
     }
   }
 
-  Future<void> _deleteTask(ProcessingTask task) async {
+  void _deleteTask(BuildContext context, ProcessingTask task) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -105,20 +196,18 @@ class _RecordedTabState extends State<RecordedTab> {
     );
 
     if (confirmed == true && task.id != null) {
-      if (task.videoFilePath != null) {
-        final file = File(task.videoFilePath!);
-        if (await file.exists()) {
-          await file.delete();
-        }
-      }
-      await LabsService().deleteProcessingTask(task.id!);
-      _loadTasks();
-      _showSnackBar('Recording deleted');
+      context.read<LabsServiceBloc>().add(
+        DeleteProcessingTask(id: task.id!, videoFilePath: task.videoFilePath),
+      );
+      _showSnackBar(context, 'Recording deleted');
     }
   }
 
-  void _showSnackBar(String message, {bool isError = false}) {
-    if (!mounted) return;
+  void _showSnackBar(
+    BuildContext context,
+    String message, {
+    bool isError = false,
+  }) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
@@ -130,7 +219,7 @@ class _RecordedTabState extends State<RecordedTab> {
     );
   }
 
-  void _showActionsSheet(ProcessingTask task) {
+  void _showActionsSheet(BuildContext context, ProcessingTask task) {
     final videoExists =
         task.videoFilePath != null && File(task.videoFilePath!).existsSync();
 
@@ -138,7 +227,7 @@ class _RecordedTabState extends State<RecordedTab> {
       context: context,
       backgroundColor: Colors.transparent,
       builder:
-          (context) => Container(
+          (sheetContext) => Container(
             decoration: BoxDecoration(
               color: Colors.grey[900],
               borderRadius: const BorderRadius.vertical(
@@ -159,84 +248,49 @@ class _RecordedTabState extends State<RecordedTab> {
                     ),
                   ),
                   _SheetAction(
-                    label: 'Open File',
+                    label: 'Customize Video',
                     enabled: videoExists,
                     onTap: () {
-                      Navigator.pop(context);
-                      _openFile(task);
+                      Navigator.pop(sheetContext);
+                      _openTaskForProcessing(context, task);
                     },
                   ),
                   _SheetAction(
-                    label: 'Share',
+                    label: 'Open Raw File',
                     enabled: videoExists,
                     onTap: () {
-                      Navigator.pop(context);
-                      _shareTask(task);
+                      Navigator.pop(sheetContext);
+                      _openFile(context, task);
                     },
                   ),
                   _SheetAction(
-                    label: 'Export to Gallery',
+                    label: 'Share Raw File',
                     enabled: videoExists,
                     onTap: () {
-                      Navigator.pop(context);
-                      _exportToGallery(task);
+                      Navigator.pop(sheetContext);
+                      _shareTask(context, task);
                     },
                   ),
                   _SheetAction(
-                    label: 'Delete',
+                    label: 'Export Raw File to Gallery',
+                    enabled: videoExists,
+                    onTap: () {
+                      Navigator.pop(sheetContext);
+                      _exportToGallery(context, task);
+                    },
+                  ),
+                  _SheetAction(
+                    label: 'Delete Raw Video',
                     isDestructive: true,
                     onTap: () {
-                      Navigator.pop(context);
-                      _deleteTask(task);
+                      Navigator.pop(sheetContext);
+                      _deleteTask(context, task);
                     },
                   ),
                   const SizedBox(height: 8),
                 ],
               ),
             ),
-          ),
-    );
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_tasks.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.videocam_off, size: 64, color: Colors.grey[700]),
-            const SizedBox(height: 16),
-            Text(
-              'No recordings yet',
-              style: TextStyle(
-                color: Colors.grey[500],
-                fontSize: 18,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Record a video to get started',
-              style: TextStyle(color: Colors.grey[600], fontSize: 14),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () async => _loadTasks(),
-      child: ListView.builder(
-        padding: const EdgeInsets.all(12),
-        itemCount: _tasks.length,
-        itemBuilder: (context, index) {
-          return _RecordedTaskTile(
-            task: _tasks[index],
-            onTap: () => _openTaskForProcessing(_tasks[index]),
-            onLongPress: () => _showActionsSheet(_tasks[index]),
-          );
-        },
       ),
     );
   }

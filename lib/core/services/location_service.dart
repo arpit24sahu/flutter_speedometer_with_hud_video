@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:math';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 
 import 'dart:async';
@@ -16,7 +17,7 @@ class LocationService {
   // Existing functionality (UNCHANGED)
   // ─────────────────────────────────────────────
 
-  bool enableMockSpeed = false;
+  bool enableMockSpeed = false; //kDebugMode;
   final _random = Random();
 
   Future<bool> checkPermission() async {
@@ -98,7 +99,7 @@ class LocationService {
         // trackedPositionData[elapsedMs] = PositionData.fromGeolocator(_latestPosition!);
         final realData = PositionData.fromGeolocator(_latestPosition!);
         trackedPositionData[elapsedMs] = enableMockSpeed
-            ? realData.copyWith(speed: count++)
+            ? realData.copyWith(speed: count+=20)
             : realData;
       },
     );
@@ -130,5 +131,14 @@ class LocationService {
     _positionSubscription?.cancel();
     _stopwatch = null;
     isTrackingSpeed = false;
+  }
+
+  static double getMaxSpeedFromPositionData(List<PositionData> positionData) {
+    if(positionData.isEmpty) return 0;
+
+    return positionData.fold<double>(
+      0.0,
+          (max, position) => position.speed > max ? position.speed : max,
+    );
   }
 }

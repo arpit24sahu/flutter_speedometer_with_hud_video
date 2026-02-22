@@ -73,7 +73,7 @@ class NotificationService {
   // ─────────────────────────────────────────────────────────────────────────
 
   Future<void> _initializeLocalNotifications() async {
-    const androidSettings = AndroidInitializationSettings('@mipmap/launcher_icon');
+    const androidSettings = AndroidInitializationSettings('ic_notification');
 
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,
@@ -268,7 +268,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
-      icon: '@mipmap/launcher_icon',
+      icon: 'ic_notification',
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -312,7 +312,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
-      icon: '@mipmap/launcher_icon',
+      icon: 'ic_notification',
     );
 
     const iosDetails = DarwinNotificationDetails(
@@ -369,7 +369,7 @@ class NotificationService {
       importance: Importance.high,
       priority: Priority.high,
       showWhen: true,
-      icon: '@mipmap/launcher_icon',
+      icon: 'ic_notification',
     );
 
     const iosDetails = DarwinNotificationDetails(

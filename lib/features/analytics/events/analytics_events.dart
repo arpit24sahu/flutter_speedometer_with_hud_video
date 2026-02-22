@@ -33,6 +33,8 @@ class AnalyticsEvents {
   static const String onboardingCompleted = 'onboarding_completed';
   static const String recordingStarted = 'recording_started';
   static const String recordingStopped = 'recording_stopped';
+  static const String recordingError = 'recording_error';
+  static const String recordingSaved = 'recording_saved';
   static const String speedometerViewed = 'speedometer_viewed';
   static const String settingsChanged = 'settings_changed';
   static const String permissionCheckAgainPress = 'permission_check_again_press';
@@ -74,12 +76,9 @@ class AnalyticsEvents {
   static const String notificationDismissed = 'notification_dismissed';
   static const String notificationScheduled = 'notification_scheduled';
   static const String notificationCancelled = 'notification_cancelled';
-  static const String notificationPermissionRequested =
-      'notification_permission_requested';
-  static const String notificationPermissionGranted =
-      'notification_permission_granted';
-  static const String notificationPermissionDenied =
-      'notification_permission_denied';
+  static const String notificationPermissionRequested = 'notification_permission_requested';
+  static const String notificationPermissionGranted = 'notification_permission_granted';
+  static const String notificationPermissionDenied = 'notification_permission_denied';
   static const String fcmTokenRefreshed = 'fcm_token_refreshed';
 
   // ─────────────────────────────────────────────────────────────────────────
@@ -102,6 +101,36 @@ class AnalyticsEvents {
   static const String errorOccurred = 'error_occurred';
   static const String flutterFatalError = 'FLUTTER_FATAL_ERROR';
   static const String fatalErrorOccurred = 'FATAL_ERROR_OCCURRED';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // App Exit Events
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String closeAppDialogOpened = 'close_app_dialog_opened';
+  static const String closeAppYesSelected = 'close_app_yes_selected';
+  static const String closeAppNoSelected = 'close_app_no_selected';
+  static const String closeAppDialogDismissed = 'close_app_dialog_dismissed';
+  static const String feedbackReceived = 'feedback_received';
+  // ─────────────────────────────────────────────────────────────────────────
+  // Badge Events
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String badgeUnlocked = 'badge_unlocked';
+  static const String badgeDetailsScreenView = 'badge_details_screen_view';
+  static const String badgeDetailsScreenDismissed =
+      'badge_details_screen_dismissed';
+  static const String badgeUnlockedDialogDismissed =
+      'badge_unlocked_dialog_dismissed';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Tutorial Events
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String homeTutorialStarted = 'home_tutorial_started';
+  static const String recordedTutorialStarted =
+      'recorded_tutorial_started'; // Camera/Record tab
+  static const String labsTutorialStarted = 'labs_tutorial_started';
+  static const String tutorialNextPressed = 'tutorial_next_pressed';
+  static const String tutorialSkipPressed = 'tutorial_skip_pressed';
+  static const String welcomeTutorialShown = 'welcome_tutorial_shown';
+  static const String welcomeTutorialDismissed = 'welcome_tutorial_dismissed';
 }
 
 /// Common parameter keys for analytics events.
@@ -160,5 +189,16 @@ class AnalyticsParams {
   // Misc Parameters
   // ─────────────────────────────────────────────────────────────────────────
   static const String source = 'source';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Badge Parameters
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String badgeId = 'badge_id';
+  static const String badgeName = 'badge_name';
+  static const String badgeDescription = 'badge_description';
+  static const String badgeTier = 'badge_tier';
+  static const String badgeLevel = 'badge_level';
+  static const String badgeIsUnlocked = 'badge_is_unlocked';
+  static const String durationSeconds = 'duration_seconds';
 }
 

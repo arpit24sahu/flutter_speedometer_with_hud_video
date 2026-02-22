@@ -14,8 +14,10 @@ import 'package:speedometer/core/services/camera_state_service.dart';
 import 'package:speedometer/di/injection_container.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
+import 'package:speedometer/features/badges/badge_manager.dart';
 import 'package:speedometer/features/files/bloc/files_bloc.dart';
 import 'package:speedometer/features/labs/presentation/bloc/gauge_customization_bloc.dart';
+import 'package:speedometer/features/labs/presentation/bloc/labs_service_bloc.dart';
 import 'package:speedometer/features/speedometer/bloc/speedometer_bloc.dart';
 import 'package:speedometer/features/speedometer/bloc/speedometer_state.dart';
 import 'package:speedometer/presentation/bloc/overlay_gauge_configuration_bloc.dart';
@@ -43,8 +45,41 @@ class _CameraScreenState extends State<CameraScreen>
   final CameraService _cameraService = getIt<CameraService>();
   final CameraStateService _cameraState = CameraStateService();
   final GlobalKey _speedometerKey = GlobalKey();
+  
+  // Tutorial Keys
+  final GlobalKey _recordButtonKey = GlobalKey();
+  final GlobalKey _flipButtonKey = GlobalKey();
+  final GlobalKey _settingsButtonKey = GlobalKey();
 
   int _currentCameraIndex = 0;
+
+  // ── Recording timer ──
+  final Stopwatch _recordingStopwatch = Stopwatch();
+  Timer? _recordingTimer;
+  final ValueNotifier<Duration> _recordingElapsed = ValueNotifier(
+    Duration.zero,
+  );
+
+  void _startRecordingTimer() {
+    _recordingStopwatch.reset();
+    _recordingStopwatch.start();
+    _recordingElapsed.value = Duration.zero;
+    _recordingTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      _recordingElapsed.value = _recordingStopwatch.elapsed;
+    });
+  }
+
+  void _stopRecordingTimer() {
+    _recordingStopwatch.stop();
+    _recordingTimer?.cancel();
+    _recordingTimer = null;
+  }
+
+  String _formatDuration(Duration d) {
+    final minutes = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$minutes:$seconds';
+  }
 
   @override
   void initState() {
@@ -92,6 +127,9 @@ class _CameraScreenState extends State<CameraScreen>
     _cameraController?.dispose();
     _cameraController = null;
     _cameraState.setControllerReady(false);
+    // Trigger rebuild so the guard in build() replaces CameraPreview
+    // with a black placeholder before the next frame.
+    if (mounted) setState(() {});
   }
 
   @override
@@ -101,10 +139,19 @@ class _CameraScreenState extends State<CameraScreen>
         !(_cameraController?.value.isInitialized ?? false)) {
       _initializeCamera(_currentCameraIndex);
     }
+    // Check for tutorial
+    // Use a slight delay to ensure UI is ready and camera preview might be showing
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      // _checkTutorial(); // disabled legacy camera tutorial
+    });
   }
+
+
 
   @override
   void dispose() {
+    _stopRecordingTimer();
+    _recordingElapsed.dispose();
     _cameraController?.dispose();
     _cameraState.reset();
 
@@ -114,6 +161,7 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> _toggleRecording(BuildContext contextWithBloc) async {
+    print("_cameraController check: ${_cameraController == null || !_cameraController!.value.isInitialized}");
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -124,18 +172,50 @@ class _CameraScreenState extends State<CameraScreen>
       return;
     }
 
+    print("mounted check: ${!mounted}");
     if (!mounted) return;
 
     try {
       final currentState = contextWithBloc.read<VideoRecorderBloc>().state;
 
+      print("currentState check: ${currentState.runtimeType}");
+      HapticFeedback.mediumImpact();
+
       if (currentState is VideoRecording || currentState is VideoProcessing) {
+        if (_recordingStopwatch.elapsed.inSeconds < 10) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Please record at least 10 seconds of video.'),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 2),
+            ),
+          );
+          return;
+        }
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.recordingStopped,
+          properties: {
+            "cameraOrientation": _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
+            "cameraOrientationIndex": _currentCameraIndex,
+            "isRecording": currentState is VideoRecording,
+            "gaugeState": contextWithBloc.read<OverlayGaugeConfigurationBloc>().state.toJson(),
+          },
+        );
         final gaugeConfigState = context.read<OverlayGaugeConfigurationBloc>().state;
         contextWithBloc.read<VideoRecorderBloc>().add(StopRecording(
               gaugePlacement: gaugeConfigState.gaugePlacement,
               relativeSize: gaugeConfigState.gaugeRelativeSize,
         ));
       } else {
+        AnalyticsService().trackEvent(
+          AnalyticsEvents.recordingStarted,
+          properties: {
+            "cameraOrientation": _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
+            "cameraOrientationIndex": _currentCameraIndex,
+            "isRecording": currentState is VideoRecording,
+            "gaugeState": contextWithBloc.read<OverlayGaugeConfigurationBloc>().state.toJson(),
+          },
+        );
         contextWithBloc.read<VideoRecorderBloc>().add(StartRecording());
       }
     } catch (e) {
@@ -162,7 +242,7 @@ class _CameraScreenState extends State<CameraScreen>
       create: (context) => VideoRecorderBloc(
             recorderService: WidgetRecorderService(
               widgetKey: _speedometerKey,
-              cameraController: _cameraController!,
+              cameraControllerGetter: () => _cameraController,
             ),
           ),
       child: BlocConsumer<VideoRecorderBloc, VideoRecorderState>(
@@ -183,23 +263,31 @@ class _CameraScreenState extends State<CameraScreen>
                     flex: 4,
                     child: LayoutBuilder(
                       builder: (context, constraints) {
+                        // Guard: controller may have been disposed between
+                        // the top-level null check and this LayoutBuilder
+                        // callback (e.g., tab switch during BlocBuilder rebuild).
+                        final ctrl = _cameraController;
+                        final isReady = ctrl != null && ctrl.value.isInitialized;
+
                         return Stack(
                           children: [
                             // Camera preview
                             Positioned.fill(
-                              child: AspectRatio(
-                                aspectRatio: _cameraController!.value.aspectRatio,
-                                child: CameraPreview(_cameraController!),
-                              ),
+                              child: isReady
+                                  ? AspectRatio(
+                                      aspectRatio: ctrl.value.aspectRatio,
+                                      child: CameraPreview(ctrl),
+                                    )
+                                  : const ColoredBox(color: Colors.black, child: CircularProgressIndicator(color: Colors.red),),
                             ),
 
                             // Speedometer gauge overlay
                             BlocBuilder<GaugeCustomizationBloc, GaugeCustomizationState>(
                               builder: (context, gaugeCustomizationState) {
                                 final config = gaugeCustomizationState.customization;
-                                final sizeFactor = config.sizeFactor ?? 1;
-                                // sizeFactor=1 → 80px base. User can scale up (e.g. sizeFactor=3 → 120px).
-                                final double gaugeWidth = 80.0 * sizeFactor;
+                                final sizeFactor = config.sizeFactor ?? 0.3;
+                                // sizeFactor=0.3 -> 30% of screen/recording size
+                                final double gaugeWidth = (MediaQuery.of(context).size.width) * sizeFactor;
                                 final placement = config.placement ?? GaugePlacement.topRight;
                                 // Use the Stack's constraints (camera viewport), not MediaQuery
                                 final viewportSize = Size(
@@ -258,14 +346,26 @@ class _CameraScreenState extends State<CameraScreen>
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                         children: [
-                          // Flip camera (hidden while recording/processing)
-                          _buildFlipCameraButton(videoRecorderState),
+                          // Fixed-width slot: flip camera OR recording timer
+                          SizedBox(
+                            width: 64,
+                            height: 48,
+                            child: Center(
+                              child: _buildFlipCameraOrTimer(
+                                videoRecorderState,
+                              ),
+                            ),
+                          ),
 
                           // Record / Stop button
                           _buildRecordButton(context, videoRecorderState),
 
-                          // Settings button
-                          _buildSettingsButton(),
+                          // Fixed-width slot: settings button
+                          SizedBox(
+                            width: 64,
+                            height: 48,
+                            child: Center(child: _buildSettingsButton()),
+                          ),
                         ],
                       ),
                     ),
@@ -283,17 +383,42 @@ class _CameraScreenState extends State<CameraScreen>
   // Extracted UI builders
   // ─────────────────────────────────────────────────────────────────────
 
-  Widget _buildFlipCameraButton(VideoRecorderState state) {
-    final bool isActive = !_cameraState.shouldBlockCameraActions;
+  /// Decides what to show in the left slot of the control bar:
+  /// - During recording → a live elapsed timer
+  /// - Otherwise → the flip-camera button (or an empty box when blocked)
+  Widget _buildFlipCameraOrTimer(VideoRecorderState state) {
+    final bool isRecording = state is VideoRecording;
 
+    if (isRecording) {
+      // Show live recording timer
+      return ValueListenableBuilder<Duration>(
+        valueListenable: _recordingElapsed,
+        builder: (_, elapsed, __) {
+          return Text(
+            _formatDuration(elapsed),
+            style: const TextStyle(
+              color: Colors.redAccent,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          );
+        },
+      );
+    }
+
+    // Not recording → show flip camera (or empty box if blocked)
+    final bool isActive = !_cameraState.shouldBlockCameraActions;
     if (!isActive) {
-      return const SizedBox(width: 48, height: 48);
+      return const SizedBox.shrink();
     }
 
     return IconButton(
+      key: _flipButtonKey,
       icon: const Icon(Icons.flip_camera_android),
       color: Colors.white,
       iconSize: 32,
+      padding: EdgeInsets.zero,
       onPressed: () {
         HapticFeedback.mediumImpact();
         AnalyticsService().trackEvent(
@@ -319,6 +444,7 @@ class _CameraScreenState extends State<CameraScreen>
     final bool isProcessing = state is VideoProcessing;
 
     return FloatingActionButton(
+      key: _recordButtonKey,
       backgroundColor: isRecording ? Colors.red : Colors.white,
       onPressed: () {
         if (state is VideoProcessing) {
@@ -327,22 +453,6 @@ class _CameraScreenState extends State<CameraScreen>
             properties: {"progress": state.progress},
           );
         } else {
-          HapticFeedback.mediumImpact();
-          AnalyticsService().trackEvent(
-            isRecording
-                ? AnalyticsEvents.recordingStopped
-                : AnalyticsEvents.recordingStarted,
-            properties: {
-              "cameraOrientation":
-                  _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
-              "cameraOrientationIndex": _currentCameraIndex,
-              "gaugeState":
-                  contextWithBloc
-                      .read<OverlayGaugeConfigurationBloc>()
-                      .state
-                      .toJson(),
-            },
-          );
           _toggleRecording(contextWithBloc);
         }
       },
@@ -358,6 +468,7 @@ class _CameraScreenState extends State<CameraScreen>
 
   Widget _buildSettingsButton() {
     return IconButton(
+      key: _settingsButtonKey,
       icon: const Icon(Icons.settings),
       color:
           _cameraState.shouldBlockCameraActions
@@ -428,14 +539,19 @@ class _CameraScreenState extends State<CameraScreen>
     if (videoRecorderState is VideoRecording) {
       _cameraState.setRecording(true);
       _cameraState.setProcessing(false);
+      _startRecordingTimer();
     } else if (videoRecorderState is VideoProcessing) {
       _cameraState.setRecording(false);
       _cameraState.setProcessing(true);
+      _stopRecordingTimer();
     } else if (videoRecorderState is VideoProcessed ||
         videoRecorderState is VideoRecorderInitial ||
-        videoRecorderState is VideoJobSaved) {
+        videoRecorderState is VideoJobSaved ||
+        videoRecorderState is VideoRecordingError ||
+        videoRecorderState is VideoProcessingError) {
       _cameraState.setRecording(false);
       _cameraState.setProcessing(false);
+      _stopRecordingTimer();
     }
 
     if (videoRecorderState is VideoProcessed) {
@@ -480,10 +596,55 @@ class _CameraScreenState extends State<CameraScreen>
         }
       });
     } else if (videoRecorderState is VideoProcessingError) {
+      AnalyticsService().trackEvent(
+        AnalyticsEvents.recordingError,
+        properties: {
+          "error_message": videoRecorderState.message,
+          "cameraOrientation": _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
+          "cameraOrientationIndex": _currentCameraIndex,
+          "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson(),
+        },
+      );
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         showVideoErrorDialog(context, videoRecorderState.message);
       });
+    } else if (videoRecorderState is VideoRecordingError) {
+      // Recording failed to start — show user feedback and reset
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(videoRecorderState.message),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+          context.read<VideoRecorderBloc>().add(ResetRecorder());
+        }
+      });
     } else if (videoRecorderState is VideoJobSaved) {
+      AnalyticsService().trackEvent(
+        AnalyticsEvents.recordingSaved,
+        properties: {
+          "duration_seconds": videoRecorderState.durationSeconds,
+          "position_data_points": videoRecorderState.positionDataPoints,
+          "max_speed": videoRecorderState.maxSpeed,
+          "video_path": videoRecorderState.videoPath,
+          "cameraOrientation": _currentCameraIndex % 2 == 0 ? "BACK" : "FRONT",
+          "cameraOrientationIndex": _currentCameraIndex,
+          "gaugeState": context.read<OverlayGaugeConfigurationBloc>().state.toJson(),
+        },
+      );
+
+      getIt<BadgeManager>().recordVideo();
+      getIt<BadgeManager>().updateSpeed(videoRecorderState.maxSpeed);
+
+      // Refresh Labs tabs so the new recording appears immediately
+      if (context.mounted) {
+        context.read<LabsServiceBloc>().add(const LoadTasks());
+      }
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -493,13 +654,6 @@ class _CameraScreenState extends State<CameraScreen>
               ),
               backgroundColor: Colors.green,
               duration: const Duration(seconds: 3),
-              action: SnackBarAction(
-                label: 'Jobs',
-                textColor: Colors.white,
-                onPressed: () {
-                  AppTabState.updateCurrentTab(1);
-                },
-              ),
             ),
           );
           context.read<VideoRecorderBloc>().add(ResetRecorder());
@@ -764,6 +918,7 @@ void showVideoSuccessDialog(BuildContext context, String finalVideoPath) {
                                 [XFile(finalVideoPath)],
                                   text: 'Check out my driving data captured with Speedometer app!'
                               );
+                              getIt<BadgeManager>().shareVideo();
                             } catch (e) {
                               debugPrint('Error sharing: $e');
                               if (context.mounted) {

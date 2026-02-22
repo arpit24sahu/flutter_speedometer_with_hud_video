@@ -25,6 +25,8 @@ import 'package:speedometer/services/notification_service.dart';
 import 'package:speedometer/services/remote_asset_service.dart';
 import 'package:speedometer/services/scheduled_notification_service.dart';
 
+import 'features/badges/badge_service.dart';
+
 void main() async {
   final criticalStart = DateTime.now();
   await initializeCriticalServices();

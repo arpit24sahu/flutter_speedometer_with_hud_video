@@ -1,4 +1,6 @@
-class SpeedometerState {
+import 'package:equatable/equatable.dart';
+
+class SpeedometerState extends Equatable {
   final double speedKmh;
   final double speedMph;
   final double maxSpeedKmh;
@@ -11,7 +13,7 @@ class SpeedometerState {
   final bool isDigital;
   final String? error;
 
-  SpeedometerState({
+  const SpeedometerState({
     required this.speedKmh,
     required this.speedMph,
     required this.maxSpeedKmh,
@@ -26,7 +28,7 @@ class SpeedometerState {
   });
 
   factory SpeedometerState.initial() {
-    return SpeedometerState(
+    return const SpeedometerState(
       speedKmh: 0,
       speedMph: 0,
       maxSpeedKmh: 0,
@@ -68,4 +70,19 @@ class SpeedometerState {
       error: error,
     );
   }
+
+  @override
+  List<Object?> get props => [
+    speedKmh,
+    speedMph,
+    maxSpeedKmh,
+    maxSpeedMph,
+    distanceKm,
+    distanceMiles,
+    heading,
+    calibrationRequired,
+    isTracking,
+    isDigital,
+    error,
+  ];
 }

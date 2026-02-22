@@ -184,6 +184,7 @@ class Dial {
   final bool? showMarkingValues;
   final String? markingColor;
   final String? dialColor;
+  final bool? colorEditable;
   final Map<String, dynamic>? extra;
 
   const Dial({
@@ -200,6 +201,7 @@ class Dial {
     this.showMarkingValues,
     this.markingColor,
     this.dialColor,
+    this.colorEditable = false,
     this.extra,
   });
 
@@ -212,7 +214,8 @@ class Dial {
   @override
   String toString() =>
       'Dial(id: $id, name: $name, style: $style, path: $path, '
-      'sweep: $needleMinAngle→$needleMaxAngle)';
+      'sweep: $needleMinAngle→$needleMaxAngle, '
+      'dialColor: $dialColor, colorEditable: $colorEditable)';
 }
 
 // ─── Needle ───
@@ -225,6 +228,7 @@ class Needle {
   final int? sizeInKb;
   final double? aspectRatio;
   final String? color;
+  final bool? colorEditable;
 
   /// The rotation origin of the needle.
   /// (0,0) = center of the needle image square.
@@ -240,12 +244,15 @@ class Needle {
     this.sizeInKb,
     this.aspectRatio = 1.0,
     this.color,
+    this.colorEditable = false,
     this.pivotPoint = Offset.zero,
     this.extra,
   });
 
   @override
-  String toString() => 'Needle(id: $id, name: $name, path: $path, color: $color)';
+  String toString() =>
+      'Needle(id: $id, name: $name, path: $path, '
+      'color: $color, colorEditable: $colorEditable)';
 }
 
 // ─── GaugeCustomizationOption ───
@@ -286,6 +293,8 @@ class GaugeCustomization extends Equatable {
   final bool? showBranding;
   final bool? isMetric;
   final Color? textColor;
+  final Color? dialColor;
+  final Color? needleColor;
   /// Aspect ratio of the full gauge area (height / width). Default 7:5.
   final double? gaugeAspectRatio;
 
@@ -306,8 +315,10 @@ class GaugeCustomization extends Equatable {
     this.showBranding = true,
     this.isMetric = false,
     this.textColor = const Color(0xFFFFFFFF),
+    this.dialColor,
+    this.needleColor,
     this.gaugeAspectRatio = 1.4, // 7/5
-    this.sizeFactor = 1,
+    this.sizeFactor = 0.3,
     this.placement = GaugePlacement.topRight,
     this.extra,
   });
@@ -321,6 +332,8 @@ class GaugeCustomization extends Equatable {
     bool? showBranding,
     bool? isMetric,
     Color? textColor,
+    Color? dialColor,
+    Color? needleColor,
     double? gaugeAspectRatio,
     double? sizeFactor,
     GaugePlacement? placement,
@@ -335,6 +348,8 @@ class GaugeCustomization extends Equatable {
       showBranding: showBranding ?? this.showBranding,
       isMetric: isMetric ?? this.isMetric,
       textColor: textColor ?? this.textColor,
+      dialColor: dialColor ?? this.dialColor,
+      needleColor: needleColor ?? this.needleColor,
       gaugeAspectRatio: gaugeAspectRatio ?? this.gaugeAspectRatio,
       sizeFactor: sizeFactor ?? this.sizeFactor,
       placement: placement ?? this.placement,
@@ -359,7 +374,7 @@ class GaugeCustomization extends Equatable {
   String toString() =>
       'GaugeCustomization(dial: ${dial?.id}, needle: ${needle?.id}, '
       'isMetric: $isMetric, sizeFactor: $sizeFactor, placement: $placement, '
-      'textColor: $textColor)';
+      'textColor: $textColor, dialColor: $dialColor, needleColor: $needleColor)';
 
   @override
   List<Object?> get props => [
@@ -371,6 +386,8 @@ class GaugeCustomization extends Equatable {
     showBranding,
     isMetric,
     textColor,
+    dialColor,
+    needleColor,
     gaugeAspectRatio,
     sizeFactor,
     placement,

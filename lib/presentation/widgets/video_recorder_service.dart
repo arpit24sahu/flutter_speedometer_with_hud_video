@@ -30,8 +30,12 @@ class WidgetRecorderService {
   // Key for the widget to record
   final GlobalKey widgetKey;
 
-  // Camera controller
-  final CameraController cameraController;
+  // Getter that always returns the *current* camera controller.
+  // This avoids holding a stale reference after a camera flip or app resume.
+  final CameraController? Function() _cameraControllerGetter;
+
+  /// Convenience accessor – callers should null-check before use.
+  CameraController? get cameraController => _cameraControllerGetter();
 
   // Recording state
   bool _isRecording = false;
@@ -50,9 +54,9 @@ class WidgetRecorderService {
 
   WidgetRecorderService({
     required this.widgetKey,
-    required this.cameraController,
+    required CameraController? Function() cameraControllerGetter,
     this.frameCaptureInterval = 50, // 10 fps by default
-  });
+  }) : _cameraControllerGetter = cameraControllerGetter;
 
   bool get isRecording => _isRecording;
 
@@ -60,14 +64,27 @@ class WidgetRecorderService {
   Future<bool> startRecording() async {
     if (_isRecording) return false;
 
+    final controller = cameraController;
+    if (controller == null || !controller.value.isInitialized) {
+      debugPrint(
+        'WidgetRecorderService: Cannot start recording – controller is null or not initialized',
+      );
+      return false;
+    }
+
     // Clear previous recording data
     _frameCount = 0;
     _recordingStartTime = DateTime.now();
     _positionData = {};
 
     // Start camera recording
-    if (!cameraController.value.isRecordingVideo) {
-      await cameraController.startVideoRecording();
+    try {
+      if (!controller.value.isRecordingVideo) {
+        await controller.startVideoRecording();
+      }
+    } catch (e) {
+      debugPrint('WidgetRecorderService: startVideoRecording failed – $e');
+      return false;
     }
 
     // Start widget recording
@@ -82,17 +99,24 @@ class WidgetRecorderService {
       double relativeSize
       ) async {
     if (!_isRecording) {
-      return StopRecordingReturnObject(error: 'Not currently recording'); // {'error': 'Not currently recording'};
+      return StopRecordingReturnObject(error: 'Not currently recording');
     }
     DateTime startTime = DateTime.now();
 
     // Stop recording state
     _isRecording = false;
 
+    final controller = cameraController;
+    if (controller == null || !controller.value.isInitialized) {
+      return StopRecordingReturnObject(
+        error: 'Camera controller is null or not initialized when stopping',
+      );
+    }
+
     // Stop camera recording and get video file
     late final XFile videoFile;
-    if (cameraController.value.isRecordingVideo) {
-      videoFile = await cameraController.stopVideoRecording();
+    if (controller.value.isRecordingVideo) {
+      videoFile = await controller.stopVideoRecording();
     } else {
       return StopRecordingReturnObject(error: 'Camera was not recording');
     }

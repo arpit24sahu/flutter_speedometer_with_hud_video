@@ -5,16 +5,18 @@ const Dial defaultDial = Dial(
   name: 'Classic',
   style: DialStyle.analog,
   assetType: AssetType.network,
-  path: 'https://i.ibb.co/QFtc3pnm/SHARMA-2.png',
+  path: 'https://i.ibb.co/TDpcmWKM/classic-colored-dial.png',
+  fallbackUrl: 'https://pub-bff45478264643c1843b239fba284044.r2.dev/speedometer/classic-colored-dial.png',
   needleMinAngle: 0,
   needleMaxAngle: 240,
 );
 
-const Needle defaultNeedle =   Needle(
-  id: 'bullet_simple_needle_black',
-  name: "Bullet",
+const Needle defaultNeedle = Needle(
+  id: 'classic_needle_black_1',
+  name: "Classic 1",
   assetType: AssetType.network,
-  path: 'https://i.ibb.co/219r9BWP/black-simple-thick.png',
+  path: 'https://i.ibb.co/kgpT3qxx/classic-needle-1.png',
+  fallbackUrl: 'https://pub-bff45478264643c1843b239fba284044.r2.dev/speedometer/classic-needle-1.png',
   color: 'black',
   colorEditable: true
 );
@@ -26,6 +28,7 @@ final List<Needle> _needles = [
     name: "Bullet",
     assetType: AssetType.network,
     path: 'https://i.ibb.co/219r9BWP/black-simple-thick.png',
+    fallbackUrl: 'https://pub-bff45478264643c1843b239fba284044.r2.dev/speedometer/black-simple-thick.png',
     color: 'black',
     colorEditable: true
   ),
@@ -34,6 +37,7 @@ final List<Needle> _needles = [
     name: "Classic 1",
     assetType: AssetType.network,
     path: 'https://i.ibb.co/kgpT3qxx/classic-needle-1.png',
+    fallbackUrl: 'https://pub-bff45478264643c1843b239fba284044.r2.dev/speedometer/classic-needle-1.png',
     color: 'black',
     colorEditable: true
   ),
@@ -42,6 +46,7 @@ final List<Needle> _needles = [
     name: "Classic Thin",
     assetType: AssetType.network,
     path: 'https://i.ibb.co/bMD3KpK0/needle.png',
+    fallbackUrl: 'https://pub-bff45478264643c1843b239fba284044.r2.dev/speedometer/needle.png',
     color: 'black',
     colorEditable: true
   ),
@@ -50,6 +55,7 @@ final List<Needle> _needles = [
     name: "Compass",
     assetType: AssetType.network,
     path: 'https://i.ibb.co/Y4BGgW8K/compass-needle.png',
+    fallbackUrl: 'https://pub-bff45478264643c1843b239fba284044.r2.dev/speedometer/compass-needle.png',
     color: 'red',
   ),
   Needle(
@@ -57,6 +63,7 @@ final List<Needle> _needles = [
     name: "Pen",
     assetType: AssetType.network,
     path: 'https://i.ibb.co/hTbLQnK/pen-needle.png',
+    fallbackUrl: 'https://pub-bff45478264643c1843b239fba284044.r2.dev/speedometer/pen-needle.png',
     color: 'black',
     colorEditable: true
   ),
@@ -78,6 +85,7 @@ final List<Dial> _dials = [
       style: DialStyle.analog,
       assetType: AssetType.network,
       path: 'https://i.ibb.co/d47qGD8Z/black-dial-classic-with-markings.png',
+      fallbackUrl: 'https://pub-bff45478264643c1843b239fba284044.r2.dev/speedometer/black-dial-classic-with-markings.png',
       needleMinAngle: 0,
       needleMaxAngle: 230,
       colorEditable: true
@@ -87,7 +95,8 @@ final List<Dial> _dials = [
     name: 'Colored',
     style: DialStyle.analog,
     assetType: AssetType.network,
-    path: 'https://i.ibb.co/QFtc3pnm/SHARMA-2.png',
+    path: 'https://i.ibb.co/QFtc3pnm/classic-colored-dial.png',
+    fallbackUrl: 'https://pub-bff45478264643c1843b239fba284044.r2.dev/speedometer/classic-colored-dial.png',
     needleMinAngle: 0,
     needleMaxAngle: 240,
   ),

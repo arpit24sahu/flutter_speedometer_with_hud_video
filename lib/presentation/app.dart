@@ -14,6 +14,7 @@ import 'package:speedometer/services/deeplink_service.dart';
 import '../features/labs/presentation/bloc/labs_service_bloc.dart';
 import '../features/labs/services/labs_service.dart';
 import '../features/premium/bloc/premium_bloc.dart';
+import '../features/dashcam/presentation/bloc/dashcam_bloc.dart';
 
 class PlaneSpeedometerApp extends StatelessWidget {
   const PlaneSpeedometerApp({super.key});
@@ -33,6 +34,7 @@ class PlaneSpeedometerApp extends StatelessWidget {
         BlocProvider<FilesBloc>(create: (_) => getIt<FilesBloc>()..add(RefreshFiles())),
         BlocProvider<GaugeCustomizationBloc>(create: (_) => getIt<GaugeCustomizationBloc>()),
         BlocProvider<LabsServiceBloc>(create: (_) => LabsServiceBloc(labsService: LabsService())..add(LoadTasks())),
+        BlocProvider<DashcamBloc>(create: (_) => getIt<DashcamBloc>()),
       ],
       child: GetMaterialApp(
         navigatorKey: DeeplinkService.navigatorKey,

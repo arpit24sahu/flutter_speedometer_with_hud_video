@@ -133,6 +133,7 @@ class _PermissionsScreen extends StatelessWidget {
         granted ? Icons.check_circle : Icons.cancel,
         color: granted ? Colors.green : Colors.red,
       ),
+      dense: true,
       // children: [
       //   Icon(
       //     granted ? Icons.check_circle : Icons.cancel,
@@ -179,12 +180,35 @@ class _PermissionsScreen extends StatelessWidget {
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              SizedBox(height: 10,),
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.blue.withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.blue.withValues(alpha: 0.25)),
+                ),
+                child: const Text(
+                  'We require foreground location, camera and microphone '
+                      'permissions to let you record your video and overlay speed data. '
+                      'Recording starts only when you manually start it.\n\n'
+                      'All video, audio, and location data remain on your device. '
+                      'This app does not upload, transmit, or store your recordings '
+                      'or location data on external servers.',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
+                    height: 1.35,
+                  ),
+                  textAlign: TextAlign.justify,
+                ),
+              ),
               const SizedBox(height: 24),
 
               _row('Location', 'To accurately measure your speed.', state.location.isGranted),
-              const SizedBox(height: 12),
+              const SizedBox(height: 1),
               _row('Camera', 'To enable Video Recording', state.camera.isGranted),
-              const SizedBox(height: 12),
+              const SizedBox(height: 1),
               _row('Microphone', 'To enable Audio with your Video', state.microphone.isGranted),
 
               const SizedBox(height: 32),

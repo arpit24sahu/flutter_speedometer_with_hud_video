@@ -175,7 +175,7 @@ class Dial {
   final String? name;
   final DialStyle? style;
   final AssetType? assetType;
-  final String? path;
+  final String? path, fallbackUrl;
   final int? sizeInKb;
   final double? aspectRatio;
   final double needleMinAngle;
@@ -192,7 +192,7 @@ class Dial {
     this.name,
     this.style,
     this.assetType,
-    this.path,
+    this.path, this.fallbackUrl,
     this.sizeInKb,
     this.aspectRatio = 1.0,
     this.needleMinAngle = 0,
@@ -213,7 +213,7 @@ class Dial {
 
   @override
   String toString() =>
-      'Dial(id: $id, name: $name, style: $style, path: $path, '
+      'Dial(id: $id, name: $name, style: $style, path: $path, fallbackUrl: $fallbackUrl, '
       'sweep: $needleMinAngle→$needleMaxAngle, '
       'dialColor: $dialColor, colorEditable: $colorEditable)';
 }
@@ -224,7 +224,7 @@ class Needle {
   final String? id;
   final String? name;
   final AssetType? assetType;
-  final String? path;
+  final String? path, fallbackUrl;
   final int? sizeInKb;
   final double? aspectRatio;
   final String? color;
@@ -240,7 +240,7 @@ class Needle {
     this.id,
     this.name,
     this.assetType,
-    this.path,
+    this.path, this.fallbackUrl,
     this.sizeInKb,
     this.aspectRatio = 1.0,
     this.color,
@@ -251,7 +251,7 @@ class Needle {
 
   @override
   String toString() =>
-      'Needle(id: $id, name: $name, path: $path, '
+      'Needle(id: $id, name: $name, path: $path, fallbackUrl: $fallbackUrl'
       'color: $color, colorEditable: $colorEditable)';
 }
 

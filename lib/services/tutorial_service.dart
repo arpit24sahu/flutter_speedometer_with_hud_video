@@ -23,7 +23,7 @@ class TutorialService {
 
   bool get isWelcomeTutorialShown => _prefs?.getBool(_keyWelcomeShown) ?? false;
   
-  bool get shouldShowWelcomeTutorial => !isWelcomeTutorialShown;
+  bool get shouldShowWelcomeTutorial => false; // !isWelcomeTutorialShown;
 
   Future<void> setWelcomeShown() async {
     await _prefs?.setBool(_keyWelcomeShown, true);

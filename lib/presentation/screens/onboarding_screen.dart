@@ -19,22 +19,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<Map<String, dynamic>> _pages = [
     {
-      'title': 'Capture Your Journey',
-      'tagline': 'Record videos with real-time speedometer overlay for an immersive experience.',
+      'title': 'Capture the Action',
+      'tagline': 'Record thrilling videos with a real-time speedometer overlay directly on your camera.',
       'color': Colors.blueAccent,
-      'image': 'assets/gifs/0.gif', // Placeholder for your portrait GIF
+      'image': 'assets/images/0.png', // Placeholder for your portrait GIF
+      // 'image': 'assets/gifs/0.gif', // Placeholder for your portrait GIF
     },
     {
-      'title': 'Share the Thrill',
-      'tagline': 'Broadcast your cruising speeds to the world and connect with fellow adventurers.',
+      'title': 'Precision Speedometer',
+      'tagline': 'As accurate as your phone can get! Glide smoothly with precise GPS speed readings.',
       'color': Colors.green,
-      'image': 'assets/gifs/1.gif', // Placeholder for your portrait GIF
+      'image': 'assets/images/1.png', // Placeholder for your portrait GIF
+      // 'image': 'assets/gifs/1.gif', // Placeholder for your portrait GIF
     },
     {
-      'title': 'Precision in Motion',
-      'tagline': 'Glide smoothly with accurate km/h readings, enhancing every ride.',
-      'color': Colors.deepOrange,
-      'image': 'assets/gifs/2.gif', // Placeholder for your portrait GIF
+      'title': 'Background Dashcam',
+      'tagline': 'Secure your journey. Record road events and speed data seamlessly, even while using other apps.',
+      'color': Colors.indigoAccent,
+      'image': 'assets/images/2.png', // Placeholder for your portrait GIF
+      // 'image': 'assets/gifs/2.gif', // Placeholder for your portrait GIF
     },
   ];
 
@@ -177,7 +180,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   onPressed: _nextPage,
                   child: Text(
                     _currentPage == _pages.length - 1 ? 'Get Started' : 'Continue',
-                    style: const TextStyle(color: Colors.white, fontSize: 16),
+                    style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                      fontWeight: FontWeight.bold
+                    ),
                   ),
                 ),
               ),
@@ -208,39 +215,35 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           // Portrait GIF/Image placeholder (assume 16:9 or adjust ratio as needed)
-          ClipRRect(
-            borderRadius: BorderRadius.circular(12),
-            child: Container(
-              width: double.infinity,
-              height: MediaQuery.of(context).size.height * 0.5,
-              decoration: BoxDecoration(
-                image: DecorationImage(
-                  image: AssetImage(image), // Or NetworkImage for remote GIF
-                  fit: BoxFit.contain,
-                ),
-
+          Center(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(10),
+              child: Image.asset(
+                image,
+                height: MediaQuery.of(context).size.height * 0.5,
+                fit: BoxFit.contain,
               ),
-
             ),
           ),
           const SizedBox(height: 40),
           Text(
             title,
             style: const TextStyle(
-              fontSize: 28,
+              fontSize: 24,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 10),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 40),
             child: Text(
               tagline,
               style: const TextStyle(
-                fontSize: 18,
+                fontSize: 14,
                 color: Colors.white70,
+                fontWeight: FontWeight.w500,
                 fontStyle: FontStyle.italic,
               ),
               textAlign: TextAlign.center,

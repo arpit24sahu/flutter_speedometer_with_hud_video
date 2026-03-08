@@ -119,10 +119,15 @@ class AnalyticsService {
       AnalyticsParams.androidBrand: DeviceInfoService().androidBrand,
       AnalyticsParams.androidManufacturer: DeviceInfoService().androidManufacturer,
       AnalyticsParams.androidVersion: DeviceInfoService().androidVersion,
-      AnalyticsParams.currentTabIndex: AppTabState.currentTabIndex.value,
-      AnalyticsParams.currentTabName: AppTabState.tabName(AppTabState.currentTabIndex.value),
-      AnalyticsParams.previousTabIndex: AppTabState.previousTabIndex,
-      AnalyticsParams.previousTabName: AppTabState.tabName(AppTabState.previousTabIndex),
+      AnalyticsParams.currentTabIndex: AppTabState.currentTab.value.index,
+      AnalyticsParams.currentTabName: AppTabState.tabName(
+        AppTabState.currentTab.value,
+      ),
+      AnalyticsParams.previousTabIndex: AppTabState.previousTab?.index ?? -1,
+      if (AppTabState.previousTab != null)
+        AnalyticsParams.previousTabName: AppTabState.tabName(
+          AppTabState.previousTab!,
+        ),
     };
 
     // Add optional common parameters if set

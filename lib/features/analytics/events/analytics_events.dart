@@ -101,6 +101,7 @@ class AnalyticsEvents {
   static const String errorOccurred = 'error_occurred';
   static const String flutterFatalError = 'FLUTTER_FATAL_ERROR';
   static const String fatalErrorOccurred = 'FATAL_ERROR_OCCURRED';
+  static const String loadImageError = 'load_image_error';
 
   // ─────────────────────────────────────────────────────────────────────────
   // App Exit Events
@@ -131,6 +132,55 @@ class AnalyticsEvents {
   static const String tutorialSkipPressed = 'tutorial_skip_pressed';
   static const String welcomeTutorialShown = 'welcome_tutorial_shown';
   static const String welcomeTutorialDismissed = 'welcome_tutorial_dismissed';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Dashcam Events
+  // ─────────────────────────────────────────────────────────────────────────
+  // ignore: constant_identifier_names
+  static const String dashcam_recording_started = 'dashcam_recording_started';
+  // ignore: constant_identifier_names
+  static const String dashcam_recording_stopped = 'dashcam_recording_stopped';
+  // ignore: constant_identifier_names
+  static const String dashcam_recording_saved = 'dashcam_recording_saved';
+  // ignore: constant_identifier_names
+  static const String dashcam_recording_error = 'dashcam_recording_error';
+  // ignore: constant_identifier_names
+  static const String dashcam_settings_updated = 'dashcam_settings_updated';
+  // ignore: constant_identifier_names
+  static const String dashcam_camera_opened = 'dashcam_camera_opened';
+  // ignore: constant_identifier_names
+  static const String dashcam_video_playback_started =
+      'dashcam_video_playback_started';
+  // ignore: constant_identifier_names
+  static const String dashcam_disk_space_checked = 'dashcam_disk_space_checked';
+  // ignore: constant_identifier_names
+  static const String dashcam_insufficient_storage_shown =
+      'dashcam_insufficient_storage_shown';
+  // ignore: constant_identifier_names
+  static const String dashcam_storage_caution_shown =
+      'dashcam_storage_caution_shown';
+  // ignore: constant_identifier_names
+  static const String dashcam_storage_caution_bypassed =
+      'dashcam_storage_caution_bypassed';
+  // ignore: constant_identifier_names
+  static const String dashcam_feedback_tapped = 'dashcam_feedback_tapped';
+  // ignore: constant_identifier_names
+  static const String dashcam_camera_error = 'dashcam_camera_error';
+  // ignore: constant_identifier_names
+  static const String dashcam_accelerometer_error =
+      'dashcam_accelerometer_error';
+  // ignore: constant_identifier_names
+  static const String dashcam_export_started = 'dashcam_export_started';
+  // ignore: constant_identifier_names
+  static const String dashcam_export_completed = 'dashcam_export_completed';
+  // ignore: constant_identifier_names
+  static const String dashcam_export_error = 'dashcam_export_error';
+  // ignore: constant_identifier_names
+  static const String dashcam_storage_error = 'dashcam_storage_error';
+  // ignore: constant_identifier_names
+  static const String dashcam_delete_video = 'dashcam_delete_video';
+  // ignore: constant_identifier_names
+  static const String dashcam_delete_video_error = 'dashcam_delete_video_error';
 }
 
 /// Common parameter keys for analytics events.
@@ -200,5 +250,11 @@ class AnalyticsParams {
   static const String badgeLevel = 'badge_level';
   static const String badgeIsUnlocked = 'badge_is_unlocked';
   static const String durationSeconds = 'duration_seconds';
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Dashcam Parameters
+  // ─────────────────────────────────────────────────────────────────────────
+  static const String freeDiskSpaceGb = 'free_disk_space_gb';
+  static const String videoPath = 'video_path';
 }
 

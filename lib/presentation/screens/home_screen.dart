@@ -11,6 +11,8 @@ import 'package:speedometer/features/files/bloc/files_bloc.dart';
 import 'package:speedometer/features/labs/presentation/labs_screen.dart';
 import 'package:speedometer/core/services/camera_state_service.dart';
 import 'package:speedometer/presentation/screens/camera_screen.dart';
+import 'package:speedometer/features/dedicated_speedometer/presentation/dedicated_speedometer_screen.dart';
+import 'package:speedometer/features/dashcam/presentation/pages/dashcam_home_page.dart';
 import 'package:speedometer/services/app_update_service.dart';
 import 'package:speedometer/services/deeplink_service.dart';
 import 'dart:async';
@@ -28,28 +30,33 @@ import 'package:speedometer/core/dialogs/dialog_manager.dart';
 import 'package:speedometer/core/dialogs/app_dialog_item.dart';
 import 'package:speedometer/features/tutorial/presentation/welcome_tutorial_dialog.dart';
 
+enum AppTab { speedometer, camera, dashcam, labs }
+
 class AppTabState {
   AppTabState._();
 
-  static final ValueNotifier<int> currentTabIndex = ValueNotifier(0);
-  static int previousTabIndex = -1;
+  static final ValueNotifier<AppTab> currentTab = ValueNotifier(
+    AppTab.speedometer,
+  );
+  static AppTab? previousTab;
 
-  static void updateCurrentTab(int newIndex) {
-    if (currentTabIndex.value == newIndex) return;
+  static void updateCurrentTab(AppTab newTab) {
+    if (currentTab.value == newTab) return;
 
-    previousTabIndex = currentTabIndex.value;
-    currentTabIndex.value = newIndex;
+    previousTab = currentTab.value;
+    currentTab.value = newTab;
   }
 
-  static String tabName(int index){
-    switch(index) {
-      case 0: return 'camera';
-      // case 1: return 'speedometer';
-    //   case 1: return 'files';
-    // // case 3: return 'Settings';
-    //   case 2: return 'jobs';
-      case 1: return 'labs';
-      default: return 'camera';
+  static String tabName(AppTab tab) {
+    switch (tab) {
+      case AppTab.speedometer:
+        return 'speedometer';
+      case AppTab.camera:
+        return 'camera';
+      case AppTab.dashcam:
+        return 'dashcam';
+      case AppTab.labs:
+        return 'labs';
     }
   }
 }
@@ -67,42 +74,44 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  int _selectedIndex = 0;
+  AppTab _selectedTab = AppTab.speedometer;
   final CameraStateService _cameraState = CameraStateService();
   final List<GlobalKey> _screenKeys = [
-    GlobalKey(),
-    // GlobalKey(),
-    // GlobalKey(),
-    GlobalKey(),
+    GlobalKey(), // Speedometer
+    GlobalKey(), // Camera
+    GlobalKey(), // Dashcam
+    GlobalKey(), // Labs
   ];
 
+  final GlobalKey _speedometerTabKey = GlobalKey();
   final GlobalKey _recordTabKey = GlobalKey();
+  final GlobalKey _dashcamTabKey = GlobalKey();
   final GlobalKey _labsTabKey = GlobalKey();
 
 
   List<Widget> _screens() => [
-    CameraScreen(key: _screenKeys[0]),
-    // SpeedometerScreen(key: _screenKeys[1],),
-    // FilesScreen(key: _screenKeys[1],),
-    // const SettingsScreen(),
-    // JobsScreen(key: _screenKeys[2]),
-    LabsScreen(key: _screenKeys[1]),
+    DedicatedSpeedometerTab(key: _screenKeys[0]),
+    CameraScreen(key: _screenKeys[1]),
+    DashcamHomePage(key: _screenKeys[2]),
+    LabsScreen(key: _screenKeys[3]),
   ];
 
-  String screenName(int index){
-    switch(index) {
-      case 0: return 'Camera';
-      // case 1: return 'Speedometer';
-      // case 1: return 'Files';
-    // case 3: return 'Settings';
-    //   case 2: return 'Jobs';
-      case 1: return 'Labs';
-      default: return 'Camera';
+  String screenName(AppTab tab) {
+    switch (tab) {
+      case AppTab.speedometer:
+        return 'Speedometer';
+      case AppTab.camera:
+        return 'Camera';
+      case AppTab.dashcam:
+        return 'Dashcam';
+      case AppTab.labs:
+        return 'Labs';
     }
   }
 
   void _onItemTapped(int index) async {
-    if(_selectedIndex == index) return;
+    final newTab = AppTab.values[index];
+    if (_selectedTab == newTab) return;
 
     // Block tab switching while recording
     if (_cameraState.shouldBlockTabSwitch) {
@@ -121,45 +130,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     AnalyticsService().trackEvent(
         AnalyticsEvents.tabPress,
         properties: {
-          "tab": screenName(index),
+          "tab": screenName(newTab),
           "tabIndex": index,
-          "previousTab": screenName(_selectedIndex),
-          "previousTabIndex": _selectedIndex
+          "previousTab": screenName(_selectedTab),
+          "previousTabIndex": _selectedTab.index
         }
     );
-    AppTabState.updateCurrentTab(index);
-    _notifyInvisible(_selectedIndex);
+    AppTabState.updateCurrentTab(newTab);
+    _notifyInvisible(_selectedTab.index);
     _notifyVisible(index);
 
     setState(() {
-      _selectedIndex = index;
+      _selectedTab = newTab;
     });
 
-    // if(_selectedIndex == 3) {
-    //   DateTime startTime = DateTime.now();
-    //   print("Starting creating video: ${startTime.toIso8601String()}");
-    //   String finalPath = await createSpeedometerVideo("https://i.ibb.co/whLrrLNy/image.png", data);
-    //   print("Done Creating video: ${DateTime.now().toIso8601String()}");
-    //   print("Time taken: ${DateTime.now().difference(startTime).inMilliseconds}");
-    //   File file = File(finalPath);
-    //   print("Final Path: ${finalPath} ${await file.exists()}");
-    //   FileStat stat = await file.stat();
-    //   print("Stats: ${stat.size}");
-    //   print("Final KK: ${await file.length()}");
-    //
-    //   final result = await OpenFile.open(finalPath);
-    //   debugPrint('OpenFile result: ${result.type}, ${result.message}');
-    //
-    //   // final result = await Share.shareXFiles(
-    //   //     [XFile(finalPath)],
-    //   //     text: 'Check out my driving data captured with Speedometer app!'
-    //   // );
-    //   // debugPrint('ShareFile result: ${result.status}');
-    //
-    //
-    // }
-
-    if(_selectedIndex == 2) {
+    if (newTab == AppTab.labs) {
       context.read<FilesBloc>().add(RefreshFiles());
     }
   }
@@ -188,7 +173,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       );
     } else {
       // If tutorial already shown, trigger tab specific checks (if any legacy things remain, though we will remove them)
-      _triggerTabTutorial(_selectedIndex);
+      _triggerTabTutorial(_selectedTab.index);
     }
   }
 
@@ -236,15 +221,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     AnalyticsService().trackAppLifeCycle(state);
 
-    // Forward to CameraScreen for speedometer start/stop
-    if (_selectedIndex == 0) {
-      final cameraState = _screenKeys[0].currentState;
-      if (cameraState is TabVisibilityAware) {
-        if (state == AppLifecycleState.resumed) {
-          (cameraState as TabVisibilityAware).onTabVisible();
-        } else if (state == AppLifecycleState.paused) {
-          (cameraState as TabVisibilityAware).onTabInvisible();
-        }
+    // Forward tab visibility events
+    final activeState = _screenKeys[_selectedTab.index].currentState;
+    if (activeState is TabVisibilityAware) {
+      if (state == AppLifecycleState.resumed) {
+        (activeState as TabVisibilityAware).onTabVisible();
+      } else if (state == AppLifecycleState.paused) {
+        (activeState as TabVisibilityAware).onTabInvisible();
       }
     }
   }
@@ -280,22 +263,41 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       child: Scaffold(
         body: Stack(
           children: [
-            Positioned.fill(child: IndexedStack(index: _selectedIndex, children: _screens())),
+              Positioned.fill(
+                child: IndexedStack(
+                  index: _selectedTab.index,
+                  children: _screens(),
+                ),
+              ),
           ],
         ),
         bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
-          currentIndex: _selectedIndex,
+            currentIndex: _selectedTab.index,
           onTap: _onItemTapped,
           selectedItemColor: Colors.white,
           unselectedItemColor: Colors.grey,
             items: [
               BottomNavigationBarItem(
                 icon: KeyedSubtree(
+                  key: _speedometerTabKey,
+                  child: const Icon(Icons.speed),
+                ),
+                label: 'Speedometer',
+              ),
+              BottomNavigationBarItem(
+                icon: KeyedSubtree(
                   key: _recordTabKey,
                   child: const Icon(Icons.videocam),
                 ),
-                label: 'Record',
+                label: 'Camera',
+              ),
+              BottomNavigationBarItem(
+                icon: KeyedSubtree(
+                  key: _dashcamTabKey,
+                  child: const Icon(Icons.dashboard_customize),
+                ),
+                label: 'Dashcam',
               ),
               BottomNavigationBarItem(
                 icon: KeyedSubtree(

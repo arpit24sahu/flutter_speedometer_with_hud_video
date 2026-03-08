@@ -5,6 +5,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:speedometer/core/analytics/analytics_events.dart';
+import 'package:speedometer/core/analytics/analytics_tracker.dart';
 import 'package:speedometer/features/labs/models/gauge_customization.dart';
 import 'package:speedometer/features/labs/services/gauge_export_service.dart';
 import 'package:speedometer/features/speedometer/models/position_data.dart';
@@ -136,11 +138,13 @@ class GaugeExportService2 {
     final ui.Image? dialImage = await _loadImage(
       dial.assetType,
       dial.path,
+      fallbackUrl: dial.fallbackUrl,
       tintColor: (dial.colorEditable == true) ? config.dialColor : null,
     );
     final ui.Image? needleImage = await _loadImage(
       needle.assetType,
       needle.path,
+      fallbackUrl: needle.fallbackUrl,
       tintColor: (needle.colorEditable == true) ? config.needleColor : null,
     );
 
@@ -364,6 +368,7 @@ class GaugeExportService2 {
   static Future<ui.Image?> _loadImage(
     AssetType? assetType,
     String? path, {
+    String? fallbackUrl,
     ui.Color? tintColor,
   }) async {
     if (path == null || path.isEmpty) return null;
@@ -376,13 +381,73 @@ class GaugeExportService2 {
         bytes = data.buffer.asUint8List();
       } else if (assetType == AssetType.network) {
         final cachedBytes = await RemoteAssetService().getBytes(path);
-        if (cachedBytes == null) return null;
-        bytes = cachedBytes;
+        if (cachedBytes == null) {
+          final willTryFallback = fallbackUrl != null && fallbackUrl.isNotEmpty;
+          AnalyticsTracker().log(
+            AnalyticsEvents.loadImageError,
+            params: {
+              'url': path,
+              'asset_type': 'network',
+              'reason': 'null_bytes',
+              'will_try_fallback': willTryFallback,
+              'will_return_null': !willTryFallback,
+            },
+          );
+          if (!willTryFallback) return null;
+
+          final fallbackBytes = await RemoteAssetService().getBytes(fallbackUrl);
+          if (fallbackBytes == null) {
+            AnalyticsTracker().log(
+              AnalyticsEvents.loadImageError,
+              params: {
+                'url': fallbackUrl,
+                'asset_type': 'network_fallback',
+                'reason': 'null_bytes',
+                'will_try_fallback': false,
+                'will_return_null': true,
+              },
+            );
+            return null;
+          }
+          bytes = fallbackBytes;
+        } else {
+          bytes = cachedBytes;
+        }
       } else {
         // File path
         final file = File(path);
-        if (!await file.exists()) return null;
-        bytes = await file.readAsBytes();
+        if (!await file.exists()) {
+          final willTryFallback = fallbackUrl != null && fallbackUrl.isNotEmpty;
+          AnalyticsTracker().log(
+            AnalyticsEvents.loadImageError,
+            params: {
+              'url': path,
+              'asset_type': 'file',
+              'reason': 'file_not_found',
+              'will_try_fallback': willTryFallback,
+              'will_return_null': !willTryFallback,
+            },
+          );
+          if (!willTryFallback) return null;
+
+          final fallbackBytes = await RemoteAssetService().getBytes(fallbackUrl!);
+          if (fallbackBytes == null) {
+            AnalyticsTracker().log(
+              AnalyticsEvents.loadImageError,
+              params: {
+                'url': fallbackUrl,
+                'asset_type': 'network_fallback',
+                'reason': 'null_bytes',
+                'will_try_fallback': false,
+                'will_return_null': true,
+              },
+            );
+            return null;
+          }
+          bytes = fallbackBytes;
+        } else {
+          bytes = await file.readAsBytes();
+        }
       }
 
       final codec = await ui.instantiateImageCodec(bytes);
@@ -414,6 +479,24 @@ class GaugeExportService2 {
       return tintedImage;
     } catch (e) {
       debugPrint('[GaugeExport2] Failed to load image ($path): $e');
+
+      final willTryFallback = fallbackUrl != null && fallbackUrl.isNotEmpty;
+      AnalyticsTracker().log(
+        AnalyticsEvents.loadImageError,
+        params: {
+          'url': path,
+          'asset_type': assetType?.name ?? 'unknown',
+          'reason': 'exception',
+          'error': e.toString(),
+          'will_try_fallback': willTryFallback,
+          'will_return_null': !willTryFallback,
+        },
+      );
+
+      if (willTryFallback) {
+        return _loadImage(AssetType.network, fallbackUrl, tintColor: tintColor);
+      }
+
       return null;
     }
   }

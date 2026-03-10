@@ -23,6 +23,7 @@ import 'package:speedometer/services/hive_service.dart';
 import 'package:speedometer/services/misc_service.dart';
 import 'package:speedometer/services/notification_service.dart';
 import 'package:speedometer/services/remote_asset_service.dart';
+import 'package:speedometer/services/remote_config_service.dart';
 import 'package:speedometer/services/scheduled_notification_service.dart';
 
 import 'features/badges/badge_service.dart';
@@ -55,9 +56,12 @@ Future<void> initializeCriticalServices() async {
     DeviceOrientation.portraitDown,
   ]);
 
-  await dotenv.load(fileName: ".env");
-
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  // Run independent tasks in parallel
+  await Future.wait([
+    dotenv.load(fileName: ".env"),
+    Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform),
+    Hive.initFlutter(),
+  ]);
 
   if (!kDebugMode) {
     FlutterError.onError = (errorDetails) {
@@ -71,8 +75,6 @@ Future<void> initializeCriticalServices() async {
     };
   }
 
-  // Hive + DI are the minimum to boot the widget tree.
-  await Hive.initFlutter();
   Hive.registerAdapter(PositionDataAdapter());
   Hive.registerAdapter(ProcessingTaskAdapter());
   Hive.registerAdapter(ProcessedTaskAdapter());
@@ -85,12 +87,17 @@ Future<void> initializeCriticalServices() async {
 /// Everything else — notifications, remote assets, device info.
 /// These run after `runApp()` so the user sees UI immediately.
 Future<void> initializeRemainingServices() async {
-  PackageInfoService().init();
-  DeviceInfoService().init();
+  await Future.wait([
+    PackageInfoService().init(),
+    DeviceInfoService().init(),
+    RemoteConfigService().initialize(),
+    NotificationService().initialize(),
+    RemoteAssetService().init(),
+  ]);
 
-  await NotificationService().initialize();
   await ScheduledNotificationService().setupRecurringNotifications();
 
-  await RemoteAssetService().init();
-  unawaited(RemoteAssetService().preloadUrls(getAllRemoteAssetUrls()));
+  unawaited(
+    RemoteAssetService().preloadUrls(getAllRemoteAssetUrls()),
+  );
 }

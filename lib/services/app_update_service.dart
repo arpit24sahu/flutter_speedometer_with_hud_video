@@ -1,85 +1,32 @@
 import 'dart:io';
-
-import 'package:firebase_remote_config/firebase_remote_config.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/services/deeplink_service.dart';
 import 'package:speedometer/services/misc_service.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'remote_config_service.dart'; // Import the new service
 
-/// Singleton service that checks Firebase Remote Config for app update requirements.
-///
-/// Remote Config keys expected:
-/// - `latest_app_version` (String, e.g. "1.2.0")
-/// - `latest_build_number` (int, e.g. 30)
-/// - `last_supported_build_number` (int, e.g. 20)
-/// - `last_supported_app_version` (String, e.g. "0.9.0")
-///
-/// Decision logic based on the local build number:
-/// - If local build < `last_supported_build_number` → force update (non-dismissible)
-/// - If local build < `latest_build_number` → optional update (dismissible)
 class AppUpdateService {
   AppUpdateService._internal();
   static final AppUpdateService _instance = AppUpdateService._internal();
   factory AppUpdateService() => _instance;
 
-  final FirebaseRemoteConfig _remoteConfig = FirebaseRemoteConfig.instance;
+  final RemoteConfigService _remoteConfigService = RemoteConfigService();
 
-  bool _initialized = false;
-
-  // Remote Config keys
-  static const String _keyLatestVersion = 'latest_app_version';
-  static const String _keyLatestBuild = 'latest_build_number';
-  static const String _keyLastSupportedBuild = 'last_supported_build_number';
-  static const String _keyLastSupportedVersion = 'last_supported_app_version';
-
-  /// Initialize Remote Config with defaults and fetch latest values.
-  Future<void> initialize() async {
-    if (_initialized) return;
-
-    try {
-      await _remoteConfig.setConfigSettings(RemoteConfigSettings(
-        fetchTimeout: const Duration(seconds: 10),
-        minimumFetchInterval: kDebugMode
-            ? const Duration(minutes: 1)
-            : const Duration(hours: 12),
-      ));
-
-      await _remoteConfig.setDefaults({
-        _keyLatestVersion: PackageInfoService().version,
-        _keyLatestBuild: int.tryParse(PackageInfoService().buildNumber) ?? 0,
-        _keyLastSupportedBuild: 0,
-        _keyLastSupportedVersion: '0.0.0',
-      });
-
-      await _remoteConfig.fetchAndActivate();
-      _initialized = true;
-      debugPrint('AppUpdateService: Initialized successfully');
-    } catch (e) {
-      debugPrint('AppUpdateService: Failed to initialize - $e');
-    }
-  }
-
-  /// Check if an app update is needed and show the appropriate dialog.
-  ///
-  /// Call this after the navigator is ready (e.g., in HomeScreen initState).
   Future<void> checkForUpdate() async {
-    if (!_initialized) {
-      await initialize();
+    if (!_remoteConfigService.isInitialized) {
+      await _remoteConfigService.initialize();
     }
 
     try {
       // Refresh remote config
-      await _remoteConfig.fetchAndActivate();
+      await _remoteConfigService.forceFetch();
 
-      final int localBuild =
-          int.tryParse(PackageInfoService().buildNumber) ?? 0;
-      final int latestBuild = _remoteConfig.getInt(_keyLatestBuild);
-      final int lastSupportedBuild =
-          _remoteConfig.getInt(_keyLastSupportedBuild);
-      final String latestVersion = _remoteConfig.getString(_keyLatestVersion);
+      final int localBuild = int.tryParse(PackageInfoService().buildNumber) ?? 0;
+      final int latestBuild = _remoteConfigService.getInt(RemoteConfigService.keyLatestBuild);
+      final int lastSupportedBuild = _remoteConfigService.getInt(RemoteConfigService.keyLastSupportedBuild);
+      final String latestVersion = _remoteConfigService.getString(RemoteConfigService.keyLatestVersion);
 
       AnalyticsService().trackEvent(
         AnalyticsEvents.appUpdateCheckPerformed,
@@ -234,8 +181,7 @@ class AppUpdateService {
     Uri storeUri;
 
     if (Platform.isAndroid) {
-      storeUri = Uri.parse(
-          'https://play.google.com/store/apps/details?id=$packageName');
+      storeUri = Uri.parse('https://play.google.com/store/apps/details?id=$packageName');
     } else if (Platform.isIOS) {
       // Replace with your actual App Store ID
       storeUri = Uri.parse('https://apps.apple.com/app/id$packageName');

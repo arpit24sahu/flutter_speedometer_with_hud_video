@@ -91,8 +91,8 @@ class _CameraScreenState extends State<CameraScreen>
   }
 
   Future<void> _initializeCamera(int cameraIndex) async {
-    final List<CameraDescription> cameras =
-        await _cameraService.getAvailableCameras();
+    final List<CameraDescription> cameras = await _cameraService.getAvailableCameras();
+    print(cameras.map((e) => "Cameras go: ${e.name} ${e.sensorOrientation} ${e.lensDirection}"));
     if (cameras.isEmpty) {
       return;
     }

@@ -4,6 +4,9 @@ import 'package:speedometer/features/analytics/events/analytics_events.dart';
 import 'package:speedometer/features/analytics/services/analytics_service.dart';
 import 'package:speedometer/presentation/screens/home_screen.dart';
 import 'package:speedometer/services/permission_service.dart';
+import 'package:speedometer/services/remote_config_service.dart';
+
+import 'home_screen_2.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -113,9 +116,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     return FutureBuilder<bool>(
       future: shouldSkipOnboarding(),
       builder: (BuildContext context, AsyncSnapshot<bool> snapshot){
-        if(!snapshot.hasData) return CircularProgressIndicator();
-        if (snapshot.data == true) return PermissionsGate(child: HomeScreen());
-
+        if (!snapshot.hasData) return const CircularProgressIndicator();
+        if (snapshot.data == true) {
+          final layout = RemoteConfigService().getString(
+            RemoteConfigService.keyHomepageLayout,
+          );
+          return PermissionsGate(
+            child: layout == 'tabs' ? const HomeScreen() : HomeScreen2(),
+          );
+        }
 
         return Scaffold(
           body: Stack(

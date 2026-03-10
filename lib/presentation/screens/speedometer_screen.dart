@@ -9,6 +9,7 @@ import 'package:speedometer/presentation/widgets/analog_speedometer.dart';
 import 'package:speedometer/presentation/widgets/digital_speedometer.dart';
 
 import '../../features/speedometer/bloc/speedometer_state.dart';
+import '../widgets/analog_speedometer_2.dart';
 
 class SpeedometerScreen extends StatefulWidget {
   const SpeedometerScreen({super.key});
@@ -65,7 +66,7 @@ class _SpeedometerScreenState extends State<SpeedometerScreen> {
                               isMetric: settingsState.isMetric,
                               speedometerColor: settingsState.speedometerColor,
                             )
-                            : AnalogSpeedometer(
+                            : AnalogSpeedometer2(
                               speed:
                                   settingsState.isMetric
                                       ? state.speedKmh
